@@ -3,22 +3,33 @@
 여행지 기후·수질·자외선 데이터를 내 피부 타입과 매칭해주는
 게임풍 여행 뷰티 케어 웹앱 MVP
 """
-import textwrap
+import base64
+from pathlib import Path
 
 import streamlit as st
 
 st.set_page_config(page_title="TravelMax+", page_icon="🧳", layout="wide")
 
+ASSETS = Path(__file__).parent / "assets"
+
+
+@st.cache_data(show_spinner=False)
+def asset_data_uri(filename, mime):
+    """Read a bundled asset and return it as a base64 data URI for inline HTML."""
+    raw = (ASSETS / filename).read_bytes()
+    return f"data:{mime};base64,{base64.b64encode(raw).decode()}"
+
 
 def html_block(raw):
-    """st.markdown(..., unsafe_allow_html=True) but blank-line-safe.
+    """st.markdown(..., unsafe_allow_html=True) but render-safe.
 
-    Streamlit's CommonMark parser ends an open HTML block at the first blank
-    line; whatever comes after then gets re-parsed as an indented code block
-    and shows up as literal text instead of rendering. Dedent + drop blank
-    lines so the whole snippet stays one continuous raw-HTML block.
+    Streamlit's CommonMark parser mangles raw HTML two ways: (1) a blank line
+    closes an open HTML block, and (2) any line indented 4+ spaces is treated
+    as an indented code block and shown as literal text. We strip every line
+    (killing indentation) and drop blank lines, so the whole snippet stays one
+    continuous raw-HTML block that renders instead of printing as code.
     """
-    lines = [ln for ln in textwrap.dedent(raw).splitlines() if ln.strip()]
+    lines = [ln.strip() for ln in raw.splitlines() if ln.strip()]
     st.markdown("\n".join(lines), unsafe_allow_html=True)
 
 # ----------------------------------------------------------------------
@@ -269,176 +280,246 @@ def inject_theme():
 # ----------------------------------------------------------------------
 # 화면 렌더링
 # ----------------------------------------------------------------------
+# 3D 느낌의 실사 여객기 (측면, 기수 왼쪽 · 주황 꼬리 — 참고 사진 기반)
+PLANE_SVG = """
+<svg class="plane" viewBox="0 0 250 120" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.45" stop-color="#f0f4f9"/>
+      <stop offset="1" stop-color="#b9c5d4"/>
+    </linearGradient>
+    <linearGradient id="tail" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffb04d"/>
+      <stop offset="1" stop-color="#ff5e62"/>
+    </linearGradient>
+    <linearGradient id="wingF" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e3e9f1"/>
+      <stop offset="1" stop-color="#93a1b5"/>
+    </linearGradient>
+    <linearGradient id="engine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e8edf3"/>
+      <stop offset="1" stop-color="#8b98ab"/>
+    </linearGradient>
+  </defs>
+  <!-- 뒤쪽 날개 (멀리, 흐리게) -->
+  <path d="M126 60 L214 42 L176 70 Z" fill="#aab6c6" opacity="0.65"/>
+  <!-- 수평 꼬리날개 -->
+  <path d="M182 58 L232 46 L206 66 Z" fill="url(#wingF)" stroke="#8492a6" stroke-width="0.6"/>
+  <!-- 수직 꼬리날개 (주황) -->
+  <path d="M176 56 L206 14 L222 18 L204 58 Z" fill="url(#tail)" stroke="#e8663c" stroke-width="0.6"/>
+  <!-- 동체 -->
+  <path d="M16 66
+           C 44 55 96 51 160 55
+           L 214 50
+           C 232 49 232 63 213 64
+           L 162 70
+           C 100 78 48 78 16 66 Z"
+        fill="url(#body)" stroke="#93a1b5" stroke-width="0.8"/>
+  <!-- 기수 주황 포인트 -->
+  <path d="M16 66 C 26 59 34 57 42 57 C 40 66 40 68 44 74 C 33 74 23 71 16 66 Z" fill="url(#tail)"/>
+  <!-- 조종석 창 -->
+  <path d="M30 61 C 36 59 41 59 45 60 L 43 65 C 39 64 34 64 30 65 Z" fill="#33465e"/>
+  <!-- 창문 줄 -->
+  <g fill="#33465e">
+    <circle cx="62" cy="61" r="2.1"/><circle cx="74" cy="60.4" r="2.1"/>
+    <circle cx="86" cy="60" r="2.1"/><circle cx="98" cy="59.8" r="2.1"/>
+    <circle cx="110" cy="59.7" r="2.1"/><circle cx="122" cy="59.8" r="2.1"/>
+    <circle cx="134" cy="60" r="2.1"/><circle cx="146" cy="60.4" r="2.1"/>
+    <circle cx="158" cy="61" r="2.1"/>
+  </g>
+  <!-- 앞쪽 날개 (가까이, 아래로 스윕) -->
+  <path d="M96 66 L150 68 L172 100 L120 78 Z" fill="url(#wingF)" stroke="#7d8ca1" stroke-width="0.8"/>
+  <!-- 엔진 나셀 -->
+  <ellipse cx="128" cy="82" rx="15" ry="7" fill="url(#engine)" stroke="#7d8ca1" stroke-width="0.7"/>
+  <ellipse cx="114" cy="82" rx="3.6" ry="6" fill="#2f3d52"/>
+  <!-- 동체 하이라이트 -->
+  <path d="M40 58 C 90 53 150 53 208 53" stroke="rgba(255,255,255,.85)" stroke-width="2" fill="none" stroke-linecap="round"/>
+</svg>
+"""
+
+
 def render_home():
+    earth = asset_data_uri("earth.webp", "image/webp")
     html_block(
-        """
+        f"""
         <style>
-        .stage {
-            position: relative; z-index: 1;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            text-align: center;
-            min-height: 68vh; padding: 2rem 1rem 1rem;
-            perspective: 1200px;
-        }
+        .stage {{
+            position: relative;
+            width: 100%;
+            height: min(80vh, 660px);
+            margin: 0 auto;
+            perspective: 1400px;
+            overflow: hidden;
+        }}
 
-        /* 3D 회전 지구본 */
-        .globe-halo {
-            position: absolute; z-index: 1;
-            width: clamp(230px,36vw,360px); height: clamp(230px,36vw,360px);
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(255,220,245,.9) 0%, rgba(210,225,255,.55) 55%, rgba(255,255,255,0) 75%);
-            animation: halo-pulse 3.4s ease-in-out infinite;
-        }
-        @keyframes halo-pulse {
-            0%,100% { transform: scale(1);   opacity:.85; }
-            50%     { transform: scale(1.08); opacity:1; }
-        }
-        .globe {
-            position: relative; z-index: 2;
-            width: clamp(190px,28vw,290px); height: clamp(190px,28vw,290px);
-            border-radius: 50%;
-            border: 7px solid #fff;
-            background:
-                radial-gradient(circle at 32% 28%, rgba(255,255,255,.85) 0%, rgba(255,255,255,0) 30%),
-                repeating-linear-gradient(100deg, #A6E7C6 0 10%, #8FD8FF 10% 22%, #B9C8FF 22% 34%),
-                radial-gradient(circle at 60% 70%, #FFD9F0 0%, #BFE9FF 60%, #9FD8FF 100%);
-            background-blend-mode: screen, normal, normal;
+        /* ---- 대기광(atmosphere) ---- */
+        .atmos {{
+            position: absolute; left: 50%; top: 34%;
+            width: clamp(280px,42vw,420px); height: clamp(280px,42vw,420px);
+            transform: translate(-50%,-50%);
+            border-radius: 50%; z-index: 2;
+            background: radial-gradient(circle,
+                rgba(150,205,255,.55) 40%,
+                rgba(150,205,255,.28) 58%,
+                rgba(150,205,255,0) 72%);
+            animation: atmos 4s ease-in-out infinite;
+            pointer-events: none;
+        }}
+        @keyframes atmos {{
+            0%,100% {{ transform: translate(-50%,-50%) scale(1);    opacity:.9; }}
+            50%     {{ transform: translate(-50%,-50%) scale(1.06); opacity:1; }}
+        }}
+
+        /* ---- 사실적 3D 지구 (구 모양) ---- */
+        .earth {{
+            position: absolute; left: 50%; top: 34%;
+            width: clamp(210px,32vw,320px); height: clamp(210px,32vw,320px);
+            transform: translate(-50%,-50%);
+            border-radius: 50%; z-index: 3;
+            background-image: url('{earth}');
+            background-size: cover; background-position: center;
             box-shadow:
-                inset -14px -16px 30px rgba(60,60,110,.25),
-                inset 10px 10px 22px rgba(255,255,255,.55),
-                0 22px 26px rgba(70,90,160,.35);
-            animation: spin-globe 14s linear infinite;
-            transform-style: preserve-3d;
-        }
-        @keyframes spin-globe {
-            from { transform: rotateY(0deg); }
-            to   { transform: rotateY(360deg); }
-        }
-        .globe-shadow {
-            position: absolute; z-index: 1; bottom: 6%;
-            width: clamp(150px,22vw,230px); height: 26px;
-            border-radius: 50%;
-            background: radial-gradient(ellipse, rgba(90,80,140,.35) 0%, rgba(90,80,140,0) 72%);
-            animation: shadow-pulse 3.4s ease-in-out infinite;
-        }
-        @keyframes shadow-pulse {
-            0%,100% { transform: scale(1); opacity:.8; }
-            50%     { transform: scale(.86); opacity:.55; }
-        }
+                inset -26px -22px 60px rgba(2,6,25,.72),
+                inset 20px 16px 45px rgba(255,255,255,.22),
+                0 0 42px 8px rgba(120,190,255,.55),
+                0 26px 46px rgba(20,40,90,.45);
+            animation: earth-float 7s ease-in-out infinite;
+        }}
+        /* 스페큘러 하이라이트(빛 반사) — 구 입체감 */
+        .earth::after {{
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background: radial-gradient(circle at 33% 27%,
+                rgba(255,255,255,.5) 0%,
+                rgba(255,255,255,.15) 16%,
+                rgba(255,255,255,0) 34%);
+        }}
+        @keyframes earth-float {{
+            0%,100% {{ transform: translate(-50%,-50%) translateY(0)    rotate(-1.5deg); }}
+            50%     {{ transform: translate(-50%,-50%) translateY(-16px) rotate(1.5deg); }}
+        }}
+        .earth-shadow {{
+            position: absolute; left: 50%; top: 62%;
+            width: clamp(150px,24vw,240px); height: 26px;
+            transform: translateX(-50%);
+            border-radius: 50%; z-index: 1;
+            background: radial-gradient(ellipse, rgba(60,50,110,.4) 0%, rgba(60,50,110,0) 72%);
+            animation: eshadow 7s ease-in-out infinite;
+        }}
+        @keyframes eshadow {{
+            0%,100% {{ transform: translateX(-50%) scale(1);   opacity:.8; }}
+            50%     {{ transform: translateX(-50%) scale(.85); opacity:.55; }}
+        }}
 
-        /* 반짝이 / 하트 장식 */
-        .deco {
-            position: absolute; z-index: 3;
+        /* ---- 장식 이모지 ---- */
+        .deco {{
+            position: absolute; z-index: 2;
             filter: drop-shadow(0 4px 4px rgba(0,0,0,.12));
             animation: bob 3.6s ease-in-out infinite;
-        }
-        @keyframes bob {
-            0%,100% { transform: translateY(0) rotate(-6deg); }
-            50%     { transform: translateY(-14px) rotate(6deg); }
-        }
+        }}
+        @keyframes bob {{
+            0%,100% {{ transform: translateY(0) rotate(-6deg); }}
+            50%     {{ transform: translateY(-14px) rotate(6deg); }}
+        }}
 
-        /* 타이틀 — 지구본 앞에 스티커 문구처럼 둥실 */
-        .hero-title {
-            position: relative; z-index: 4; margin: 0; line-height: 1.05;
-        }
-        .hero-title .brand {
+        /* ---- 타이틀 — 지구 '앞쪽'에 크게, 땅! 등장 ---- */
+        .hero-title {{
+            position: absolute; left: 50%; top: 50%;
+            transform: translate(-50%,-50%);
+            width: 100%; text-align: center; margin: 0;
+            line-height: 1.02; z-index: 6;
+            pointer-events: none;
+        }}
+        .hero-title .brand {{
             display: inline-block;
             font-family: 'Jua', sans-serif;
-            -webkit-text-stroke: 9px #ffffff;
+            -webkit-text-stroke: 3px #ffffff;
             paint-order: stroke fill;
-            background: linear-gradient(90deg,#FF8AC2,#FF6FA6,#FFB07A,#FFD86B);
-            -webkit-background-clip: text; background-clip: text; color: transparent;
-            filter: drop-shadow(0 10px 14px rgba(120,70,140,.35));
-        }
-        .hero-title .six {
-            font-size: clamp(1.7rem,4.6vw,2.9rem);
-            animation: pop .8s cubic-bezier(.2,1.4,.4,1) both;
-        }
-        .hero-title .tm {
-            font-size: clamp(2.6rem,7.6vw,5.2rem);
-            animation: pop .9s cubic-bezier(.2,1.5,.4,1) .15s both;
-        }
-        .hero-title .plus {
-            background: linear-gradient(90deg,#7FD6FF,#4FC3F7);
-            -webkit-background-clip: text; background-clip: text; color: transparent;
-        }
-        @keyframes pop {
-            0%   { opacity:0; transform: scale(.3) rotate(-8deg); }
-            60%  { opacity:1; transform: scale(1.08) rotate(2deg); }
-            100% { opacity:1; transform: scale(1) rotate(0); }
-        }
-
-        .hero-sub {
-            position: relative; z-index: 4;
+            color: #ff4fa0;
+            text-shadow:
+                0 3px 0 #d63384,
+                0 6px 10px rgba(60,20,60,.45);
+        }}
+        .hero-title .six {{
+            font-size: clamp(1.9rem,5vw,3.2rem);
+            animation: slam .7s cubic-bezier(.18,1.5,.35,1) .05s both;
+        }}
+        .hero-title .tm {{
+            font-size: clamp(3rem,8.6vw,6rem);
+            color: #ff3d97;
+            animation: slam .8s cubic-bezier(.18,1.5,.35,1) .28s both;
+        }}
+        .hero-title .plus {{ color: #35b6ff; -webkit-text-stroke-color:#fff; }}
+        @keyframes slam {{
+            0%   {{ opacity:0; transform: scale(2.6) translateY(-46px); filter: blur(3px); }}
+            55%  {{ opacity:1; transform: scale(.88) translateY(0);     filter: blur(0); }}
+            72%  {{ transform: scale(1.07); }}
+            86%  {{ transform: scale(.97); }}
+            100% {{ transform: scale(1); }}
+        }}
+        .hero-sub {{
+            position: absolute; left: 50%; top: 80%;
+            transform: translateX(-50%);
+            width: 100%; text-align: center;
             font-family: 'Jua', sans-serif;
-            font-size: clamp(.9rem,2vw,1.3rem);
-            color: #7A4A8C; margin-top: .8rem;
-            text-shadow: 0 2px 0 rgba(255,255,255,.7);
-            animation: rise 1s ease .6s both;
-        }
-        @keyframes rise { from{ opacity:0; transform: translateY(18px);} to{ opacity:1; transform: translateY(0);} }
+            font-size: clamp(.9rem,2vw,1.35rem);
+            color: #6a3d8a; z-index: 6;
+            text-shadow: 0 2px 0 rgba(255,255,255,.75);
+            animation: rise 1s ease .9s both;
+        }}
+        @keyframes rise {{ from{{ opacity:0; transform: translateX(-50%) translateY(18px);}} to{{ opacity:1; transform: translateX(-50%) translateY(0);}} }}
 
-        /* 비행기 — 지구본 오른쪽 뒤 → 글자 앞 → 지구본 왼쪽 뒤 */
-        .plane-wrap {
-            position: absolute; top: 24%; left: 118%;
+        /* ---- 비행기 — 지구 오른쪽 '뒤'에서 등장 → 글자 앞 통과 → 왼쪽 '뒤'로 ---- */
+        .plane-wrap {{
+            position: absolute; top: 30%; left: 100%;
+            width: clamp(120px,17vw,190px);
             display: flex; align-items: center;
-            animation: fly 8s linear infinite;
-        }
-        .plane {
-            display: inline-block;
-            font-size: clamp(1.8rem,4.4vw,2.8rem);
-            transform: scaleX(-1);
-            filter: drop-shadow(0 5px 3px rgba(0,0,0,.22));
-        }
-        .wind-col { display: flex; flex-direction: column; gap: 6px; margin-left: 8px; }
-        .wind {
-            display: block; height: 4px; border-radius: 4px;
-            background: linear-gradient(90deg, rgba(255,255,255,.95), rgba(255,255,255,0));
-            animation: wind-flicker .5s ease-in-out infinite alternate;
-        }
-        .w1 { width: 42px; }
-        .w2 { width: 28px; margin-left: 6px; }
-        .w3 { width: 16px; margin-left: 2px; }
-        @keyframes wind-flicker { from{ opacity:.4; transform: scaleX(.8);} to{ opacity:1; transform: scaleX(1);} }
-        @keyframes fly {
-            0%   { left: 118%; z-index: 1; opacity: 0; }
-            6%   { opacity: 1; }
-            22%  { left: 64%;  z-index: 1; }
-            34%  { left: 54%;  z-index: 5; }
-            66%  { left: 46%;  z-index: 5; }
-            78%  { left: 36%;  z-index: 1; }
-            94%  { opacity: 1; }
-            100% { left: -22%; z-index: 1; opacity: 0; }
-        }
+            animation: fly 9s ease-in-out infinite;
+            will-change: left, transform, z-index;
+        }}
+        .plane {{ width: 100%; height: auto; filter: drop-shadow(0 8px 8px rgba(20,40,90,.3)); }}
+        .trail {{
+            position: absolute; right: -6px; top: 50%; z-index: -1;
+            width: clamp(80px,12vw,150px); height: 3px;
+            transform: translateY(-6px);
+            background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.9));
+            border-radius: 3px;
+            box-shadow: 0 9px 0 rgba(255,255,255,.55), 0 -7px 0 rgba(255,255,255,.5);
+            animation: trail-flick .5s ease-in-out infinite alternate;
+        }}
+        @keyframes trail-flick {{ from{{opacity:.4;}} to{{opacity:.85;}} }}
+        @keyframes fly {{
+            0%   {{ left: 100%; transform: translateY(-10px); z-index: 2; opacity: 0; }}
+            8%   {{ opacity: 1; }}
+            30%  {{ left: 60%;  transform: translateY(6px);  z-index: 2; }}   /* 지구 뒤 */
+            40%  {{ z-index: 9; }}                                            /* 앞으로 */
+            50%  {{ left: 40%;  transform: translateY(18px); z-index: 9; }}   /* 글자 앞 통과 */
+            62%  {{ z-index: 9; }}
+            70%  {{ left: 26%;  transform: translateY(26px); z-index: 2; }}   /* 다시 뒤로 */
+            92%  {{ opacity: 1; }}
+            100% {{ left: -20%; transform: translateY(36px); z-index: 2; opacity: 0; }}
+        }}
 
-        @media (prefers-reduced-motion: reduce) {
-            .globe, .globe-halo, .globe-shadow, .plane-wrap, .deco, .wind { animation: none !important; }
-        }
+        @media (prefers-reduced-motion: reduce) {{
+            .earth, .earth-shadow, .atmos, .plane-wrap, .deco, .trail {{ animation: none !important; }}
+        }}
         </style>
 
         <div class="stage">
-            <span class="deco" style="top:4%;  left:8%;  font-size:2.1rem; animation-delay:.0s;">🌈</span>
-            <span class="deco" style="top:10%; right:9%; font-size:1.6rem; animation-delay:.5s;">✨</span>
-            <span class="deco" style="top:38%; left:4%;  font-size:1.8rem; animation-delay:1.0s;">💕</span>
-            <span class="deco" style="top:34%; right:5%; font-size:1.7rem; animation-delay:.3s;">⭐</span>
-            <span class="deco" style="bottom:10%; left:12%; font-size:1.7rem; animation-delay:.8s;">🗼</span>
-            <span class="deco" style="bottom:8%;  right:13%; font-size:1.7rem; animation-delay:1.3s;">🏰</span>
-            <span class="deco" style="bottom:22%; left:42%; font-size:1.5rem; animation-delay:.6s;">🕌</span>
-
-            <div class="globe-halo"></div>
-            <div class="globe-shadow"></div>
-            <div class="globe"></div>
-
+            <span class="deco" style="top:5%;  left:8%;  font-size:2.1rem; animation-delay:.0s;">🌈</span>
+            <span class="deco" style="top:11%; right:9%; font-size:1.6rem; animation-delay:.5s;">✨</span>
+            <span class="deco" style="top:40%; left:4%;  font-size:1.8rem; animation-delay:1.0s;">💕</span>
+            <span class="deco" style="top:8%;  right:26%; font-size:1.4rem; animation-delay:.3s;">⭐</span>
+            <span class="deco" style="bottom:9%;  left:13%; font-size:1.7rem; animation-delay:.8s;">🗼</span>
+            <span class="deco" style="bottom:7%;  right:14%; font-size:1.7rem; animation-delay:1.3s;">🏰</span>
+            <span class="deco" style="bottom:20%; left:44%; font-size:1.5rem; animation-delay:.6s;">🕌</span>
+            <div class="atmos"></div>
+            <div class="earth-shadow"></div>
+            <div class="earth"></div>
             <div class="plane-wrap">
-                <span class="plane">✈️</span>
-                <span class="wind-col">
-                    <i class="wind w1"></i>
-                    <i class="wind w2"></i>
-                    <i class="wind w3"></i>
-                </span>
+                {PLANE_SVG}
+                <span class="trail"></span>
             </div>
-
             <h1 class="hero-title">
                 <span class="brand six">식스센스</span><br/>
                 <span class="brand tm">트레블맥스<span class="plus">+</span></span>
