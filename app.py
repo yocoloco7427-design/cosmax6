@@ -1,12 +1,11 @@
 """
-식스센스 TravelMax+ 
+식스센스 TravelMax+
 여행지 기후·수질·자외선 데이터를 내 피부 타입과 매칭해주는
 게임풍 여행 뷰티 케어 웹앱 MVP
 """
-from flask import Flask, render_template, request, redirect, url_for, session
+import streamlit as st
 
-app = Flask(__name__)
-app.secret_key = "sixsense-travelmax-dev-key"
+st.set_page_config(page_title="TravelMax+", page_icon="🧳", layout="wide")
 
 # ----------------------------------------------------------------------
 # 국가 데이터 (지구본 대체 - 지도 카드 방식)
@@ -144,97 +143,230 @@ AFTERCARE_ADVICE = {
     },
 }
 
+# ----------------------------------------------------------------------
+# 세션 상태 초기화
+# ----------------------------------------------------------------------
+if "character" not in st.session_state:
+    st.session_state.character = None
+if "passport" not in st.session_state:
+    st.session_state.passport = []
+if "view" not in st.session_state:
+    st.session_state.view = "home"
+if "selected_country" not in st.session_state:
+    st.session_state.selected_country = None
+
 
 def get_character():
-    return session.get("character")
+    return st.session_state.character
 
 
 def get_passport():
-    return session.get("passport", [])
+    return st.session_state.passport
 
 
-@app.context_processor
-def inject_globals():
-    return {"character": get_character(), "passport_count": len(get_passport())}
+def goto(view):
+    st.session_state.view = view
 
 
-@app.route("/")
-def index():
-    return render_template("index.html")
+# ----------------------------------------------------------------------
+# 화면 렌더링
+# ----------------------------------------------------------------------
+def render_home():
+    st.title("🧳 TravelMax+")
+    st.subheader("여행지 기후·수질·자외선을 내 피부 타입에 맞춰 알려주는 여행 뷰티 케어 앱")
+    st.write("내 캐릭터를 만들고, 여행지별 피부 케어 팁과 여권 컬렉션을 모아보세요!")
+    if st.button("✈️ 여행 시작하기", type="primary"):
+        goto("character")
 
 
-@app.route("/character", methods=["GET", "POST"])
-def character():
-    if request.method == "POST":
-        session["character"] = {
-            "gender": request.form.get("gender", GENDERS[0]),
-            "skin_type": request.form.get("skin_type", SKIN_TYPES[0]),
-            "clothing": request.form.get("clothing", CLOTHING[0]),
-            "hair_type": request.form.get("hair_type", HAIR_TYPES[0]),
-            "age_range": request.form.get("age_range", AGE_RANGES[0]),
-            "skin_tone": request.form.get("skin_tone", SKIN_TONES[0]["hex"]),
-        }
-        return redirect(url_for("map_view"))
-    return render_template(
-        "character.html",
-        genders=GENDERS,
-        skin_types=SKIN_TYPES,
-        clothing_options=CLOTHING,
-        hair_types=HAIR_TYPES,
-        age_ranges=AGE_RANGES,
-        skin_tones=SKIN_TONES,
-    )
+def render_character():
+    st.title("👤 캐릭터 만들기")
+    char = get_character() or {}
+    with st.form("character_form"):
+        gender = st.radio("성별", GENDERS, horizontal=True,
+                           index=GENDERS.index(char.get("gender", GENDERS[0])))
+        skin_type = st.selectbox("피부 타입", SKIN_TYPES,
+                                  index=SKIN_TYPES.index(char.get("skin_type", SKIN_TYPES[0])))
+        clothing = st.selectbox("스타일", CLOTHING,
+                                 index=CLOTHING.index(char.get("clothing", CLOTHING[0])))
+        hair_type = st.selectbox("헤어 타입", HAIR_TYPES,
+                                  index=HAIR_TYPES.index(char.get("hair_type", HAIR_TYPES[0])))
+        age_range = st.selectbox("연령대", AGE_RANGES,
+                                  index=AGE_RANGES.index(char.get("age_range", AGE_RANGES[0])))
+
+        st.write("피부 톤")
+        tone_cols = st.columns(len(SKIN_TONES))
+        for col, tone in zip(tone_cols, SKIN_TONES):
+            with col:
+                st.markdown(
+                    f'<div style="width:100%;height:40px;border-radius:8px;'
+                    f'background:{tone["hex"]};border:1px solid #ddd;"></div>',
+                    unsafe_allow_html=True,
+                )
+                st.caption(tone["label"])
+        tone_labels = [t["label"] for t in SKIN_TONES]
+        current_tone = next((t["label"] for t in SKIN_TONES if t["hex"] == char.get("skin_tone")), tone_labels[0])
+        skin_tone_label = st.radio("톤 선택", tone_labels, horizontal=True,
+                                    index=tone_labels.index(current_tone), label_visibility="collapsed")
+
+        submitted = st.form_submit_button("캐릭터 완성! →", type="primary")
+        if submitted:
+            skin_tone_hex = next(t["hex"] for t in SKIN_TONES if t["label"] == skin_tone_label)
+            st.session_state.character = {
+                "gender": gender,
+                "skin_type": skin_type,
+                "clothing": clothing,
+                "hair_type": hair_type,
+                "age_range": age_range,
+                "skin_tone": skin_tone_hex,
+            }
+            goto("map")
+            st.rerun()
 
 
-@app.route("/map")
-def map_view():
+def render_map():
     if not get_character():
-        return redirect(url_for("character"))
-    return render_template("map.html", countries=COUNTRIES)
+        goto("character")
+        st.rerun()
+        return
+
+    st.title("🗺️ 여행지 지도")
+    st.caption("관심있는 여행지를 눌러 상세 정보를 확인하세요")
+    codes = list(COUNTRIES.keys())
+    cols = st.columns(3)
+    for i, code in enumerate(codes):
+        c = COUNTRIES[code]
+        with cols[i % 3]:
+            with st.container(border=True):
+                st.markdown(f"### {c['flag']} {c['landmark']}")
+                st.markdown(f"**{c['name']}**")
+                st.caption(c["climate"])
+                if st.button("자세히 보기", key=f"detail_{code}", use_container_width=True):
+                    st.session_state.selected_country = code
+                    goto("country")
+                    st.rerun()
 
 
-@app.route("/country/<code>")
-def country_detail(code):
-    if not get_character():
-        return redirect(url_for("character"))
+def render_country():
+    code = st.session_state.selected_country
     country = COUNTRIES.get(code)
+    if not get_character():
+        goto("character")
+        st.rerun()
+        return
     if not country:
-        return redirect(url_for("map_view"))
+        goto("map")
+        st.rerun()
+        return
 
     char = get_character()
-    warning = None
+    st.title(f"{country['flag']} {country['name']}")
+
     if country["water"] == "경수" and char["skin_type"] in ("민감성", "트러블"):
-        warning = f"⚠ {char['skin_type']} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. 저자극 클렌징워터를 꼭 챙기세요."
-    saved = code in [p["code"] for p in get_passport()]
-    return render_template("country.html", code=code, c=country, warning=warning, saved=saved)
+        st.warning(
+            f"⚠ {char['skin_type']} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. "
+            f"저자극 클렌징워터를 꼭 챙기세요."
+        )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("기후", country["climate"])
+        st.metric("습도", country["humidity"])
+        st.metric("기온 차", country["temp_diff"])
+        st.metric("비자", country["visa"])
+        st.metric("비행 시간", country["flight_time"])
+    with col2:
+        st.metric("수질", f"{country['water']}")
+        st.caption(country["water_note"])
+        st.metric("자외선", country["uv"])
+        st.markdown("**필수 아이템**")
+        for item in country["essentials"]:
+            st.write(f"- {item}")
+        st.markdown(f"**주의할 트러블:** {country['trouble']}")
+        st.markdown(f"**헤어 팁:** {country['hair_tip']}")
+
+    st.divider()
+    nav_col1, nav_col2 = st.columns(2)
+    with nav_col1:
+        if st.button("⬅ 지도로 돌아가기"):
+            goto("map")
+            st.rerun()
+    with nav_col2:
+        already_saved = code in [p["code"] for p in get_passport()]
+        if already_saved:
+            st.success("📘 이미 여권에 저장됨")
+        else:
+            if st.button("📘 여권에 저장", type="primary"):
+                st.session_state.passport.append({
+                    "code": code,
+                    "name": country["name"],
+                    "flag": country["flag"],
+                    "tip": country["essentials"][0],
+                })
+                st.rerun()
 
 
-@app.route("/passport/save/<code>", methods=["POST"])
-def save_passport(code):
-    country = COUNTRIES.get(code)
-    if country:
-        passport = get_passport()
-        if code not in [p["code"] for p in passport]:
-            passport.append({"code": code, "name": country["name"], "flag": country["flag"],
-                              "tip": country["essentials"][0]})
-            session["passport"] = passport
-    return redirect(url_for("country_detail", code=code))
+def render_passport():
+    st.title("📘 내 여행 여권")
+    passport = get_passport()
+    if not passport:
+        st.info("아직 저장한 여행지가 없어요. 지도에서 여행지를 둘러보세요!")
+        if st.button("🗺️ 지도로 가기"):
+            goto("map")
+            st.rerun()
+        return
+
+    for p in passport:
+        with st.container(border=True):
+            st.markdown(f"### {p['flag']} {p['name']}")
+            st.caption(f"챙길 것: {p['tip']}")
 
 
-@app.route("/passport")
-def passport_view():
-    return render_template("passport.html", passport=get_passport(), countries=COUNTRIES)
+def render_aftercare():
+    st.title("💧 애프터케어")
+    st.caption("여행 후 피부 상태에 맞는 케어 루틴을 확인하세요")
+    symptom = st.selectbox("지금 피부 상태는 어떤가요?", list(AFTERCARE_ADVICE.keys()))
+    if st.button("케어 루틴 보기", type="primary"):
+        advice = AFTERCARE_ADVICE[symptom]
+        st.subheader(f"추천 팩: {advice['pack']}")
+        st.markdown("**케어 루틴**")
+        for i, step in enumerate(advice["routine"], 1):
+            st.write(f"{i}. {step}")
 
 
-@app.route("/aftercare", methods=["GET", "POST"])
-def aftercare():
-    result = None
-    if request.method == "POST":
-        symptom = request.form.get("symptom")
-        result = AFTERCARE_ADVICE.get(symptom)
-        result = {"symptom": symptom, **result} if result else None
-    return render_template("aftercare.html", advice_keys=AFTERCARE_ADVICE.keys(), result=result)
+# ----------------------------------------------------------------------
+# 사이드바 내비게이션
+# ----------------------------------------------------------------------
+with st.sidebar:
+    st.title("🧴 TravelMax+")
+    character = get_character()
+    if character:
+        st.caption(f"{character['gender']} · {character['skin_type']} 피부")
+        if st.button("🗺️ 지도", use_container_width=True):
+            goto("map")
+            st.rerun()
+        if st.button(f"📘 여권 ({len(get_passport())})", use_container_width=True):
+            goto("passport")
+            st.rerun()
+        if st.button("💧 애프터케어", use_container_width=True):
+            goto("aftercare")
+            st.rerun()
+        st.divider()
+        if st.button("👤 캐릭터 다시 설정", use_container_width=True):
+            goto("character")
+            st.rerun()
+    else:
+        st.caption("캐릭터를 먼저 만들어보세요!")
 
-
-if __name__ == "__main__":
-    app.run(debug=True, host="0.0.0.0", port=5000)
+# ----------------------------------------------------------------------
+# 화면 라우팅
+# ----------------------------------------------------------------------
+VIEWS = {
+    "home": render_home,
+    "character": render_character,
+    "map": render_map,
+    "country": render_country,
+    "passport": render_passport,
+    "aftercare": render_aftercare,
+}
+VIEWS.get(st.session_state.view, render_home)()
