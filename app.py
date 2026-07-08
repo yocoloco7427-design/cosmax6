@@ -194,87 +194,103 @@ def goto(view):
 
 
 # ----------------------------------------------------------------------
-# 전역 테마 — 폴리포켓/모동숲 느낌의 파스텔 하늘 + 구름 둥둥 애니메이션
+# 전역 테마 — 파스텔 하늘 + 크고 다양한 구름이 많이 둥둥
 # 모든 화면 공통. 아이콘/버튼 클릭 시 view 가 바뀌며 화면이 전환된다.
 # ----------------------------------------------------------------------
+# 서로 다른 3가지 뭉게구름 실루엣 (SVG)
+CLOUD_SHAPES = [
+    '<svg viewBox="0 0 230 120" xmlns="http://www.w3.org/2000/svg"><g fill="#ffffff">'
+    '<ellipse cx="70" cy="80" rx="54" ry="34"/><ellipse cx="122" cy="60" rx="60" ry="46"/>'
+    '<ellipse cx="172" cy="82" rx="46" ry="30"/><ellipse cx="44" cy="88" rx="34" ry="24"/>'
+    '<rect x="42" y="80" width="146" height="32" rx="16"/></g></svg>',
+    '<svg viewBox="0 0 180 140" xmlns="http://www.w3.org/2000/svg"><g fill="#ffffff">'
+    '<ellipse cx="92" cy="58" rx="56" ry="50"/><ellipse cx="52" cy="92" rx="40" ry="34"/>'
+    '<ellipse cx="128" cy="90" rx="44" ry="38"/><rect x="38" y="86" width="104" height="36" rx="18"/></g></svg>',
+    '<svg viewBox="0 0 210 90" xmlns="http://www.w3.org/2000/svg"><g fill="#ffffff">'
+    '<ellipse cx="58" cy="56" rx="40" ry="24"/><ellipse cx="112" cy="46" rx="50" ry="32"/>'
+    '<ellipse cx="158" cy="58" rx="36" ry="22"/><rect x="38" y="56" width="130" height="22" rx="11"/></g></svg>',
+]
+
+# 패럴랙스 3레이어 — 원경(far): 작고 느리고 흐릿 / 중경(mid) / 근경(near): 크고 빠르고 선명
+# (top%, width px, duration s, delay s, opacity, shape idx, depth)
+CLOUD_LAYOUT = [
+    # 원경 (far) — 느림(100~120s), 작고 흐릿
+    (6, 120, 118, -10, 0.6, 2, "far"), (20, 100, 108, -60, 0.55, 2, "far"),
+    (38, 140, 120, -30, 0.6, 1, "far"), (58, 110, 112, -85, 0.55, 2, "far"),
+    (74, 130, 116, -45, 0.6, 1, "far"), (88, 100, 104, -95, 0.5, 2, "far"),
+    # 중경 (mid) — 보통(64~82s)
+    (12, 220, 74, -20, 0.82, 1, "mid"), (30, 250, 80, -50, 0.85, 0, "mid"),
+    (48, 210, 68, -8, 0.8, 1, "mid"), (66, 240, 78, -62, 0.84, 0, "mid"),
+    (82, 200, 70, -35, 0.8, 1, "mid"),
+    # 근경 (near) — 빠름(38~52s), 크고 선명
+    (4, 380, 46, -6, 0.97, 0, "near"), (34, 420, 52, -40, 0.98, 0, "near"),
+    (54, 340, 42, -22, 0.95, 1, "near"), (78, 400, 50, -55, 0.96, 0, "near"),
+    (92, 320, 40, -12, 0.94, 1, "near"),
+]
+
+
 def inject_theme():
-    html_block(
-        """
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&display=swap');
+    style = """
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&family=Gamja+Flower&display=swap');
 
-        /* 파스텔 하늘 그라데이션 (하늘색 → 라벤더 → 핑크) */
-        .stApp {
-            background: linear-gradient(180deg,#BFE7FF 0%,#DCEEFF 30%,#F1E2FF 65%,#FFE2F0 100%);
-            background-attachment: fixed;
-        }
-        .block-container { padding-top: 2rem; }
+    /* 파스텔 하늘 그라데이션 (하늘색 → 라벤더 → 핑크) */
+    .stApp {
+        background: linear-gradient(180deg,#BFE7FF 0%,#DCEEFF 30%,#F1E2FF 65%,#FFE2F0 100%);
+        background-attachment: fixed;
+    }
+    .block-container { padding-top: 2rem; }
 
-        /* 구름 + 반짝이 레이어 (화면 전체를 덮고, 클릭은 통과) */
-        .sky-layer {
-            position: fixed; inset: 0; overflow: hidden;
-            pointer-events: none; z-index: 0;
-        }
-        .sky-layer .cloud {
-            position: absolute; left: -25vw;
-            filter: drop-shadow(0 8px 10px rgba(255,190,225,.35));
-            animation-name: drift; animation-timing-function: linear;
-            animation-iteration-count: infinite;
-        }
-        .sky-layer .twinkle {
-            position: absolute;
-            animation: twinkle 2.6s ease-in-out infinite;
-        }
-        @keyframes drift {
-            from { transform: translateX(-25vw); }
-            to   { transform: translateX(130vw); }
-        }
-        @keyframes twinkle {
-            0%,100% { opacity:.25; transform: scale(.8); }
-            50%     { opacity:1;   transform: scale(1.2); }
-        }
+    /* 구름 패럴랙스 레이어 (화면 전체를 덮고, 클릭은 통과) */
+    .sky-layer { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+    .sky-layer .cloud {
+        position: absolute; left: -35vw;
+        animation-name: drift; animation-timing-function: linear; animation-iteration-count: infinite;
+        will-change: transform;
+    }
+    .sky-layer .cloud svg { width: 100%; height: auto; display: block; }
+    /* depth 별 흐림·그림자로 원근감 */
+    .sky-layer .cloud.far  { filter: blur(2px)   drop-shadow(0 8px 10px rgba(120,150,210,.16)); }
+    .sky-layer .cloud.mid  { filter: blur(.4px)  drop-shadow(0 13px 15px rgba(120,150,210,.24)); }
+    .sky-layer .cloud.near { filter: drop-shadow(0 18px 20px rgba(120,150,210,.3)); }
+    @keyframes drift {
+        from { transform: translateX(-35vw); }
+        to   { transform: translateX(145vw); }
+    }
 
-        /* 폴리포켓풍 캡슐 버튼 (primary) */
-        .stButton > button[kind="primary"] {
-            font-family: 'Jua', sans-serif;
-            font-size: 1.3rem;
-            border-radius: 999px;
-            padding: 0.65rem 2.4rem;
-            border: 4px solid #fff;
-            background: linear-gradient(90deg,#FF9FD8,#FF6FB8);
-            color: #fff;
-            box-shadow: 0 7px 0 #E0489A, 0 12px 20px rgba(255,111,184,.45);
-            transition: transform .12s ease, box-shadow .12s ease;
-            animation: btn-pulse 1.8s ease-in-out infinite;
-        }
-        .stButton > button[kind="primary"]:hover {
-            transform: translateY(-2px) scale(1.03);
-            box-shadow: 0 9px 0 #E0489A, 0 16px 24px rgba(255,111,184,.55);
-        }
-        .stButton > button[kind="primary"]:active {
-            transform: translateY(5px); box-shadow: 0 2px 0 #E0489A;
-        }
-        @keyframes btn-pulse { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.03); } }
+    /* 폴리포켓풍 캡슐 버튼 (primary) */
+    .stButton > button[kind="primary"] {
+        font-family: 'Jua', sans-serif;
+        font-size: 1.3rem;
+        border-radius: 999px;
+        padding: 0.65rem 2.4rem;
+        border: 4px solid #fff;
+        background: linear-gradient(90deg,#FF9FD8,#FF6FB8);
+        color: #fff;
+        box-shadow: 0 7px 0 #E0489A, 0 12px 20px rgba(255,111,184,.45);
+        transition: transform .12s ease, box-shadow .12s ease;
+        animation: btn-pulse 1.8s ease-in-out infinite;
+    }
+    .stButton > button[kind="primary"]:hover {
+        transform: translateY(-2px) scale(1.03);
+        box-shadow: 0 9px 0 #E0489A, 0 16px 24px rgba(255,111,184,.55);
+    }
+    .stButton > button[kind="primary"]:active { transform: translateY(5px); box-shadow: 0 2px 0 #E0489A; }
+    @keyframes btn-pulse { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.03); } }
 
-        @media (prefers-reduced-motion: reduce) {
-            .cloud, .twinkle, .stButton > button[kind="primary"] { animation: none !important; }
-        }
-        </style>
-
-        <div class="sky-layer">
-            <span class="cloud" style="top:6%;  font-size:5rem;   animation-duration:62s; animation-delay:-5s;">☁️</span>
-            <span class="cloud" style="top:16%; font-size:3.2rem; animation-duration:48s; animation-delay:-22s; opacity:.85;">☁️</span>
-            <span class="cloud" style="top:32%; font-size:6.2rem; animation-duration:78s; animation-delay:-42s; opacity:.9;">☁️</span>
-            <span class="cloud" style="top:54%; font-size:3.8rem; animation-duration:55s; animation-delay:-12s; opacity:.8;">☁️</span>
-            <span class="cloud" style="top:70%; font-size:5.4rem; animation-duration:68s; animation-delay:-33s; opacity:.85;">☁️</span>
-            <span class="cloud" style="top:84%; font-size:3rem;   animation-duration:50s; animation-delay:-52s; opacity:.75;">☁️</span>
-            <span class="twinkle" style="top:10%; left:20%; font-size:1.4rem; animation-delay:.2s;">✨</span>
-            <span class="twinkle" style="top:22%; left:78%; font-size:1.1rem; animation-delay:1.1s;">💫</span>
-            <span class="twinkle" style="top:62%; left:12%; font-size:1.2rem; animation-delay:.7s;">⭐</span>
-            <span class="twinkle" style="top:75%; left:85%; font-size:1.3rem; animation-delay:1.6s;">✨</span>
-        </div>
-        """
-    )
+    @media (prefers-reduced-motion: reduce) {
+        .cloud, .stButton > button[kind="primary"] { animation: none !important; }
+    }
+    </style>
+    """
+    clouds = ['<div class="sky-layer">']
+    for top, w, dur, delay, op, shape, depth in CLOUD_LAYOUT:
+        clouds.append(
+            f'<span class="cloud {depth}" style="top:{top}%; width:{w}px; opacity:{op}; '
+            f'animation-duration:{dur}s; animation-delay:{delay}s;">{CLOUD_SHAPES[shape]}</span>'
+        )
+    clouds.append("</div>")
+    html_block(style + "".join(clouds))
 
 
 # ----------------------------------------------------------------------
@@ -314,33 +330,29 @@ PLANE_SIDE_SVG = """
 </svg>
 """
 
-# 실사풍 여객기 — 뒷모습(멀어지며 지구 뒤로 사라질 때)
-PLANE_BACK_SVG = """
-<svg class="plane-svg" viewBox="0 0 220 130" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="bodyB" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#9aa7ba"/><stop offset="0.5" stop-color="#ffffff"/><stop offset="1" stop-color="#9aa7ba"/>
-    </linearGradient>
-    <linearGradient id="tailB" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ff5e62"/><stop offset="1" stop-color="#ffb04d"/>
-    </linearGradient>
-    <linearGradient id="wingB" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#e3e9f1"/><stop offset="1" stop-color="#9aa7ba"/>
-    </linearGradient>
-  </defs>
-  <path d="M110 62 L20 96 L40 102 L110 74 L180 102 L200 96 Z" fill="url(#wingB)" stroke="#7d8ca1" stroke-width="0.7"/>
-  <ellipse cx="64" cy="92" rx="9" ry="6.5" fill="url(#wingB)" stroke="#7d8ca1" stroke-width="0.6"/>
-  <ellipse cx="156" cy="92" rx="9" ry="6.5" fill="url(#wingB)" stroke="#7d8ca1" stroke-width="0.6"/>
-  <path d="M84 52 L110 46 L136 52 L128 58 L110 54 L92 58 Z" fill="url(#wingB)" stroke="#7d8ca1" stroke-width="0.5"/>
-  <rect x="95" y="44" width="30" height="62" rx="15" fill="url(#bodyB)" stroke="#8492a6" stroke-width="0.7"/>
-  <path d="M104 48 L110 8 L116 48 Z" fill="url(#tailB)" stroke="#e8663c" stroke-width="0.5"/>
-  <ellipse cx="110" cy="104" rx="15" ry="5" fill="#33465e" opacity="0.55"/>
-</svg>
-"""
+def _title_letters():
+    """자유분방하게 — 글자마다 색·기울기 다르게, 순차 등장."""
+    line1 = [("식", "#FF5D8F", -8), ("스", "#FF9E3D", 5), ("센", "#2FC4B5", -5), ("스", "#4EA8FF", 7)]
+    line2 = [("트", "#FF5D8F", -6), ("레", "#FF8A3D", 5), ("블", "#FFC13B", -7),
+             ("맥", "#2FC4B5", 6), ("스", "#A66BFF", -5), ("+", "#2FB4FF", 9)]
+    out = ['<span class="tline six">']
+    d = 0.1
+    for ch, color, rot in line1:
+        out.append(f'<span class="ltr" style="--rot:{rot}deg;">'
+                   f'<span class="brand" style="color:{color}; animation-delay:{d:.2f}s;">{ch}</span></span>')
+        d += 0.1
+    out.append('</span><br/><span class="tline tm">')
+    for ch, color, rot in line2:
+        out.append(f'<span class="ltr" style="--rot:{rot}deg;">'
+                   f'<span class="brand" style="color:{color}; animation-delay:{d:.2f}s;">{ch}</span></span>')
+        d += 0.1
+    out.append("</span>")
+    return "".join(out)
 
 
 def render_home():
     earth = asset_data_uri("earth_map.webp", "image/webp")
+    title = _title_letters()
     html_block(
         f"""
         <style>
@@ -353,16 +365,17 @@ def render_home():
             overflow: hidden;
         }}
 
-        /* ---- 대기광(atmosphere) ---- */
+        /* ---- 대기광(atmosphere) — 파란 프레넬 림 ---- */
         .atmos {{
             position: absolute; left: 50%; top: 36%;
             width: clamp(360px,52vw,560px); height: clamp(360px,52vw,560px);
             transform: translate(-50%,-50%);
             border-radius: 50%; z-index: 2;
             background: radial-gradient(circle,
-                rgba(150,205,255,.6) 42%,
-                rgba(150,205,255,.3) 58%,
-                rgba(150,205,255,0) 72%);
+                rgba(140,200,255,.55) 44%,
+                rgba(120,185,255,.42) 55%,
+                rgba(120,185,255,.12) 64%,
+                rgba(120,185,255,0) 73%);
             animation: atmos 4s ease-in-out infinite;
             pointer-events: none;
         }}
@@ -371,15 +384,16 @@ def render_home():
             50%     {{ transform: translate(-50%,-50%) scale(1.05); opacity:1; }}
         }}
 
-        /* ---- 사실적 3D 지구 (자전) ---- */
+        /* ---- 3D 렌더링 느낌의 지구 (자전) ---- */
         .earth {{
             position: absolute; left: 50%; top: 36%;
             width: clamp(300px,44vw,480px); height: clamp(300px,44vw,480px);
             transform: translate(-50%,-50%);
             border-radius: 50%; z-index: 3; overflow: hidden;
             box-shadow:
-                0 0 55px 12px rgba(120,190,255,.6),
-                0 34px 60px rgba(20,40,90,.5);
+                inset 0 0 30px 6px rgba(150,210,255,.35),
+                0 0 60px 14px rgba(120,190,255,.6),
+                0 40px 70px rgba(20,40,90,.55);
             animation: earth-float 7s ease-in-out infinite;
         }}
         /* 회전하는 지구 텍스처 (equirectangular 가로 스크롤 = 자전) */
@@ -395,15 +409,29 @@ def render_home():
             from {{ background-position: 0 center; }}
             to   {{ background-position: -960px center; }}
         }}
-        /* 구 입체감: 가장자리 음영(림 다크닝) + 좌상단 빛반사 */
+        /* 구 입체감 레이어1: 강한 명암(구 라이팅) — 좌상단 광원, 우하단 그림자 */
         .earth .shade {{
             position: absolute; inset: 0; border-radius: 50%; z-index: 2;
             pointer-events: none;
             background:
-                radial-gradient(circle at 33% 28%,
-                    rgba(255,255,255,.5) 0%, rgba(255,255,255,.14) 15%, rgba(255,255,255,0) 33%),
+                radial-gradient(circle at 30% 26%,
+                    rgba(255,255,255,.55) 0%, rgba(255,255,255,.18) 12%, rgba(255,255,255,0) 30%),
+                radial-gradient(circle at 68% 74%,
+                    rgba(0,0,0,0) 30%, rgba(2,6,24,.34) 66%, rgba(1,3,16,.9) 100%),
                 radial-gradient(circle at 50% 50%,
-                    rgba(3,8,28,0) 54%, rgba(3,8,28,.42) 80%, rgba(2,5,20,.82) 100%);
+                    rgba(3,8,28,0) 52%, rgba(3,8,28,.3) 82%, rgba(1,3,14,.7) 100%);
+        }}
+        /* 구 입체감 레이어2: 프레넬 림 라이트(가장자리 파란 빛) + 광택 하이라이트 */
+        .earth .gloss {{
+            position: absolute; inset: 0; border-radius: 50%; z-index: 3;
+            pointer-events: none;
+            box-shadow:
+                inset 6px 6px 22px rgba(180,225,255,.5),
+                inset -4px -6px 20px rgba(120,180,255,.35);
+            background:
+                radial-gradient(ellipse 42% 26% at 34% 24%,
+                    rgba(255,255,255,.6) 0%, rgba(255,255,255,0) 70%);
+            mix-blend-mode: screen;
         }}
         @keyframes earth-float {{
             0%,100% {{ transform: translate(-50%,-50%) translateY(0); }}
@@ -433,103 +461,99 @@ def render_home():
             50%     {{ transform: translateY(-14px) rotate(6deg); }}
         }}
 
-        /* ---- 타이틀 — 지구 '앞쪽'에 크게, 땅! 등장 (약 2.4초) ---- */
+        /* ---- 타이틀 — 자유분방한 손글씨, 글자마다 색·기울기, 땅! 등장 ---- */
         .hero-title {{
             position: absolute; left: 50%; top: 52%;
             transform: translate(-50%,-50%);
             width: 100%; text-align: center; margin: 0;
-            line-height: 1.0; z-index: 6; pointer-events: none;
+            line-height: .95; z-index: 6; pointer-events: none;
         }}
+        .hero-title .tline {{ display: block; }}
+        .hero-title .ltr {{ display: inline-block; transform: rotate(var(--rot)); }}
         .hero-title .brand {{
             display: inline-block;
-            font-family: 'Jua', sans-serif;
-            -webkit-text-stroke: 6px #ffffff;
+            font-family: 'Gaegu', 'Jua', cursive;
+            font-weight: 700;
+            -webkit-text-stroke: 7px #ffffff;
             paint-order: stroke fill;
-            color: #ff2e93;
             text-shadow:
-                0 5px 0 #b3186a,
-                0 9px 20px rgba(30,5,30,.6),
-                0 0 34px rgba(255,255,255,.65);
+                0 6px 0 rgba(120,60,110,.35),
+                0 10px 22px rgba(30,5,30,.45);
+            animation: slam 2.2s cubic-bezier(.16,1.55,.3,1) both;
         }}
-        .hero-title .six {{
-            font-size: clamp(2.6rem,6.5vw,4.6rem);
-            animation: slam 2.2s cubic-bezier(.16,1.5,.3,1) .1s both;
-        }}
-        .hero-title .tm {{
-            font-size: clamp(4rem,11.5vw,8.6rem);
-            color: #ff1f8e;
-            animation: slam 2.4s cubic-bezier(.16,1.5,.3,1) .35s both;
-        }}
-        .hero-title .plus {{ color: #2fb4ff; -webkit-text-stroke-color:#fff; }}
+        .hero-title .six .brand {{ font-size: clamp(2.6rem,7vw,5rem); margin: 0 .02em; }}
+        .hero-title .tm  .brand {{ font-size: clamp(4rem,12.5vw,9rem); margin: 0 .015em; }}
         @keyframes slam {{
-            0%   {{ opacity:0; transform: scale(3.6) translateY(-90px) rotate(-6deg); filter: blur(6px); }}
+            0%   {{ opacity:0; transform: scale(3.6) translateY(-90px); filter: blur(6px); }}
             22%  {{ opacity:1; }}
-            40%  {{ transform: scale(.78) translateY(0) rotate(0); filter: blur(0); }}
-            55%  {{ transform: scale(1.14); }}
+            40%  {{ transform: scale(.78) translateY(0); filter: blur(0); }}
+            55%  {{ transform: scale(1.16); }}
             68%  {{ transform: scale(.95); }}
-            80%  {{ transform: scale(1.04); }}
+            80%  {{ transform: scale(1.05); }}
             90%  {{ transform: scale(.99); }}
             100% {{ transform: scale(1); }}
         }}
         .hero-sub {{
-            position: absolute; left: 50%; top: 84%;
+            position: absolute; left: 50%; top: 85%;
             transform: translateX(-50%);
             width: 100%; text-align: center;
-            font-family: 'Jua', sans-serif;
-            font-size: clamp(1.05rem,2.3vw,1.6rem);
+            font-family: 'Gamja Flower', 'Jua', cursive;
+            font-size: clamp(1.2rem,2.6vw,1.85rem);
             color: #6a3d8a; z-index: 6;
-            text-shadow: 0 2px 0 rgba(255,255,255,.8);
-            animation: rise .9s ease 2.5s both;
+            text-shadow: 0 2px 0 rgba(255,255,255,.85);
+            animation: rise .9s ease 2.6s both;
         }}
         @keyframes rise {{ from{{ opacity:0; transform: translateX(-50%) translateY(18px);}} to{{ opacity:1; transform: translateX(-50%) translateY(0);}} }}
 
-        /* ---- 비행기 — 지구 '뒤'에서 등장 → 앞으로 나와 왼쪽 통과 → 뒷모습으로 왼쪽 '뒤' 사라짐 ---- */
-        .plane-wrap {{
-            position: absolute; top: 33%; left: 52%;
-            width: clamp(170px,23vw,300px);
-            transform-origin: center center;
-            animation: fly 10s ease-in-out infinite;
-            will-change: left, transform, z-index;
+        /* ---- 비행기(메인) — 오른쪽 끝 → 왼쪽 끝, 빠르게 직선 비행 ---- */
+        .plane-main {{
+            position: absolute; top: 15%; left: 106%;
+            width: clamp(160px,21vw,280px); z-index: 7;
+            animation: fly-main 7s ease-in-out infinite;
+            will-change: left;
         }}
-        .side-grp {{ position: relative; width: 100%; animation: sideShow 10s linear infinite; }}
-        .back-grp {{
-            position: absolute; left: 50%; top: 50%;
-            width: 60%; transform: translate(-50%,-50%);
-            animation: backShow 10s linear infinite;
-        }}
-        .plane-svg {{ width: 100%; height: auto; display:block; filter: drop-shadow(0 10px 10px rgba(20,40,90,.32)); }}
-        .trail {{
-            position: absolute; right: -4px; top: 52%; z-index: -1;
-            width: clamp(90px,13vw,170px); height: 3px;
-            transform: translateY(-6px);
+        .plane-main .plane-svg {{ width: 100%; height: auto; display: block; filter: drop-shadow(0 10px 10px rgba(20,40,90,.32)); }}
+        .plane-main .trail {{
+            position: absolute; right: -4px; top: 50%; z-index: -1;
+            width: clamp(110px,15vw,200px); height: 3px; transform: translateY(-6px);
             background: linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.9));
             border-radius: 3px;
-            box-shadow: 0 10px 0 rgba(255,255,255,.5), 0 -8px 0 rgba(255,255,255,.45);
+            box-shadow: 0 11px 0 rgba(255,255,255,.5), 0 -9px 0 rgba(255,255,255,.45);
             animation: trail-flick .5s ease-in-out infinite alternate;
         }}
         @keyframes trail-flick {{ from{{opacity:.35;}} to{{opacity:.8;}} }}
-        @keyframes sideShow {{ 0%,54% {{opacity:1;}} 62%,100% {{opacity:0;}} }}
-        @keyframes backShow {{ 0%,54% {{opacity:0;}} 63%,100% {{opacity:1;}} }}
-        @keyframes fly {{
-            0%   {{ left: 52%; transform: translateY(-8px) scale(.5);  z-index: 2; opacity: 0; }}  /* 지구 뒤 */
-            10%  {{ opacity: 1; }}
-            32%  {{ left: 47%; transform: translateY(4px)  scale(.92); z-index: 2; }}               /* 뒤에서 앞으로 */
-            42%  {{ z-index: 9; }}                                                                  /* 앞으로 나옴 */
-            56%  {{ left: 31%; transform: translateY(22px) scale(1.16); z-index: 9; }}              /* 글자 앞 통과(측면) */
-            63%  {{ z-index: 9; }}
-            72%  {{ left: 23%; transform: translateY(30px) scale(.8);  z-index: 2; }}               /* 뒷모습, 다시 뒤로 */
-            92%  {{ opacity: 1; }}
-            100% {{ left: 7%;  transform: translateY(40px) scale(.42); z-index: 2; opacity: 0; }}   /* 지구 왼쪽 뒤로 사라짐 */
+        @keyframes fly-main {{
+            0%   {{ left: 106%; opacity: 0; }}
+            5%   {{ opacity: 1; }}
+            42%  {{ left: -30%; opacity: 1; }}
+            43%  {{ opacity: 0; }}
+            100% {{ left: -30%; opacity: 0; }}
         }}
 
-        /* ---- 시작 버튼 — 타이틀 애니메이션이 끝난 뒤 등장 (약 2.7초 후) ---- */
+        /* ---- 비행기(배경) — 같은 방향, 더 작고 느리게, 다른 타이밍 ---- */
+        .plane-bg {{
+            position: absolute; top: 7%; left: 110%;
+            width: clamp(64px,8vw,110px); z-index: 1; opacity: .5;
+            animation: fly-bg 12s linear infinite;
+            will-change: left;
+        }}
+        .plane-bg .plane-svg {{ width: 100%; height: auto; display: block; filter: drop-shadow(0 6px 6px rgba(20,40,90,.2)); }}
+        @keyframes fly-bg {{
+            0%   {{ left: 110%; opacity: 0; }}
+            8%   {{ opacity: .5; }}
+            74%  {{ left: -22%; opacity: .5; }}
+            76%  {{ opacity: 0; }}
+            100% {{ left: -22%; opacity: 0; }}
+        }}
+
+        /* ---- 시작 버튼 — 타이틀 애니메이션이 끝난 뒤 등장 (약 2.9초 후) ---- */
         .stButton > button[kind="primary"] {{
-            font-size: 1.7rem;
-            padding: 0.9rem 3.2rem;
+            font-size: 1.75rem;
+            padding: 0.95rem 3.4rem;
             border-width: 5px;
-            box-shadow: 0 9px 0 #E0489A, 0 16px 28px rgba(255,111,184,.5);
-            animation: btn-in .8s cubic-bezier(.2,1.6,.35,1) 2.7s both,
-                       btn-pulse 2s ease-in-out 3.6s infinite;
+            box-shadow: 0 10px 0 #E0489A, 0 18px 30px rgba(255,111,184,.5);
+            animation: btn-in .8s cubic-bezier(.2,1.6,.35,1) 2.9s both,
+                       btn-pulse 2s ease-in-out 3.8s infinite;
         }}
         @keyframes btn-in {{
             0%   {{ opacity:0; transform: translateY(46px) scale(.55); pointer-events:none; }}
@@ -537,16 +561,15 @@ def render_home():
         }}
 
         @media (prefers-reduced-motion: reduce) {{
-            .earth, .earth .tex, .earth-shadow, .atmos, .plane-wrap, .side-grp, .back-grp, .deco, .trail,
+            .earth, .earth .tex, .earth-shadow, .atmos, .plane-main, .plane-bg, .deco, .trail,
             .stButton > button[kind="primary"] {{ animation: none !important; }}
         }}
         </style>
 
         <div class="stage">
             <span class="deco" style="top:5%;  left:8%;  font-size:2.6rem; animation-delay:.0s;">🌈</span>
-            <span class="deco" style="top:11%; right:9%; font-size:2rem;   animation-delay:.5s;">✨</span>
-            <span class="deco" style="top:42%; left:4%;  font-size:2.2rem; animation-delay:1.0s;">💕</span>
-            <span class="deco" style="top:8%;  right:27%; font-size:1.8rem; animation-delay:.3s;">⭐</span>
+            <span class="deco" style="top:44%; left:4%;  font-size:2.2rem; animation-delay:1.0s;">💕</span>
+            <span class="deco" style="top:10%; right:26%; font-size:1.8rem; animation-delay:.3s;">⭐</span>
             <span class="deco" style="bottom:9%;  left:13%; font-size:2.1rem; animation-delay:.8s;">🗼</span>
             <span class="deco" style="bottom:7%;  right:14%; font-size:2.1rem; animation-delay:1.3s;">🏰</span>
             <span class="deco" style="bottom:20%; left:45%; font-size:1.9rem; animation-delay:.6s;">🕌</span>
@@ -555,19 +578,15 @@ def render_home():
             <div class="earth">
                 <div class="tex"></div>
                 <div class="shade"></div>
+                <div class="gloss"></div>
             </div>
-            <div class="plane-wrap">
-                <div class="side-grp">
-                    {PLANE_SIDE_SVG}
-                    <span class="trail"></span>
-                </div>
-                <div class="back-grp">{PLANE_BACK_SVG}</div>
+            <div class="plane-bg">{PLANE_SIDE_SVG}</div>
+            <div class="plane-main">
+                {PLANE_SIDE_SVG}
+                <span class="trail"></span>
             </div>
-            <h1 class="hero-title">
-                <span class="brand six">식스센스</span><br/>
-                <span class="brand tm">트레블맥스<span class="plus">+</span></span>
-            </h1>
-            <p class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰 알려주는 여행 뷰티 케어</p>
+            <h1 class="hero-title">{title}</h1>
+            <p class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰 알려주는 여행 뷰티 케어 ✈️</p>
         </div>
         """
     )
