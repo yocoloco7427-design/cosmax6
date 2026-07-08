@@ -169,14 +169,198 @@ def goto(view):
 
 
 # ----------------------------------------------------------------------
+# 전역 테마 (하늘색 배경 + 구름 둥둥 애니메이션)
+# 모든 화면 공통. 아이콘/버튼 클릭 시 view 가 바뀌며 화면이 전환된다.
+# ----------------------------------------------------------------------
+def inject_theme():
+    st.markdown(
+        """
+        <style>
+        @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Jua&display=swap');
+
+        /* 하늘색 그라데이션 배경 */
+        .stApp {
+            background: linear-gradient(180deg,#5CB8F2 0%,#93D6FF 40%,#C9EEFF 75%,#EAF9FF 100%);
+            background-attachment: fixed;
+        }
+        .block-container { padding-top: 2rem; }
+
+        /* 구름 레이어 (화면 전체를 덮고, 클릭은 통과) */
+        .sky-layer {
+            position: fixed; inset: 0; overflow: hidden;
+            pointer-events: none; z-index: 0;
+        }
+        .sky-layer .cloud {
+            position: absolute; left: -25vw;
+            filter: drop-shadow(0 8px 6px rgba(0,0,0,.06));
+            animation-name: drift; animation-timing-function: linear;
+            animation-iteration-count: infinite;
+        }
+        @keyframes drift {
+            from { transform: translateX(-25vw); }
+            to   { transform: translateX(130vw); }
+        }
+
+        /* 게임풍 시작 버튼 (primary) */
+        .stButton > button[kind="primary"] {
+            font-family: 'Jua', sans-serif;
+            font-size: 1.25rem;
+            border-radius: 999px;
+            padding: 0.6rem 2.2rem;
+            border: 3px solid #fff;
+            background: linear-gradient(90deg,#ff8fb1,#ff6b8a);
+            color: #fff;
+            box-shadow: 0 8px 0 rgba(0,0,0,.12), 0 10px 18px rgba(255,107,138,.4);
+            transition: transform .12s ease, box-shadow .12s ease;
+            animation: btn-pulse 1.8s ease-in-out infinite;
+        }
+        .stButton > button[kind="primary"]:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 10px 0 rgba(0,0,0,.12), 0 14px 22px rgba(255,107,138,.5);
+        }
+        .stButton > button[kind="primary"]:active { transform: translateY(4px); box-shadow: 0 4px 0 rgba(0,0,0,.12); }
+        @keyframes btn-pulse { 0%,100%{ transform: scale(1); } 50%{ transform: scale(1.04); } }
+        </style>
+
+        <div class="sky-layer">
+            <span class="cloud" style="top:6%;  font-size:5rem;   animation-duration:62s; animation-delay:-5s;">☁️</span>
+            <span class="cloud" style="top:16%; font-size:3.2rem; animation-duration:48s; animation-delay:-22s; opacity:.8;">☁️</span>
+            <span class="cloud" style="top:32%; font-size:6.2rem; animation-duration:78s; animation-delay:-42s; opacity:.85;">☁️</span>
+            <span class="cloud" style="top:54%; font-size:3.8rem; animation-duration:55s; animation-delay:-12s; opacity:.75;">☁️</span>
+            <span class="cloud" style="top:70%; font-size:5.4rem; animation-duration:68s; animation-delay:-33s; opacity:.8;">☁️</span>
+            <span class="cloud" style="top:84%; font-size:3rem;   animation-duration:50s; animation-delay:-52s; opacity:.7;">☁️</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+# ----------------------------------------------------------------------
 # 화면 렌더링
 # ----------------------------------------------------------------------
 def render_home():
-    st.title("🧳 TravelMax+")
-    st.subheader("여행지 기후·수질·자외선을 내 피부 타입에 맞춰 알려주는 여행 뷰티 케어 앱")
-    st.write("내 캐릭터를 만들고, 여행지별 피부 케어 팁과 여권 컬렉션을 모아보세요!")
-    if st.button("✈️ 여행 시작하기", type="primary"):
-        goto("character")
+    st.markdown(
+        """
+        <style>
+        .hero {
+            position: relative; z-index: 1;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center;
+            min-height: 62vh; padding: 2.5rem 1rem 1rem;
+        }
+
+        /* 타이틀 */
+        .hero-title { margin: 0; line-height: 1.02; }
+        .hero-title .brand {
+            display: inline-block;
+            font-family: 'Black Han Sans', sans-serif;
+            background: linear-gradient(90deg,#ff7eb3,#ff758c,#ff9a5a,#ffcf5c);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            filter: drop-shadow(3px 4px 0 rgba(255,255,255,.75))
+                    drop-shadow(4px 7px 7px rgba(0,0,0,.18));
+        }
+        .hero-title .six {
+            font-size: clamp(2rem,5.5vw,3.6rem);
+            animation: pop .8s cubic-bezier(.2,1.4,.4,1) both;
+        }
+        .hero-title .tm {
+            font-size: clamp(2.9rem,9vw,6.4rem);
+            animation: pop .9s cubic-bezier(.2,1.5,.4,1) .15s both;
+        }
+        .hero-title .plus {
+            background: linear-gradient(90deg,#4fc3f7,#29b6f6);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        @keyframes pop {
+            0%   { opacity:0; transform: scale(.3) rotate(-8deg); }
+            60%  { opacity:1; transform: scale(1.08) rotate(2deg); }
+            100% { opacity:1; transform: scale(1) rotate(0); }
+        }
+
+        .hero-sub {
+            font-family: 'Jua', sans-serif;
+            font-size: clamp(.95rem,2.2vw,1.4rem);
+            color: #2b6ea8; margin-top: 1rem;
+            text-shadow: 0 2px 0 rgba(255,255,255,.6);
+            animation: rise 1s ease .6s both;
+        }
+        @keyframes rise { from{ opacity:0; transform: translateY(18px);} to{ opacity:1; transform: translateY(0);} }
+
+        /* 랜드마크 이모지 (글자 주변에 둥둥) */
+        .lm {
+            position: absolute; z-index: 0;
+            font-size: clamp(1.6rem,4vw,3rem);
+            filter: drop-shadow(0 6px 4px rgba(0,0,0,.14));
+            animation: bob 4s ease-in-out infinite;
+        }
+        @keyframes bob {
+            0%,100% { transform: translateY(0) rotate(-5deg); }
+            50%     { transform: translateY(-16px) rotate(5deg); }
+        }
+
+        /* 비행기 (오른쪽 → 왼쪽) + 바람 자국 */
+        .plane-wrap {
+            position: absolute; top: 12%; left: 0; z-index: 2;
+            display: flex; align-items: center;
+            animation: fly 7.5s linear infinite;
+        }
+        .plane {
+            font-size: clamp(2rem,5vw,3.2rem);
+            transform: scaleX(-1);
+            filter: drop-shadow(0 5px 3px rgba(0,0,0,.22));
+        }
+        .wind-col { display: flex; flex-direction: column; gap: 7px; margin-left: 8px; }
+        .wind {
+            display: block; height: 4px; border-radius: 4px;
+            background: linear-gradient(90deg, rgba(255,255,255,.95), rgba(255,255,255,0));
+            animation: wind-flicker .5s ease-in-out infinite alternate;
+        }
+        .w1 { width: 48px; }
+        .w2 { width: 32px; margin-left: 6px; }
+        .w3 { width: 20px; margin-left: 2px; }
+        @keyframes fly { from { left: 108%; } to { left: -28%; } }
+        @keyframes wind-flicker { from{ opacity:.4; transform: scaleX(.8);} to{ opacity:1; transform: scaleX(1);} }
+
+        @media (prefers-reduced-motion: reduce) {
+            .cloud, .plane-wrap, .lm, .wind, .stButton > button[kind="primary"] { animation: none !important; }
+        }
+        </style>
+
+        <div class="hero">
+            <span class="lm" style="top:6%;  left:10%; animation-delay:.0s;">🗼</span>
+            <span class="lm" style="top:14%; right:12%; animation-delay:.6s;">🗽</span>
+            <span class="lm" style="top:40%; left:5%;  animation-delay:1.1s;">🏰</span>
+            <span class="lm" style="top:44%; right:6%; animation-delay:.3s;">🕌</span>
+            <span class="lm" style="bottom:16%; left:16%; animation-delay:.9s;">🗿</span>
+            <span class="lm" style="bottom:10%; right:18%; animation-delay:1.4s;">🎡</span>
+            <span class="lm" style="bottom:24%; left:44%; animation-delay:.5s;">🛕</span>
+            <span class="lm" style="top:8%; left:46%; animation-delay:1.7s;">🌋</span>
+
+            <div class="plane-wrap">
+                <span class="plane">✈️</span>
+                <span class="wind-col">
+                    <i class="wind w1"></i>
+                    <i class="wind w2"></i>
+                    <i class="wind w3"></i>
+                </span>
+            </div>
+
+            <h1 class="hero-title">
+                <span class="brand six">식스센스</span><br/>
+                <span class="brand tm">트레블맥스<span class="plus">+</span></span>
+            </h1>
+            <p class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰 알려주는 여행 뷰티 케어</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left, mid, right = st.columns([1, 1, 1])
+    with mid:
+        if st.button("✈️ 여행 시작하기", type="primary", use_container_width=True):
+            goto("character")
+            st.rerun()
 
 
 def render_character():
@@ -361,6 +545,8 @@ with st.sidebar:
 # ----------------------------------------------------------------------
 # 화면 라우팅
 # ----------------------------------------------------------------------
+inject_theme()
+
 VIEWS = {
     "home": render_home,
     "character": render_character,
