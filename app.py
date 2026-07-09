@@ -1043,10 +1043,11 @@ AD_VIDEO_EXTS = (".mp4", ".webm", ".mov", ".m4v")
 AD_REWARD_COINS = 10
 
 
-@st.cache_data(show_spinner=False)
 def _list_ad_videos():
     """assets/ads/ 폴더에 넣어둔 광고 영상 파일을 전부 찾는다 — 개수 제한 없이
-    폴더에 있는 만큼(3~5개든 몇 개든) 그대로 랜덤 재생 후보가 된다."""
+    폴더에 있는 만큼(3~5개든 몇 개든) 그대로 랜덤 재생 후보가 된다.
+    캐싱하지 않는다 — st.cache_data를 쓰면 폴더에 파일을 나중에 추가해도
+    서버를 재시작하기 전까지 예전(비어있던) 결과가 계속 반환되는 문제가 있었다."""
     if not AD_VIDEOS_DIR.exists():
         return []
     return sorted(str(p) for p in AD_VIDEOS_DIR.iterdir() if p.suffix.lower() in AD_VIDEO_EXTS)
