@@ -992,14 +992,20 @@ def render_home():
             <div class="body">start game?</div>
             """
         )
-        if st.button("하트를 눌러 여행 시작", key="start_heart_btn"):
-            specs = _generate_bubble_specs()
-            st.session_state.bubble_specs = specs
-            render_bubble_cover(specs)
-            time.sleep(bubble_cover_seconds(specs))
-            st.session_state.show_page_transition = True
-            goto("character")
-            st.rerun()
+        start_clicked = st.button("하트를 눌러 여행 시작", key="start_heart_btn")
+
+    # 기포 오버레이는 반드시 start_dialog 컨테이너 '밖'에서 그려야 한다 —
+    # 그 컨테이너에는 transform을 쓰는 CSS 애니메이션이 걸려 있어서, 안에서
+    # position:fixed로 그리면 뷰포트가 아니라 그 박스가 기준점이 되어버려
+    # 기포가 다이얼로그 안에만 갇혀버린다.
+    if start_clicked:
+        specs = _generate_bubble_specs()
+        st.session_state.bubble_specs = specs
+        render_bubble_cover(specs)
+        time.sleep(bubble_cover_seconds(specs))
+        st.session_state.show_page_transition = True
+        goto("character")
+        st.rerun()
 
 
 # ----------------------------------------------------------------------
