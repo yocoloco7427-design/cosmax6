@@ -450,6 +450,15 @@ def _passport_dialog_css():
     html_block(
         """
         <style>
+        /* Streamlit 다이얼로그 카드 자체의 기본 흰 배경을 여권 페이지와 같은
+           크림색으로 덮어써서, 1단계(표지)·2단계(펼친 페이지) 모두 흰 테두리
+           없이 이어지게 한다. role="dialog"는 baseweb 모달의 표준 접근성
+           속성이라 Streamlit 버전이 바뀌어도 비교적 안정적으로 걸린다. */
+        div[data-testid="stDialog"][role="dialog"],
+        div[data-testid="stDialog"] [role="dialog"],
+        div[role="dialog"] {
+            background-color: #fffaf3 !important;
+        }
         .p-body { padding-top: 2px; }
         /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자 */
         .page {
@@ -477,7 +486,7 @@ def _passport_dialog_css():
             padding: 7px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
             font-family: 'Jua', sans-serif; font-size: .82rem;
         }
-        .p-label { color: #b23a6e; flex: 0 0 42%; }
+        .p-label { color: #b23a6e; flex: 0 0 46%; white-space: nowrap; }
         .p-value { color: #4a2035; font-weight: 700; text-align: right; flex: 1; }
         .p-section-title {
             font-family: 'Gaegu', cursive; font-weight: 700; color: #9c2f5c;
@@ -531,7 +540,7 @@ def _passport_dialog_css():
     )
 
 
-@st.dialog("Beauty Passport", width="medium", icon="📔")
+@st.dialog("Beauty Passport", width="large", icon="📔")
 def _beauty_passport_dialog():
     _passport_dialog_css()
     char = get_character() or {}
@@ -552,7 +561,7 @@ def _beauty_passport_dialog():
     st.session_state.just_opened_passport_page = False
 
     # 펼친 여권 — 왼쪽 신원 페이지 / 오른쪽 스탬프+꿀팁 페이지, 책처럼 나란히
-    left_page, right_page = st.columns(2, gap="medium")
+    left_page, right_page = st.columns(2, gap=None)
 
     with left_page:
         html_block(
