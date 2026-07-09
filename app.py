@@ -796,13 +796,14 @@ SCAN_ANGLES = [
     {"key": "right", "label": "오른쪽 얼굴", "guide": "고개를 살짝 오른쪽으로 돌려 옆모습을 찍어주세요"},
 ]
 
-# 셀피처럼 보이도록 카메라 미리보기/촬영 결과를 좌우반전(거울 모드)한다.
-# 분석에 쓰는 실제 픽셀 데이터는 그대로 두고(밝기/대비 통계에 영향 없음) 화면
-# 표시만 CSS로 반전한다.
+# 셀피처럼 보이도록 카메라 미리보기를 좌우반전(거울 모드)한다. 분석에 쓰는
+# 실제 픽셀 데이터는 그대로 두고(밝기/대비 통계에 영향 없음) 화면 표시만 CSS로
+# 반전한다. 촬영 직후 크게 뜨는 정지 이미지 미리보기는 부담스럽다는 피드백을
+# 받아 아예 숨기고, 그 자리는 글(진행 안내 문구)만 보이게 한다.
 _CAMERA_MIRROR_CSS = """
 <style>
-[data-testid="stCameraInput"] video,
-[data-testid="stCameraInput"] img { transform: scaleX(-1) !important; }
+[data-testid="stCameraInput"] video { transform: scaleX(-1) !important; }
+[data-testid="stCameraInput"] img { display: none !important; }
 </style>
 """
 
@@ -5032,8 +5033,10 @@ def _render_diagnosis_scan():
 
 def _render_diagnosis_analyzing():
     """3장 촬영이 끝난 뒤 브루잉으로 넘어가기 전에 잠깐 보여주는 스캔 완료 단계.
-    게이지가 가득 차고 완료 문구 1초, 분석 시작 문구 2초를 보여준 뒤 기존
-    brewing 단계로 그대로 넘어간다(brewing/result 로직은 손대지 않음)."""
+    게이지가 가득 차고 완료 문구 1초, 분석 시작 문구 2초, 스캔+설문 결합 안내
+    문구 2초를 차례로 보여준 뒤 기존 brewing 단계로 그대로 넘어간다
+    (brewing/result 로직은 손대지 않음). 촬영된 얼굴 사진은 화면에 크게 띄우지
+    않고 글로만 진행 상황을 안내한다."""
     code = st.session_state.diagnosis_country
     country = COUNTRIES.get(code) or {}
     st.title(f"{country.get('flag','')} {country.get('name','')} 피부 궁합 진단")
@@ -5052,6 +5055,13 @@ def _render_diagnosis_analyzing():
     msg_slot.markdown(
         "<div style=\"text-align:center;font-family:'Jua',sans-serif;font-size:1.4rem;"
         "color:#5a3d7a;margin-top:16px;\">🔍 분석을 시작합니다</div>",
+        unsafe_allow_html=True,
+    )
+    time.sleep(2)
+    msg_slot.markdown(
+        "<div style=\"text-align:center;font-family:'Jua',sans-serif;font-size:1.2rem;"
+        "color:#5a3d7a;margin-top:16px;\">스캔한 정보와 이전 설문 정보를 결합하여<br>"
+        "궁합분석을 진행중입니다.</div>",
         unsafe_allow_html=True,
     )
     time.sleep(2)
