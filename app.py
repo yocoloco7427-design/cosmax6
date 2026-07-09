@@ -232,6 +232,31 @@ def is_country_unlocked(code):
     return code in FREE_COUNTRY_CODES or code in st.session_state.unlocked_countries
 
 
+# 기내 액체류 반입 규정 — 캐리어 담기 서비스에서 쓰는 판정 기준.
+# 개별 용기는 100ml 이하만, 전체 합은 1L(1000ml) 이하만 반입 가능하다는
+# 실제 국제 항공 보안 규정(투명 지퍼백 규정)을 그대로 반영한 상수.
+LIQUID_CONTAINER_LIMIT_ML = 100
+LIQUID_TOTAL_LIMIT_ML = 1000
+CARRIER_VOLUME_PRESETS = [30, 50, 100]
+
+
+def _judge_liquid_item(volume_ml):
+    """개별 용기 하나의 반입 가능 여부를 판정한다. (allowed, 사유) 튜플을 반환."""
+    if volume_ml <= 0:
+        return False, "용량을 입력해주세요"
+    if volume_ml > LIQUID_CONTAINER_LIMIT_ML:
+        return False, f"개별 용기 {LIQUID_CONTAINER_LIMIT_ML}ml 초과라 기내 반입이 불가해요"
+    return True, "개별 용기 100ml 이하로 반입 가능해요"
+
+
+def _add_carrier_item(name, volume_ml):
+    allowed, reason = _judge_liquid_item(volume_ml)
+    st.session_state.carrier_items.append(
+        {"name": name, "volume_ml": volume_ml, "allowed": allowed, "reason": reason}
+    )
+    st.toast("✅ 반입 가능! 캐리어에 담았어요" if allowed else f"❌ 반입 불가: {reason}")
+
+
 # ----------------------------------------------------------------------
 # 포스트잇 "유의사항" — 국가/도시별 피부 리스크. COUNTRIES와 별도 표로 관리해서
 # 나라가 늘어나도 COUNTRIES 항목을 안 건드리고 이 표에 한 줄만 추가하면 되게 한다.
@@ -676,6 +701,14 @@ if "passport_notes" not in st.session_state:
     st.session_state.passport_notes = []  # 적립된 "나만의 여행 꿀팁" 목록 (각 항목 = 한 줄)
 if "passport_stores" not in st.session_state:
     st.session_state.passport_stores = []  # ⭐로 저장한 드럭스토어/뷰티스토어 목록
+if "carrier_items" not in st.session_state:
+    st.session_state.carrier_items = []  # 캐리어 담기 서비스에서 담은 액체류 목록
+if "carrier_container_volume" not in st.session_state:
+    st.session_state.carrier_container_volume = 100  # 용기 탭의 용량 입력값(프리셋 버튼이 갱신)
+if "carrier_product_volume" not in st.session_state:
+    st.session_state.carrier_product_volume = 100  # 제품 탭의 용량 입력값
+if "passport_carrier_checklist" not in st.session_state:
+    st.session_state.passport_carrier_checklist = []  # "체크리스트로 저장"한 캐리어 목록 스냅샷
 if "tip_input_counter" not in st.session_state:
     st.session_state.tip_input_counter = 0  # 입력창을 매번 새 위젯으로 만들어 제출 후 비우기 위한 값
 if "country_stage" not in st.session_state:
@@ -718,8 +751,8 @@ if "confirming_unlock" not in st.session_state:
     st.session_state.confirming_unlock = None  # 언락 확인 문구를 보여줄 국가 코드 (없으면 None)
 if "coin_celebration_amount" not in st.session_state:
     st.session_state.coin_celebration_amount = None  # 코인 획득 폭죽 애니메이션에 표시할 금액
-if "unlock_burst_info" not in st.session_state:
-    st.session_state.unlock_burst_info = None  # 여행지 잠금 해제 애니메이션에 표시할 {"flag","name"}
+if "unlock_burst_active" not in st.session_state:
+    st.session_state.unlock_burst_active = None  # 잠금 해제 연출이 재생 중인 국가 코드 (없으면 None)
 
 
 def get_character():
@@ -1184,137 +1217,6 @@ def render_coin_celebration():
     )
 
 
-def render_unlock_burst():
-    """여행지 잠금 해제 바로 다음 rerun에 한 번만 재생되는 연출 — 잠긴 화면의
-    핑크 박스가 점점 하얗게 변하면서 부르르 떨리다가, 다 하얘지는 순간 자물쇠가
-    쪼그라들며 사라지고 폭죽과 큼직한 무지개색 문구가 터진다. coin_celebration과
-    같은 1회성 플래그 패턴 — 곧바로 None으로 되돌려 다음 상호작용부턴 안 뜬다."""
-    info = st.session_state.unlock_burst_info
-    if not info:
-        return
-    st.session_state.unlock_burst_info = None
-
-    SHAKE_S = 1.1  # 흔들림+화이트아웃이 끝나는 시점 — 폭죽/문구가 이 시점에 맞춰 터진다
-    pieces = []
-    n = 24
-    for i in range(n):
-        angle = math.radians((360 / n) * i + random.uniform(-10, 10))
-        dist = random.uniform(180, 320)
-        dx = round(math.cos(angle) * dist, 1)
-        dy = round(math.sin(angle) * dist, 1)
-        size = round(random.uniform(9, 17), 1)
-        color = random.choice(COIN_CELEBRATION_COLORS)
-        delay = SHAKE_S + round(random.uniform(0, 0.12), 2)
-        dur = round(random.uniform(0.85, 1.2), 2)
-        rot = round(random.uniform(180, 640))
-        pieces.append(
-            f'<span class="unlock-confetti-piece" style="--dx:{dx}px; --dy:{dy}px; --rot:{rot}deg; '
-            f'width:{size}px; height:{size}px; background:{color}; '
-            f'animation-delay:{delay}s; animation-duration:{dur}s;"></span>'
-        )
-
-    html_block(
-        f"""
-        <style>
-        .unlock-burst-layer {{
-            position: fixed; inset: 0; z-index: 999997; pointer-events: none;
-            display: flex; align-items: center; justify-content: center;
-        }}
-        .unlock-burst-box {{
-            position: relative; width: min(92vw, 820px); height: clamp(320px, 58vh, 540px);
-            border-radius: 22px; overflow: hidden;
-            background: linear-gradient(160deg, #ffe9f3 0%, #ffd3e7 55%, #ffbadc 100%);
-            box-shadow: inset 0 0 0 4px rgba(255,255,255,.55), 0 20px 40px rgba(150,50,100,.35);
-            display: flex; align-items: center; justify-content: center;
-            animation:
-                unlock-box-shake {SHAKE_S}s ease-in-out both,
-                unlock-box-fadeout .6s ease-in {SHAKE_S + 2.0}s forwards;
-        }}
-        @keyframes unlock-box-fadeout {{ from {{ opacity: 1; }} to {{ opacity: 0; }} }}
-        @keyframes unlock-box-shake {{
-            0%   {{ transform: translate(0,0) rotate(0deg); }}
-            8%   {{ transform: translate(-3px,2px) rotate(-1deg); }}
-            16%  {{ transform: translate(3px,-2px) rotate(1deg); }}
-            24%  {{ transform: translate(-5px,3px) rotate(-2deg); }}
-            32%  {{ transform: translate(5px,-3px) rotate(2deg); }}
-            40%  {{ transform: translate(-8px,5px) rotate(-3deg); }}
-            48%  {{ transform: translate(8px,-5px) rotate(3deg); }}
-            56%  {{ transform: translate(-11px,7px) rotate(-4deg); }}
-            64%  {{ transform: translate(11px,-7px) rotate(4deg); }}
-            72%  {{ transform: translate(-15px,9px) rotate(-5deg); }}
-            80%  {{ transform: translate(15px,-9px) rotate(5deg); }}
-            88%  {{ transform: translate(-18px,11px) rotate(-6deg); }}
-            100% {{ transform: translate(0,0) rotate(0deg); }}
-        }}
-        .unlock-whiteout {{
-            position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 1;
-            animation: unlock-whiteout-in {SHAKE_S}s ease-in forwards;
-        }}
-        @keyframes unlock-whiteout-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
-        .unlock-lock-icon {{
-            position: relative; z-index: 2; font-size: min(26vw, 160px); line-height: 1;
-            filter: drop-shadow(0 12px 20px rgba(150,50,100,.35));
-            animation: unlock-icon-vanish .3s ease-in {SHAKE_S - 0.15}s both;
-        }}
-        @keyframes unlock-icon-vanish {{
-            0%   {{ transform: scale(1) rotate(0deg); opacity: 1; }}
-            100% {{ transform: scale(0) rotate(35deg); opacity: 0; }}
-        }}
-        .unlock-confetti-piece {{
-            position: absolute; top: 50%; left: 50%; border-radius: 3px; z-index: 3;
-            transform: translate(-50%,-50%); opacity: 0;
-            animation-name: unlock-confetti-burst; animation-timing-function: cubic-bezier(.2,.7,.3,1);
-            animation-fill-mode: both;
-        }}
-        @keyframes unlock-confetti-burst {{
-            0%   {{ transform: translate(-50%,-50%) rotate(0deg); opacity: 1; }}
-            70%  {{ opacity: 1; }}
-            100% {{
-                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot));
-                opacity: 0;
-            }}
-        }}
-        .unlock-burst-text {{
-            position: relative; z-index: 4; text-align: center; padding: 0 6vw;
-            font-family: 'Jua', sans-serif; font-weight: 900;
-            font-size: clamp(2.2rem, 8.5vw, 4.6rem);
-            background: linear-gradient(90deg,#ff3d97,#ff9f1c,#ffe94d,#4ade80,#38bdf8,#a78bfa,#ff3d97);
-            background-size: 300% auto; -webkit-background-clip: text; background-clip: text;
-            -webkit-text-fill-color: transparent; color: transparent;
-            -webkit-text-stroke: 3px rgba(255,255,255,.9); paint-order: stroke fill;
-            filter: drop-shadow(0 8px 18px rgba(120,20,70,.35));
-            opacity: 0;
-            animation:
-                unlock-text-pop 1s cubic-bezier(.22,1.4,.36,1) {SHAKE_S}s both,
-                unlock-text-rainbow 1.4s linear {SHAKE_S}s infinite;
-        }}
-        @keyframes unlock-text-pop {{
-            0%   {{ transform: scale(.2) rotate(-6deg); opacity: 0; }}
-            55%  {{ transform: scale(1.18) rotate(2deg); opacity: 1; }}
-            75%  {{ transform: scale(.95) rotate(-1deg); }}
-            100% {{ transform: scale(1) rotate(0deg); opacity: 1; }}
-        }}
-        @keyframes unlock-text-rainbow {{
-            0%   {{ background-position: 0% 50%; }}
-            100% {{ background-position: 300% 50%; }}
-        }}
-        @media (prefers-reduced-motion: reduce) {{
-            .unlock-burst-box, .unlock-whiteout, .unlock-lock-icon,
-            .unlock-confetti-piece, .unlock-burst-text {{ animation: none !important; opacity: 1; }}
-        }}
-        </style>
-        <div class="unlock-burst-layer">
-            <div class="unlock-burst-box">
-                <div class="unlock-whiteout"></div>
-                <div class="unlock-lock-icon">🔒</div>
-                {"".join(pieces)}
-                <div class="unlock-burst-text">오픈되었습니다!!</div>
-            </div>
-        </div>
-        """
-    )
-
-
 def render_ad_reward_button():
     """우상단 아이콘 바로 아래에 떠 있는 '광고보고 코인 받기' 버튼 (홈 화면은 제외,
     render_top_icons와 같은 기준). 누르면 assets/ads/ 폴더의 영상 중 하나를
@@ -1670,6 +1572,23 @@ def _beauty_passport_dialog():
                     html_block(
                         f'<div class="tip-entry">{html.escape(entry["label"])} {sign}{amount}코인 '
                         f'<span style="opacity:.6;font-size:.85em;">· {html.escape(entry["when"])}</span></div>'
+                    )
+
+            html_block('<div class="p-section-title">🧳 캐리어 체크리스트</div>')
+            checklist = st.session_state.passport_carrier_checklist
+            if not checklist:
+                html_block(
+                    '<div class="tip-empty">아직 저장한 체크리스트가 없어요 — '
+                    '캐리어 담기에서 "체크리스트로 저장"을 눌러보세요 🧳</div>'
+                )
+            else:
+                checklist_total = sum(i["volume_ml"] for i in checklist)
+                html_block(f'<div class="tip-entry">총 {len(checklist)}개 · {checklist_total:.0f}ml</div>')
+                for item in checklist:
+                    badge = "✅" if item["allowed"] else "❌"
+                    html_block(
+                        f'<div class="tip-entry">{badge} {html.escape(item["name"])} · '
+                        f'{item["volume_ml"]:.0f}ml</div>'
                     )
 
     # 여권 맨 아래에 붙는 한 줄 입력창 — 여기 적고 Enter 치면 위 '나만의 여행
@@ -4011,6 +3930,131 @@ def _render_skin_scan_section():
     st.divider()
 
 
+def _render_unlock_burst_stage(country, code):
+    """잠금 해제 버튼을 누른 바로 다음 rerun에 표시 — 방금까지 자물쇠가 떠 있던
+    '같은 핑크 박스'(.locked-stage, 크기/위치 그대로)가 그 자리에서 점점 세게
+    떨리며 하얗게 변하고, 다 하얘지는 순간 자물쇠가 사라지며 폭죽과 무지개색
+    큰 문구가 터진다. 별도 오버레이 박스를 새로 띄우는 게 아니라 같은 박스를
+    이어서 그리는 것이라 화면 한가운데 작은 박스가 갑자기 나타나는 문제가 없다.
+    화면 전환 버블/바텀시트와 같은 '재생 시간만큼 sleep 후 rerun' 패턴을 쓴다."""
+    st.title(f"{country['flag']} {country['name']}")
+
+    SHAKE_S = 1.1  # 흔들림+화이트아웃이 끝나는 시점 — 폭죽/문구가 이 시점에 맞춰 터진다
+    HOLD_S = 1.8   # 폭죽·문구가 다 보인 다음 실제 페이지로 넘어가기 전 대기 시간
+    pieces = []
+    n = 24
+    for i in range(n):
+        angle = math.radians((360 / n) * i + random.uniform(-10, 10))
+        dist = random.uniform(160, 300)
+        dx = round(math.cos(angle) * dist, 1)
+        dy = round(math.sin(angle) * dist, 1)
+        size = round(random.uniform(9, 17), 1)
+        color = random.choice(COIN_CELEBRATION_COLORS)
+        delay = SHAKE_S + round(random.uniform(0, 0.12), 2)
+        dur = round(random.uniform(0.85, 1.2), 2)
+        rot = round(random.uniform(180, 640))
+        pieces.append(
+            f'<span class="unlock-confetti-piece" style="--dx:{dx}px; --dy:{dy}px; --rot:{rot}deg; '
+            f'width:{size}px; height:{size}px; background:{color}; '
+            f'animation-delay:{delay}s; animation-duration:{dur}s;"></span>'
+        )
+
+    html_block(
+        f"""
+        <style>
+        .locked-stage {{
+            position: relative; width: 100%; height: clamp(420px, 74vh, 680px);
+            border-radius: 22px; margin-bottom: 14px; overflow: hidden;
+            background: linear-gradient(160deg, #ffe9f3 0%, #ffd3e7 55%, #ffbadc 100%);
+            box-shadow: inset 0 0 0 4px rgba(255,255,255,.55), 0 16px 32px rgba(150,50,100,.25);
+            display: flex; align-items: center; justify-content: center;
+            animation: unlock-box-shake {SHAKE_S}s ease-in-out both;
+        }}
+        @keyframes unlock-box-shake {{
+            0%   {{ transform: translate(0,0) rotate(0deg); }}
+            8%   {{ transform: translate(-3px,2px) rotate(-1deg); }}
+            16%  {{ transform: translate(3px,-2px) rotate(1deg); }}
+            24%  {{ transform: translate(-5px,3px) rotate(-2deg); }}
+            32%  {{ transform: translate(5px,-3px) rotate(2deg); }}
+            40%  {{ transform: translate(-8px,5px) rotate(-3deg); }}
+            48%  {{ transform: translate(8px,-5px) rotate(3deg); }}
+            56%  {{ transform: translate(-11px,7px) rotate(-4deg); }}
+            64%  {{ transform: translate(11px,-7px) rotate(4deg); }}
+            72%  {{ transform: translate(-15px,9px) rotate(-5deg); }}
+            80%  {{ transform: translate(15px,-9px) rotate(5deg); }}
+            88%  {{ transform: translate(-18px,11px) rotate(-6deg); }}
+            100% {{ transform: translate(0,0) rotate(0deg); }}
+        }}
+        .unlock-whiteout {{
+            position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 1;
+            animation: unlock-whiteout-in {SHAKE_S}s ease-in forwards;
+        }}
+        @keyframes unlock-whiteout-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+        .unlock-lock-icon {{
+            position: relative; z-index: 2; font-size: min(32vw, 190px); line-height: 1;
+            filter: drop-shadow(0 12px 20px rgba(150,50,100,.35));
+            animation: unlock-icon-vanish .3s ease-in {SHAKE_S - 0.15}s both;
+        }}
+        @keyframes unlock-icon-vanish {{
+            0%   {{ transform: scale(1) rotate(0deg); opacity: 1; }}
+            100% {{ transform: scale(0) rotate(35deg); opacity: 0; }}
+        }}
+        .unlock-confetti-piece {{
+            position: absolute; top: 50%; left: 50%; border-radius: 3px; z-index: 3;
+            transform: translate(-50%,-50%); opacity: 0;
+            animation-name: unlock-confetti-burst; animation-timing-function: cubic-bezier(.2,.7,.3,1);
+            animation-fill-mode: both;
+        }}
+        @keyframes unlock-confetti-burst {{
+            0%   {{ transform: translate(-50%,-50%) rotate(0deg); opacity: 1; }}
+            70%  {{ opacity: 1; }}
+            100% {{
+                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot));
+                opacity: 0;
+            }}
+        }}
+        .unlock-burst-text {{
+            position: relative; z-index: 4; text-align: center; padding: 0 6vw;
+            font-family: 'Jua', sans-serif; font-weight: 900;
+            font-size: clamp(2.2rem, 8.5vw, 4.6rem);
+            background: linear-gradient(90deg,#ff3d97,#ff9f1c,#ffe94d,#4ade80,#38bdf8,#a78bfa,#ff3d97);
+            background-size: 300% auto; -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent; color: transparent;
+            -webkit-text-stroke: 3px rgba(255,255,255,.9); paint-order: stroke fill;
+            filter: drop-shadow(0 8px 18px rgba(120,20,70,.35));
+            opacity: 0;
+            animation:
+                unlock-text-pop 1s cubic-bezier(.22,1.4,.36,1) {SHAKE_S}s both,
+                unlock-text-rainbow 1.4s linear {SHAKE_S}s infinite;
+        }}
+        @keyframes unlock-text-pop {{
+            0%   {{ transform: scale(.2) rotate(-6deg); opacity: 0; }}
+            55%  {{ transform: scale(1.18) rotate(2deg); opacity: 1; }}
+            75%  {{ transform: scale(.95) rotate(-1deg); }}
+            100% {{ transform: scale(1) rotate(0deg); opacity: 1; }}
+        }}
+        @keyframes unlock-text-rainbow {{
+            0%   {{ background-position: 0% 50%; }}
+            100% {{ background-position: 300% 50%; }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .locked-stage, .unlock-whiteout, .unlock-lock-icon,
+            .unlock-confetti-piece, .unlock-burst-text {{ animation: none !important; opacity: 1; }}
+        }}
+        </style>
+        <div class="locked-stage">
+            <div class="unlock-whiteout"></div>
+            <div class="unlock-lock-icon">🔒</div>
+            {"".join(pieces)}
+            <div class="unlock-burst-text">오픈되었습니다!!</div>
+        </div>
+        """
+    )
+    time.sleep(SHAKE_S + HOLD_S)
+    st.session_state.unlock_burst_active = None
+    st.rerun()
+
+
 def _render_country_locked(country, code):
     """잠긴 여행지 화면 — 파스텔 핑크 배경에 자물쇠만 크게 보이고, 포스트잇/지도/
     포션 같은 다른 정보는 전부 가린다. '50코인 사용하여 오픈하기' -> 예/아니오 확인
@@ -4055,7 +4099,7 @@ def _render_country_locked(country, code):
                     "when": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 })
                 st.session_state.confirming_unlock = None
-                st.session_state.unlock_burst_info = {"flag": country["flag"], "name": country["name"]}
+                st.session_state.unlock_burst_active = code
                 st.rerun()
         with c2:
             if st.button("아니오", key="confirm_unlock_no", use_container_width=True):
@@ -4084,6 +4128,10 @@ def render_country():
     if not country:
         goto("map")
         st.rerun()
+        return
+
+    if st.session_state.unlock_burst_active == code:
+        _render_unlock_burst_stage(country, code)
         return
 
     if not is_country_unlocked(code):
@@ -4340,7 +4388,7 @@ def _render_country_scene_stage(country, char, code):
         }}
         .scene-doll-box {{
             position: absolute; left: 50%; top: 52%; transform: translate(-50%,-50%);
-            width: min(46vw, 260px); pointer-events: none; z-index: 2; opacity: .85;
+            width: min(46vw, 260px); pointer-events: none; z-index: 2; opacity: 1;
             filter: drop-shadow(0 18px 20px rgba(60,30,60,.28));
         }}
         .scene-doll-box svg {{ width: 100%; height: auto; display: block; }}
@@ -4351,12 +4399,12 @@ def _render_country_scene_stage(country, char, code):
            아이콘 자기 폭(84px)만큼의 오프셋을 상쇄해야 좌우가 실제로 대칭이 된다.
            (예전엔 left가 아이콘의 왼쪽 모서리 기준이라 84px만큼 오른쪽으로 치우쳐
            보였음 -- 오른쪽 아이콘이 캐릭터에 더 가깝게 보이던 원인) */
-        .st-key-icn_water {{ top: 12%; left: 27%; transform: translateX(-50%); }}
-        .st-key-icn_lipstick {{ top: 12%; left: 73%; transform: translateX(-50%); }}
-        .st-key-icn_shop {{ top: 46%; left: 15%; transform: translateX(-50%); }}
-        .st-key-icn_hair {{ top: 46%; left: 85%; transform: translateX(-50%); }}
-        .st-key-icn_carrier {{ top: 78%; left: 27%; transform: translateX(-50%); }}
-        .st-key-icn_star {{ top: 78%; left: 73%; transform: translateX(-50%); }}
+        .st-key-icn_water {{ top: 5%; left: 27%; transform: translateX(-50%); }}
+        .st-key-icn_lipstick {{ top: 5%; left: 73%; transform: translateX(-50%); }}
+        .st-key-icn_shop {{ top: 39%; left: 15%; transform: translateX(-50%); }}
+        .st-key-icn_hair {{ top: 39%; left: 85%; transform: translateX(-50%); }}
+        .st-key-icn_carrier {{ top: 66%; left: 27%; transform: translateX(-50%); }}
+        .st-key-icn_star {{ top: 66%; left: 73%; transform: translateX(-50%); }}
         /* 흰 원 배경 없이 이모지만 크게 — 자리에서 계속 살짝 흔들리도록 각자
            다른 딜레이로 같은 float 애니메이션을 건다(딜레이를 다르게 줘야 6개가
            똑같이 맞춰 움직이지 않고 자연스럽게 제각각 흔들린다). transform은
@@ -4366,10 +4414,10 @@ def _render_country_scene_stage(country, char, code):
            font-size(14px)가 박혀 있어서 button에 준 font-size가 상속되지 않고
            씹혀버린다 — 실제 이모지를 담은 p 태그까지 직접 짚어서 키운다. */
         div[class*="st-key-icn_"] button p {{
-            font-size: 7.8rem !important; line-height: 1 !important;
+            font-size: clamp(3.2rem, 6.2vw, 7.8rem) !important; line-height: 1 !important;
         }}
         div[class*="st-key-icn_"] button {{
-            width: 160px !important; height: 160px !important; min-width: 0 !important;
+            width: clamp(76px, 12vw, 160px) !important; height: clamp(76px, 12vw, 160px) !important; min-width: 0 !important;
             padding: 0 !important;
             background: transparent !important; border: none !important; box-shadow: none !important;
             filter: drop-shadow(0 6px 10px rgba(60,30,60,.35));
@@ -4638,6 +4686,81 @@ def _country_action_sheet(country, char, code):
             st.rerun()
 
 
+def _render_carrier_packing(country):
+    """캐리어 담기 서비스 — 기내 액체류 반입 규정(개별 용기 100ml 이하 · 총합 1L 이하)
+    체크 기능. [제품] 탭은 국가 상세 페이지에서 추천된 essentials 목록에서 고르고,
+    [용기] 탭은 프리셋 용량 버튼(30/50/100ml) 또는 직접 입력으로 담는다. 담을 때마다
+    개별 용기 기준으로 즉시 반입 가능/불가를 판정하고, 전체 목록의 총 용량이
+    1L를 넘으면 상단에 경고 배너를 띄운다."""
+    items = st.session_state.carrier_items
+    total_ml = sum(i["volume_ml"] for i in items)
+
+    if total_ml > LIQUID_TOTAL_LIMIT_ML:
+        st.error(
+            f"⚠️ 총 용량 {total_ml:.0f}ml — 1L({LIQUID_TOTAL_LIMIT_ML}ml)를 초과했어요! "
+            "투명 지퍼백 규정을 초과할 수 있으니 일부를 줄여주세요."
+        )
+    st.caption("✈️ 기내 액체류는 개별 용기 100ml 이하 · 총합 1L(1000ml) 이하만 반입할 수 있어요")
+
+    tab_product, tab_container = st.tabs(["제품", "용기(용량별)"])
+
+    with tab_product:
+        essentials = country.get("essentials") or []
+        if essentials:
+            product_name = st.selectbox("제품 선택", essentials, key="carrier_product_select")
+        else:
+            product_name = st.text_input("제품명", key="carrier_product_name_input")
+        st.number_input(
+            "용량 (ml)", min_value=1, max_value=1000, value=100, step=10, key="carrier_product_volume"
+        )
+        if st.button("캐리어에 담기", key="carrier_add_product_btn", use_container_width=True):
+            _add_carrier_item(product_name, st.session_state.carrier_product_volume)
+            st.rerun()
+
+    with tab_container:
+        st.write("프리셋 용량")
+        preset_cols = st.columns(len(CARRIER_VOLUME_PRESETS))
+        for col, preset in zip(preset_cols, CARRIER_VOLUME_PRESETS):
+            with col:
+                if st.button(f"{preset}ml", key=f"carrier_preset_{preset}", use_container_width=True):
+                    st.session_state.carrier_container_volume = preset
+                    st.rerun()
+        st.number_input(
+            "용량 (ml)", min_value=1, max_value=1000, value=100, step=10, key="carrier_container_volume"
+        )
+        if st.button("캐리어에 담기", key="carrier_add_container_btn", use_container_width=True):
+            volume = st.session_state.carrier_container_volume
+            _add_carrier_item(f"{volume:.0f}ml 용기", volume)
+            st.rerun()
+
+    st.divider()
+    st.markdown(f"**담은 목록** · 총 {len(items)}개 · 총 {total_ml:.0f}ml")
+    if not items:
+        st.caption("아직 담은 액체류가 없어요")
+    else:
+        for i, item in enumerate(items):
+            name_col, vol_col, badge_col, del_col = st.columns(
+                [4, 2, 3, 1], vertical_alignment="center"
+            )
+            with name_col:
+                st.write(item["name"])
+            with vol_col:
+                st.write(f"{item['volume_ml']:.0f}ml")
+            with badge_col:
+                st.write("✅ 반입 가능" if item["allowed"] else f"❌ {item['reason']}")
+            with del_col:
+                if st.button("✕", key=f"carrier_del_{i}", help="목록에서 빼기"):
+                    st.session_state.carrier_items.pop(i)
+                    st.rerun()
+
+    if st.button(
+        "📋 체크리스트로 저장", key="carrier_save_checklist_btn",
+        use_container_width=True, disabled=not items,
+    ):
+        st.session_state.passport_carrier_checklist = list(items)
+        st.toast("📔 뷰티 패스포트에 체크리스트를 저장했어요")
+
+
 def _render_country_sheet_body(kind, country, char, code):
     if kind == "water":
         skin_notes = char.get("skin_type_extra") or []
@@ -4763,7 +4886,7 @@ def _render_country_sheet_body(kind, country, char, code):
         st.link_button("3WAU에서 추천 제품 보러 가기 →", THREE_WAU_STORE_URL, use_container_width=True)
 
     elif kind == "carrier":
-        st.info("🧳 캐리어 담기 서비스는 준비 중이에요! 조금만 기다려주세요 ✨")
+        _render_carrier_packing(country)
 
 
 def render_aftercare():
@@ -5110,7 +5233,6 @@ render_back_button()
 render_top_icons()
 render_ad_reward_button()
 render_coin_celebration()
-render_unlock_burst()
 
 # 화면(view)을 st.empty() 슬롯 하나에 넣어서 그린다. 예전에는 VIEWS[...]()를
 # 바로 호출했는데, 캐릭터 만들기(탭+위젯이 아주 많음)에서 지도(위젯이 훨씬
