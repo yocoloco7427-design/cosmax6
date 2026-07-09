@@ -265,6 +265,16 @@ if "show_page_transition" not in st.session_state:
     st.session_state.show_page_transition = False
 if "bubble_specs" not in st.session_state:
     st.session_state.bubble_specs = None
+if "show_passport" not in st.session_state:
+    st.session_state.show_passport = False
+if "just_opened_passport" not in st.session_state:
+    st.session_state.just_opened_passport = False
+if "passport_page_open" not in st.session_state:
+    st.session_state.passport_page_open = False
+if "just_opened_passport_page" not in st.session_state:
+    st.session_state.just_opened_passport_page = False
+if "passport_notes" not in st.session_state:
+    st.session_state.passport_notes = ""
 
 
 def get_character():
@@ -285,7 +295,6 @@ PARENT_VIEW = {
     "closet": "character",
     "map": "character",
     "country": "map",
-    "passport": "map",
     "aftercare": "map",
 }
 
@@ -318,6 +327,263 @@ def render_back_button():
     if st.button("←", key="back_btn", help="뒤로 가기"):
         goto(parent)
         st.rerun()
+
+
+def render_top_icons():
+    """홈을 제외한 모든 화면 우상단에 떠 있는 아이콘들 — 회색 사이드바 대신
+    쓰는 내비게이션. 뷰티 패스포트는 누르면 큰 애니메이션으로 펼쳐진다."""
+    if st.session_state.view == "home":
+        return
+    st.markdown(
+        """
+        <style>
+        .st-key-top_icons {
+            position: fixed !important; top: 14px !important; right: 14px !important;
+            z-index: 99997 !important; display: flex !important; gap: 9px !important;
+        }
+        .st-key-top_icons .stButton { flex: 0 0 auto !important; }
+        .st-key-top_icons .stButton button {
+            width: 46px !important; height: 46px !important;
+            min-width: 46px !important; max-width: 46px !important;
+            min-height: 46px !important; max-height: 46px !important;
+            border-radius: 50% !important; padding: 0 !important;
+            background: #ffffff !important; border: 3px solid #ff6fb8 !important;
+            font-size: 1.35rem !important; box-shadow: 0 4px 10px rgba(120,40,90,.25);
+            transition: transform .12s ease;
+        }
+        .st-key-top_icons .stButton button:hover { transform: translateY(-2px) scale(1.06); }
+        .st-key-top_icons .stButton button:active { transform: translateY(1px) scale(.96); }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.container(key="top_icons"):
+        if st.button("🗺️", key="nav_map_icon", help="여행지 지도"):
+            goto("map" if get_character() else "character")
+            st.rerun()
+        if st.button("💧", key="nav_aftercare_icon", help="애프터케어"):
+            goto("aftercare" if get_character() else "character")
+            st.rerun()
+        if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
+            st.session_state.show_passport = True
+            st.session_state.just_opened_passport = True
+            st.session_state.passport_page_open = False
+            st.rerun()
+
+
+PASSPORT_FIELD_LABELS = {
+    "name": "NAME · 이름",
+    "gender": "SEX · 성별",
+    "age_range": "AGE · 연령대",
+    "skin_type": "SKIN TYPE · 피부 타입",
+    "hair_type": "HAIR · 헤어",
+    "style": "STYLE · 패션 스타일",
+    "travel_style": "TRAVEL STYLE · 여행 성향",
+}
+
+
+def _passport_field_rows(char):
+    rows = ['<div class="p-field"><span class="p-label">NATIONALITY · 국적</span>'
+            '<span class="p-value">Republic of Cosmax</span></div>']
+    for key, label in PASSPORT_FIELD_LABELS.items():
+        value = char.get(key) or "-"
+        rows.append(f'<div class="p-field"><span class="p-label">{label}</span>'
+                    f'<span class="p-value">{value}</span></div>')
+    personality = ", ".join(char.get("personality") or []) or "-"
+    cosmetic = ", ".join(char.get("cosmetic_prefs") or []) or "-"
+    rows.append(f'<div class="p-field"><span class="p-label">PERSONALITY · 성격 특성</span>'
+                f'<span class="p-value">{personality}</span></div>')
+    rows.append(f'<div class="p-field"><span class="p-label">COSMETIC PREFS · 화장품 취향</span>'
+                f'<span class="p-value">{cosmetic}</span></div>')
+    outfit = char.get("outfit") or {}
+    acc = char.get("accessories") or {}
+    equipped = [
+        _catalog_label(k, v) for k, v in {**outfit, **acc}.items() if v
+    ]
+    equipped_str = ", ".join(equipped) if equipped else "-"
+    rows.append(f'<div class="p-field"><span class="p-label">EQUIPPED · 착용 중</span>'
+                f'<span class="p-value">{equipped_str}</span></div>')
+    return "".join(rows)
+
+
+def _passport_stamps_html(saved):
+    if not saved:
+        return '<div class="stamp-empty">아직 방문 스탬프가 없어요 — 지도에서 여행지를 저장해보세요 ✈️</div>'
+    return "".join(
+        f'<div class="stamp"><div class="stamp-flag">{p["flag"]}</div>'
+        f'<div class="stamp-name">{p["name"]}</div></div>'
+        for p in saved
+    )
+
+
+def render_passport_modal():
+    """뷰티 패스포트 모달 — 2단계로 열린다.
+    1) 아이콘 클릭 -> 아이콘이 그대로 커지는 애니메이션으로 '닫힌 표지'가 화면
+       중앙에 크게 뜬다 (passport-pop, just_opened_passport 1회성).
+    2) 그 표지를 누르면 -> 표지 아래로 정보 페이지가 펼쳐진다 (passport-reveal,
+       just_opened_passport_page 1회성).
+    """
+    if not st.session_state.show_passport:
+        return
+
+    char = get_character() or {}
+    doll_svg = character_doll_svg(char) if char else ""
+    is_open = st.session_state.passport_page_open
+
+    play_pop = st.session_state.just_opened_passport
+    st.session_state.just_opened_passport = False
+    pop_rule = (
+        "animation: passport-pop .55s cubic-bezier(.2,1.55,.3,1) both;" if play_pop else ""
+    )
+
+    play_reveal = st.session_state.just_opened_passport_page
+    st.session_state.just_opened_passport_page = False
+    reveal_rule = (
+        "animation: passport-reveal .45s ease both;" if play_reveal else ""
+    )
+
+    with st.container(key="passport_backdrop"):
+        with st.container(key="passport_book"):
+            html_block(
+                f"""
+                <style>
+                .st-key-passport_backdrop {{
+                    position: fixed !important; inset: 0 !important; z-index: 99998 !important;
+                    background: rgba(45,15,50,.58) !important;
+                    display: flex !important; align-items: center !important; justify-content: center !important;
+                    padding: 3vh 3vw !important;
+                }}
+                .st-key-passport_book {{
+                    max-width: 520px !important; width: 100% !important; max-height: 92vh !important;
+                    overflow-y: auto !important; background: #fff8fb !important;
+                    border-radius: 24px !important; border: 5px solid #ff6fb8 !important;
+                    box-shadow: 0 24px 60px rgba(0,0,0,.4) !important;
+                    padding: 0 !important; {pop_rule}
+                }}
+                @keyframes passport-pop {{
+                    0%   {{ transform: translate(calc(50vw - 40px), calc(40px - 50vh)) scale(.05); opacity: .3; }}
+                    55%  {{ opacity: 1; }}
+                    100% {{ transform: translate(0,0) scale(1); opacity: 1; }}
+                }}
+                .p-cover {{
+                    position: relative; padding: 26px 24px 30px;
+                    background: linear-gradient(160deg,#ff9fd8,#ff6fb8 55%,#e8489a);
+                    border-radius: 19px 19px 0 0; text-align: center; overflow: hidden;
+                }}
+                .p-cover .p-doodle {{
+                    position: absolute; font-size: 1.1rem; color: rgba(255,255,255,.75);
+                }}
+                .p-cover .p-title {{
+                    font-family: 'Gaegu', 'Jua', cursive; font-weight: 700; color: #fff;
+                    font-size: 2rem; letter-spacing: 1px; margin: 6px 0 2px;
+                    text-shadow: 0 2px 0 rgba(180,40,110,.5);
+                }}
+                .p-cover .p-sub {{
+                    font-family: 'Jua', sans-serif; color: rgba(255,255,255,.9); font-size: .95rem;
+                }}
+                .p-cover svg {{ width: 54px; height: 54px; margin-top: 6px; }}
+                .p-body {{ padding: 18px 22px 6px; {reveal_rule} }}
+                @keyframes passport-reveal {{
+                    0%   {{ opacity: 0; transform: translateY(-10px); }}
+                    100% {{ opacity: 1; transform: translateY(0); }}
+                }}
+                .p-photo-row {{ display: flex; gap: 14px; align-items: center; margin-bottom: 8px; }}
+                .p-photo-box {{
+                    width: 86px; height: 108px; flex: 0 0 auto; border-radius: 10px;
+                    background: linear-gradient(160deg,#3b3f7a,#171933);
+                    display: flex; align-items: center; justify-content: center; overflow: hidden;
+                    border: 2px solid #ff6fb8;
+                }}
+                .p-photo-box svg {{ width: 92%; height: auto; }}
+                .p-name-big {{
+                    font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.5rem; color: #9c2f5c;
+                }}
+                .p-passport-no {{ font-family: 'Jua', sans-serif; font-size: .8rem; color: #b26; letter-spacing: 1px; }}
+                .p-field {{
+                    display: flex; justify-content: space-between; gap: 10px;
+                    padding: 7px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
+                    font-family: 'Jua', sans-serif; font-size: .82rem;
+                }}
+                .p-label {{ color: #b23a6e; flex: 0 0 42%; }}
+                .p-value {{ color: #4a2035; font-weight: 700; text-align: right; flex: 1; }}
+                .p-section-title {{
+                    font-family: 'Gaegu', cursive; font-weight: 700; color: #9c2f5c;
+                    font-size: 1.15rem; margin: 16px 0 8px;
+                }}
+                .stamps-grid {{ display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 6px; }}
+                .stamp {{
+                    width: 78px; text-align: center; padding: 8px 4px;
+                    border: 2.5px dashed #ff8fc0; border-radius: 12px;
+                    transform: rotate(-4deg); background: rgba(255,143,192,.06);
+                }}
+                .stamp:nth-child(even) {{ transform: rotate(3deg); }}
+                .stamp-flag {{ font-size: 1.6rem; }}
+                .stamp-name {{
+                    font-family: 'Jua', sans-serif; font-size: .68rem; color: #9c2f5c; margin-top: 2px;
+                }}
+                .stamp-empty {{
+                    font-family: 'Jua', sans-serif; font-size: .85rem; color: #a06; opacity: .8;
+                }}
+                /* 닫힌 표지일 때: 표지 바로 아래에 붙는 '펼치기' 버튼 (표지의 일부처럼 보이게) */
+                .st-key-passport_book .stButton {{ width: 100% !important; margin: 0 !important; }}
+                .st-key-passport_book .stButton button {{
+                    width: 100% !important; border: none !important; border-radius: 0 0 19px 19px !important;
+                    background: linear-gradient(160deg,#ff8fc8,#e8489a) !important;
+                    color: #fff !important; font-family: 'Jua', sans-serif !important; font-size: 1rem !important;
+                    padding: 14px 0 !important; box-shadow: none !important;
+                    animation: p-nudge 1.8s ease-in-out infinite;
+                }}
+                @keyframes p-nudge {{ 0%,100% {{ transform: translateY(0); }} 50% {{ transform: translateY(3px); }} }}
+                </style>
+
+                <div class="p-cover">
+                    <span class="p-doodle" style="top:8px; left:14px;">)</span>
+                    <span class="p-doodle" style="top:8px; right:14px;">✧</span>
+                    <span class="p-doodle" style="bottom:10px; left:16px;">(</span>
+                    <span class="p-doodle" style="bottom:10px; right:16px;">)</span>
+                    <div class="p-title">BEAUTY PASSPORT</div>
+                    <div class="p-sub">Republic of Cosmax</div>
+                    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none"
+                         stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round">
+                        <path d="M32 50c-14 0-22-10-22-10s3-24 22-24 22 24 22 24-8 10-22 10Z"/>
+                        <path d="M32 16v34M24 20c0 10 2 20 8 30M40 20c0 10-2 20-8 30M18 26c2 8 6 16 14 24M46 26c-2 8-6 16-14 24"/>
+                    </svg>
+                </div>
+                """
+            )
+
+            if not is_open:
+                if st.button("톡톡 눌러서 펼치기 ✨", key="open_passport_page_btn"):
+                    st.session_state.passport_page_open = True
+                    st.session_state.just_opened_passport_page = True
+                    st.rerun()
+            else:
+                html_block(
+                    f"""
+                    <div class="p-body">
+                        <div class="p-photo-row">
+                            <div class="p-photo-box">{doll_svg}</div>
+                            <div>
+                                <div class="p-name-big">{char.get("name") or "여행자"}</div>
+                                <div class="p-passport-no">NO. COSMAX-0001</div>
+                            </div>
+                        </div>
+                        {_passport_field_rows(char)}
+                        <div class="p-section-title">✈ VISA STAMPS</div>
+                        <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
+                        <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
+                    </div>
+                    """
+                )
+                st.session_state.passport_notes = st.text_area(
+                    "나만의 여행 꿀팁", value=st.session_state.passport_notes,
+                    key="passport_notes_input", height=110, label_visibility="collapsed",
+                    placeholder="여행하면서 알게 된 나만의 꿀팁을 적어보세요 ...",
+                )
+                if st.button("✕ 닫기", key="close_passport_btn", use_container_width=True):
+                    st.session_state.show_passport = False
+                    st.session_state.passport_page_open = False
+                    st.rerun()
 
 
 BUBBLE_GRID_COLS = 18
@@ -1348,6 +1614,10 @@ def render_character():
         tab_basic, tab_closet, tab_taste = st.tabs(["✨ 기본", "👗 옷장 · 액세서리", "🧭 취향"])
 
         with tab_basic:
+            draft["name"] = st.text_input(
+                "이름", value=draft.get("name", ""), placeholder="캐릭터 이름을 입력하세요",
+                key="char_name_input", max_chars=12,
+            )
             chip_row("성별", GENDERS, "gender")
             chip_row("연령대", AGE_RANGES, "age_range")
             chip_row("피부 타입", SKIN_TYPES, "skin_type")
@@ -1373,6 +1643,7 @@ def render_character():
         st.divider()
         if st.button("캐릭터 완성! →", type="primary", use_container_width=True):
             st.session_state.character = {
+                "name": (draft.get("name") or "").strip() or "여행자",
                 "gender": draft.get("gender") or GENDERS[0],
                 "skin_type": draft.get("skin_type") or SKIN_TYPES[0],
                 "skin_tone": draft.get("skin_tone") or SKIN_TONES[0]["hex"],
@@ -1517,22 +1788,6 @@ def render_country():
                 st.rerun()
 
 
-def render_passport():
-    st.title("📘 내 여행 여권")
-    passport = get_passport()
-    if not passport:
-        st.info("아직 저장한 여행지가 없어요. 지도에서 여행지를 둘러보세요!")
-        if st.button("🗺️ 지도로 가기"):
-            goto("map")
-            st.rerun()
-        return
-
-    for p in passport:
-        with st.container(border=True):
-            st.markdown(f"### {p['flag']} {p['name']}")
-            st.caption(f"챙길 것: {p['tip']}")
-
-
 def render_aftercare():
     st.title("💧 애프터케어")
     st.caption("여행 후 피부 상태에 맞는 케어 루틴을 확인하세요")
@@ -1546,36 +1801,14 @@ def render_aftercare():
 
 
 # ----------------------------------------------------------------------
-# 사이드바 내비게이션
+# 사이드바는 어떤 화면에서도 쓰지 않는다 — 대신 우상단 아이콘(지도/애프터케어/
+# 뷰티 패스포트)과 뒤로가기 버튼으로 내비게이션한다.
 # ----------------------------------------------------------------------
-# 홈 화면은 게임 인트로 느낌을 위해 사이드바를 아예 띄우지 않는다.
-if st.session_state.view != "home":
-    with st.sidebar:
-        st.title("🧴 TravelMax+")
-        character = get_character()
-        if character:
-            st.caption(f"{character['gender']} · {character['skin_type']} 피부")
-            if st.button("🗺️ 지도", use_container_width=True):
-                goto("map")
-                st.rerun()
-            if st.button(f"📘 여권 ({len(get_passport())})", use_container_width=True):
-                goto("passport")
-                st.rerun()
-            if st.button("💧 애프터케어", use_container_width=True):
-                goto("aftercare")
-                st.rerun()
-            st.divider()
-            if st.button("👤 캐릭터 다시 설정", use_container_width=True):
-                goto("character")
-                st.rerun()
-        else:
-            st.caption("캐릭터를 먼저 만들어보세요!")
-else:
-    st.markdown(
-        '<style>section[data-testid="stSidebar"], div[data-testid="stSidebarCollapsedControl"] '
-        "{ display: none !important; } </style>",
-        unsafe_allow_html=True,
-    )
+st.markdown(
+    '<style>section[data-testid="stSidebar"], div[data-testid="stSidebarCollapsedControl"] '
+    "{ display: none !important; } </style>",
+    unsafe_allow_html=True,
+)
 
 # ----------------------------------------------------------------------
 # 화면 라우팅
@@ -1588,9 +1821,10 @@ VIEWS = {
     "closet": render_closet,
     "map": render_map,
     "country": render_country,
-    "passport": render_passport,
     "aftercare": render_aftercare,
 }
 render_bubble_clear()
+render_passport_modal()
 render_back_button()
+render_top_icons()
 VIEWS.get(st.session_state.view, render_home)()
