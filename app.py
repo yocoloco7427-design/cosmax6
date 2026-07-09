@@ -598,8 +598,8 @@ def render_home():
             width: auto; max-width: 94%;
             text-align: center;
             font-family: 'Gamja Flower', 'Jua', cursive;
-            font-size: clamp(2.6rem,6vw,4.2rem);
-            font-weight: 700; line-height: 1.35;
+            font-size: clamp(3.2rem,8vw,6.2rem);
+            font-weight: 700; line-height: 1.3;
             color: #ffffff; z-index: 6;
             padding: .25em 1em;
             background: linear-gradient(180deg, rgba(130,55,150,.62), rgba(95,30,115,.5));
@@ -713,19 +713,29 @@ def render_home():
                 0%   {{ opacity: 0; transform: translateY(34px) scale(.85); }}
                 100% {{ opacity: 1; transform: translateY(0)    scale(1); }}
             }}
-            /* 버튼도 같은 다이얼로그 박스 안의 자식이므로 여기서 폭 100%로 펴서 가운데 정렬 */
+            /* 버튼을 감싸는 실제 래퍼가 어느 계층인지 버전마다 다를 수 있어 여러 후보
+               선택자에 전부 flex-center를 건다. :has(button)으로 버튼을 담은 박스만
+               한정해서, 위쪽 title/body 마크다운 박스의 세로 배치는 건드리지 않는다 */
+            .st-key-start_dialog > div:has(button),
+            .st-key-start_dialog [data-testid="element-container"]:has(button),
+            .st-key-start_dialog [data-testid="stButton"],
             .st-key-start_dialog .stButton {{
-                width: 100% !important; display: flex !important; justify-content: center !important;
+                width: 100% !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+            }}
+            .st-key-start_dialog .stButton {{
                 padding: 4px 0 20px !important; margin: 0 !important;
             }}
             .st-key-start_dialog .stButton button {{
-                width: 78px !important; height: 46px !important;
-                min-width: 78px !important; max-width: 78px !important;
-                min-height: 46px !important; max-height: 46px !important;
-                padding: 0 !important; margin: 0 !important;
+                width: 150px !important; height: 50px !important;
+                min-width: 150px !important; max-width: 150px !important;
+                min-height: 50px !important; max-height: 50px !important;
+                padding: 0 !important; margin: 0 auto !important;
                 box-sizing: border-box !important; overflow: hidden !important;
                 background: #fff0f6 !important; border: 3px solid #b23a6e !important;
-                border-radius: 5px !important; box-shadow: inset 0 0 0 2px #ffd0e6;
+                border-radius: 8px !important; box-shadow: inset 0 0 0 2px #ffd0e6;
                 position: relative !important; display: block !important;
                 transition: transform .1s ease;
             }}
@@ -739,7 +749,7 @@ def render_home():
             .st-key-start_dialog .stButton button:active {{ transform: translateY(1px); }}
             .st-key-start_dialog .stButton button::before {{
                 content: ''; position: absolute; left: 50%; top: 50%;
-                width: 34px; height: 30px; transform: translate(-50%,-50%);
+                width: 40px; height: 34px; transform: translate(-50%,-50%);
                 background-image: url('{HEART_BUTTON_URI}');
                 background-size: contain; background-repeat: no-repeat;
                 image-rendering: pixelated;
