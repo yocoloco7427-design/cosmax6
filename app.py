@@ -2412,7 +2412,15 @@ def _render_world_map_with_pins():
         html_block(
             f"""
             <style>
-            .st-key-world_map_area {{ position: relative; width: 100%; }}
+            /* 화면에 거의 꽉 차게 — Streamlit 본문의 중앙 정렬 폭 제한을 무시하고
+               뷰포트 기준으로 폭을 잡는다 (흔히 쓰는 "full-bleed" 트릭:
+               left:50% + translateX(-50%)는 레이아웃 폭에는 영향을 주지 않고
+               화면상 위치만 뷰포트 중앙으로 옮긴다). */
+            .st-key-world_map_area {{
+                position: relative !important;
+                width: min(96vw, {85 * WORLD_MAP_VIEWBOX_W / WORLD_MAP_VIEWBOX_H:.2f}vh) !important;
+                left: 50% !important; transform: translateX(-50%) !important;
+            }}
             .world-map-frame {{
                 position: relative; width: 100%;
                 aspect-ratio: {WORLD_MAP_VIEWBOX_W} / {WORLD_MAP_VIEWBOX_H};
