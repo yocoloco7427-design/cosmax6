@@ -10,7 +10,7 @@ import math
 import random
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import quote as urlquote
 
@@ -630,6 +630,44 @@ POTION_ICON_SVG = """
 """
 POTION_ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(POTION_ICON_SVG.strip().encode()).decode()
 
+# 여행 후 피부 복귀 프로그램 입구 아이콘 — 사용자가 준 참고 사진(둥근 지붕이
+# 그대로 벽으로 이어지는 퍼리윙클/라벤더 블루 3D 하우스 + 2x2 둥근 사각형
+# 창문)을 재현한 SVG.
+HOME_ICON_SVG = """
+<svg viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="homeBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#d3d9ff"/>
+      <stop offset="50%" stop-color="#a5b2f7"/>
+      <stop offset="100%" stop-color="#7c8bee"/>
+    </linearGradient>
+  </defs>
+  <path d="M100,10
+           C107,10 114,13 119,19
+           L183,84
+           C193,94 193,111 178,117
+           C167,121 156,118 149,109
+           L149,163
+           C149,176 139,186 126,186
+           L74,186
+           C61,186 51,176 51,163
+           L51,109
+           C44,118 33,121 22,117
+           C7,111 7,94 17,84
+           L81,19
+           C86,13 93,10 100,10 Z"
+        fill="url(#homeBody)"/>
+  <ellipse cx="70" cy="46" rx="30" ry="16" fill="#ffffff" opacity=".22"/>
+  <g fill="#f4f6ff">
+    <rect x="70" y="118" width="27" height="27" rx="8"/>
+    <rect x="103" y="118" width="27" height="27" rx="8"/>
+    <rect x="70" y="151" width="27" height="27" rx="8"/>
+    <rect x="103" y="151" width="27" height="27" rx="8"/>
+  </g>
+</svg>
+"""
+HOME_ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(HOME_ICON_SVG.strip().encode()).decode()
+
 # 얼굴 스캔하기 아이콘 — 뷰파인더 모서리 브래킷 + 얼굴 실루엣 + 스캔 라인.
 FACE_SCAN_ICON_SVG = """
 <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
@@ -753,9 +791,20 @@ RECOVERY_CONCERN_PRIORITY_TIER = {
     "트러블": 2,
     "건조": 3,
     "피부결/각질": 3,
+    "모공": 3,
     "칙칙함/톤": 4,
+    "피부 톤 불균일": 4,
+    "기미": 4,
+    "다크서클": 4,
 }
 RECOVERY_SEVERITY_BY_TIER = {1: 5, 2: 4, 3: 3, 4: 2}
+
+# "빠른 추가" 칩 목록 — 여행 중 고민 기록 화면(01단계)에서 원터치로 추가할 수
+# 있는 고민 카테고리. 값은 모두 RECOVERY_PRODUCT_CATALOG의 target_concern과
+# 일치해야 제품이 매칭된다.
+RECOVERY_QUICK_ADD_CHIPS = [
+    "피부 톤 불균일", "기미", "건조", "트러블", "모공", "다크서클", "자극/붉음", "칙칙함/톤",
+]
 
 # 여행 후 설문조사 5문항 — 각 옵션이 가리키는 target_concern 키로 로직이
 # 연결된다. 문항은 서로 독립적이라 여러 개를 동시에 "해당"으로 고를 수 있다.
@@ -793,6 +842,34 @@ RECOVERY_SURVEY_QUESTIONS = [
         "options": [
             {"label": "건조하고 각질이 일어난다", "concern": "건조"},
             {"label": "그렇지 않다", "concern": None},
+        ],
+    },
+    {
+        "id": "tone_uneven", "prompt": "나는 여행 후 피부 톤이",
+        "options": [
+            {"label": "부분적으로 불균일해졌다", "concern": "피부 톤 불균일"},
+            {"label": "고르게 유지됐다", "concern": None},
+        ],
+    },
+    {
+        "id": "pigment", "prompt": "나는 여행 후 기미/잡티가",
+        "options": [
+            {"label": "또렷해졌다", "concern": "기미"},
+            {"label": "그대로다", "concern": None},
+        ],
+    },
+    {
+        "id": "pore", "prompt": "나는 여행 후 모공이",
+        "options": [
+            {"label": "넓어지고 두드러진다", "concern": "모공"},
+            {"label": "그렇지 않다", "concern": None},
+        ],
+    },
+    {
+        "id": "darkcircle", "prompt": "나는 여행 후 다크서클이",
+        "options": [
+            {"label": "더 진해졌다", "concern": "다크서클"},
+            {"label": "그대로다", "concern": None},
         ],
     },
 ]
@@ -986,13 +1063,21 @@ if "diagnosis_country" not in st.session_state:
 if "diagnosis_result" not in st.session_state:
     st.session_state.diagnosis_result = None
 if "recovery_stage" not in st.session_state:
-    st.session_state.recovery_stage = "pick_trip"  # "pick_trip" | "survey" | "result"
+    st.session_state.recovery_stage = "pick_trip"  # pick_trip|survey|concern_log|priority|analyzing|result
 if "recovery_trip_code" not in st.session_state:
     st.session_state.recovery_trip_code = None
+if "recovery_trip_start" not in st.session_state:
+    st.session_state.recovery_trip_start = None
+if "recovery_trip_end" not in st.session_state:
+    st.session_state.recovery_trip_end = None
 if "recovery_answers" not in st.session_state:
     st.session_state.recovery_answers = {}  # 문항 id -> 고른 concern (또는 None)
 if "recovery_flight_hours" not in st.session_state:
     st.session_state.recovery_flight_hours = 3.0
+if "recovery_logged_issues" not in st.session_state:
+    st.session_state.recovery_logged_issues = []  # [{issue, frequency, severity}, ...] 편집 가능한 고민 기록
+if "recovery_minimal_ingredients" not in st.session_state:
+    st.session_state.recovery_minimal_ingredients = False
 if "recovery_program" not in st.session_state:
     st.session_state.recovery_program = None
 if "skin_scan" not in st.session_state:
@@ -1325,7 +1410,7 @@ def render_top_icons():
     html_block(
         f"""
         <style>
-        .st-key-nav_map_icon button, .st-key-open_passport_icon button, .st-key-open_recovery_icon button {{
+        .st-key-nav_map_icon button, .st-key-open_passport_icon button {{
             position: fixed !important; top: 60px !important;
             z-index: 99997 !important;
             width: 62px !important; height: 62px !important;
@@ -1338,13 +1423,10 @@ def render_top_icons():
         }}
         .st-key-nav_map_icon button {{ right: 92px !important; }}
         .st-key-open_passport_icon button {{ right: 16px !important; }}
-        .st-key-open_recovery_icon button {{ right: 168px !important; }}
-        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover,
-        .st-key-open_recovery_icon button:hover {{
+        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover {{
             transform: translateY(-2px) scale(1.06);
         }}
-        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active,
-        .st-key-open_recovery_icon button:active {{
+        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active {{
             transform: translateY(1px) scale(.96);
         }}
         /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 */
@@ -1360,10 +1442,6 @@ def render_top_icons():
     if st.button("🗺️", key="nav_map_icon", help="여행지 지도"):
         st.session_state.map_globe_opened = True  # 지구본 단계를 건너뛰고 세계지도를 바로 띄움
         goto("map" if get_character() else "character")
-        st.rerun()
-    if st.button("🏠", key="open_recovery_icon", help="여행 후 피부 복귀 프로그램"):
-        st.session_state.recovery_stage = "pick_trip"
-        goto("recovery")
         st.rerun()
     if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
         st.session_state.show_passport = True
@@ -3850,6 +3928,9 @@ def _map_globe_gate():
             text-align: center; font-family: 'Jua', sans-serif; font-size: 1.5rem;
             font-weight: 700; color: #5a4a7a; margin: 4px 0 6px;
         }}
+        /* 지구 + 여행 후 복귀 아이콘을 같이 담는 바깥 행 — 아이콘을 지구 오른쪽에
+           절대좌표로 앉히기 위한 기준점(position:relative)이 필요해서 만든다. */
+        .st-key-globe_stage_row {{ position: relative !important; width: 100% !important; }}
         /* 버튼 자체가 아니라 버튼을 감싸는 st-key wrapper를 flex로 중앙 정렬한다 —
            Streamlit이 위젯을 자체적으로 flex 컨테이너에 넣는 경우가 있어서, 버튼에
            margin:auto만 주면 안 먹히고 왼쪽에 붙어버리는 문제가 있었다. */
@@ -3906,13 +3987,52 @@ def _map_globe_gate():
             .st-key-open_world_map.st-key-open_world_map button,
             .st-key-open_world_map.st-key-open_world_map button::before {{ animation: none !important; }}
         }}
+        /* 여행 후 피부 복귀 프로그램 아이콘 — 지구 오른쪽에 절대좌표로 배치.
+           지구 자체가 clamp(330px,69vw,{_MAP_GLOBE_MAX_PX}px)라 그 절반 폭만큼
+           오른쪽으로 밀어야 지구 크기가 화면마다 달라져도 항상 지구 바로
+           옆(오른쪽)에 붙는다.
+           Streamlit이 각 위젯의 element-container에 기본으로 position:relative를
+           걸어두기 때문에, 버튼에 position:absolute를 줘도 기준점(containing
+           block)이 globe_stage_row가 아니라 이 바로 위 element-container가 되어버려
+           지구 옆이 아니라 자기 자리(지구 아래, 왼쪽 정렬)에 그대로 눌러앉는 버그가
+           있었다 — element-container의 position을 static으로 되돌려 기준점이 한 단계
+           위 globe_stage_row(position:relative)로 올라가도록 고쳤다. */
+        .st-key-open_recovery_from_globe {{ position: static !important; }}
+        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button {{
+            position: absolute !important;
+            top: calc(14px + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px)) !important;
+            left: calc(50% + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px) + 28px) !important;
+            transform: translateY(-50%) !important;
+            width: clamp(64px, 9vw, 96px) !important; height: clamp(64px, 9vw, 96px) !important;
+            min-width: 0 !important; max-width: none !important;
+            border-radius: 50% !important; border: 3px solid #ff6fb8 !important; padding: 0 !important;
+            background-color: #fff8fb !important;
+            background-image: url('{HOME_ICON_URI}') !important;
+            background-size: 108% 108% !important; background-position: center !important;
+            background-repeat: no-repeat !important;
+            color: transparent !important; font-size: 0 !important; overflow: hidden !important;
+            box-shadow: 0 4px 10px rgba(120,40,90,.25);
+            transition: transform .12s ease;
+            z-index: 5;
+        }}
+        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:hover {{
+            transform: translateY(-50%) scale(1.06) !important;
+        }}
+        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:active {{
+            transform: translateY(-50%) scale(.96) !important;
+        }}
         </style>
         <div class="map-globe-hint">🌍 지구를 눌러 세계지도를 펼쳐보세요</div>
         """
     )
-    if st.button(" ", key="open_world_map"):
-        st.session_state.map_globe_opened = True
-        st.rerun()
+    with st.container(key="globe_stage_row"):
+        if st.button(" ", key="open_world_map"):
+            st.session_state.map_globe_opened = True
+            st.rerun()
+        if st.button(" ", key="open_recovery_from_globe", help="여행 후 피부 복귀 프로그램"):
+            st.session_state.recovery_stage = "pick_trip"
+            goto("recovery")
+            st.rerun()
 
 
 def _dismiss_world_map():
@@ -5275,9 +5395,10 @@ def render_aftercare():
 
 # ----------------------------------------------------------------------
 # 여행 후 피부 복귀 프로그램 — 여행 "중"이 아니라 귀국한 뒤의 피부를 챙기는
-# 별도 흐름. 우상단 🏠 아이콘으로 언제든 들어올 수 있고, 내부적으로
-# pick_trip(기준 여행 고르기) -> survey(5문항) -> result(7일 프로그램) 3단계를
-# recovery_stage로 관리한다.
+# 별도 흐름. 지구본 옆 🏠 아이콘으로 언제든 들어올 수 있고, 내부적으로
+# pick_trip(기준 여행/날짜 고르기) -> survey(문항) -> concern_log(고민 기록
+# 확인·수정) -> priority(우선순위 확인) -> analyzing(분석 연출) -> result(7일
+# 프로그램) 6단계를 recovery_stage로 관리한다.
 # ----------------------------------------------------------------------
 def render_recovery():
     if not get_character():
@@ -5287,6 +5408,12 @@ def render_recovery():
     stage = st.session_state.recovery_stage
     if stage == "survey":
         _render_recovery_survey()
+    elif stage == "concern_log":
+        _render_recovery_concern_log()
+    elif stage == "priority":
+        _render_recovery_priority()
+    elif stage == "analyzing":
+        _render_recovery_analyzing()
     elif stage == "result":
         _render_recovery_result()
     else:
@@ -5299,11 +5426,27 @@ def _render_recovery_pick_trip():
     saved = get_passport()
     if saved:
         labels = [f"{p['flag']} {p['name']}" for p in saved]
-        choice = st.selectbox("어떤 여행을 기준으로 할까요?", labels, index=len(labels) - 1)
+        choice = st.selectbox(
+            "어떤 여행을 기준으로 할까요? (⭐ 즐겨찾기한 여행만 표시돼요)", labels, index=len(labels) - 1,
+        )
         st.session_state.recovery_trip_code = saved[labels.index(choice)]["code"]
     else:
-        st.info("아직 뷰티 패스포트에 저장된 여행이 없어요 — 설문 응답만으로 진행할게요.")
+        st.info("아직 뷰티 패스포트에 즐겨찾기(⭐)한 여행이 없어요 — 설문 응답만으로 진행할게요.")
         st.session_state.recovery_trip_code = None
+
+    col1, col2 = st.columns(2)
+    with col1:
+        start_default = st.session_state.recovery_trip_start or (datetime.now().date() - timedelta(days=7))
+        st.session_state.recovery_trip_start = st.date_input("출발일", value=start_default)
+    with col2:
+        end_default = st.session_state.recovery_trip_end or datetime.now().date()
+        if end_default < st.session_state.recovery_trip_start:
+            end_default = st.session_state.recovery_trip_start
+        st.session_state.recovery_trip_end = st.date_input(
+            "귀국일", value=end_default, min_value=st.session_state.recovery_trip_start,
+        )
+    nights = max((st.session_state.recovery_trip_end - st.session_state.recovery_trip_start).days, 0)
+    st.caption(f"{nights}박 {nights + 1}일 여행이었네요.")
 
     st.session_state.recovery_flight_hours = st.slider(
         "비행 시간(시간)", 0.0, 20.0, st.session_state.recovery_flight_hours, 0.5,
@@ -5337,64 +5480,280 @@ def _render_recovery_survey():
     all_answered = answered == total
     if not all_answered:
         st.caption(f"{answered}/{total}문항 응답했어요")
-    if st.button("복귀 프로그램 만들기 →", type="primary", use_container_width=True, disabled=not all_answered):
+    if st.button("고민 기록 확인 →", type="primary", use_container_width=True, disabled=not all_answered):
         concerns_map = {q["id"]: q["options"][answers[q["id"]]]["concern"] for q in RECOVERY_SURVEY_QUESTIONS}
-        logged_issues = build_recovery_logged_issues(concerns_map)
-        minimal_ingredients = concerns_map.get("sensitive") == "자극/붉음"
-        code = st.session_state.recovery_trip_code
-        country = COUNTRIES.get(code) if code else None
-        st.session_state.recovery_program = generate_recovery_program(
-            logged_issues, st.session_state.recovery_flight_hours, minimal_ingredients, country,
-        )
-        st.session_state.recovery_stage = "result"
+        st.session_state.recovery_logged_issues = build_recovery_logged_issues(concerns_map)
+        st.session_state.recovery_minimal_ingredients = concerns_map.get("sensitive") == "자극/붉음"
+        st.session_state.recovery_stage = "concern_log"
         st.rerun()
     if st.button("⬅ 여행 다시 고르기", key="recovery_back_to_pick"):
         st.session_state.recovery_stage = "pick_trip"
         st.rerun()
 
 
+def _render_recovery_concern_log():
+    st.caption("01 · 여행 중 고민 기록")
+    st.title("어떤 게 힘들었나요?")
+    st.caption("얼마나 자주 신경 쓰였는지(빈도)와 얼마나 심했는지(심각도)를 매겨두세요. 설문 답변으로 자동 채워졌고, 자유롭게 고쳐도 돼요.")
+
+    issues = st.session_state.recovery_logged_issues
+    remove_idx = None
+    for idx, issue in enumerate(issues):
+        score = issue["frequency"] * issue["severity"]
+        c_name, c_freq, c_sev, c_del = st.columns([3, 1.3, 1.3, 0.6])
+        c_name.markdown(f"**{html.escape(issue['issue'])}**  \n:gray[score {score}]")
+        issue["frequency"] = c_freq.number_input("빈도", 1, 10, issue["frequency"], key=f"log_freq_{idx}")
+        issue["severity"] = c_sev.number_input("심각도", 1, 5, issue["severity"], key=f"log_sev_{idx}")
+        c_del.write("")
+        if c_del.button("✕", key=f"log_del_{idx}"):
+            remove_idx = idx
+    if remove_idx is not None:
+        issues.pop(remove_idx)
+        st.rerun()
+    if issues:
+        st.divider()
+
+    st.markdown("**빠른 추가**")
+    existing = {i["issue"] for i in issues}
+    remaining_chips = [c for c in RECOVERY_QUICK_ADD_CHIPS if c not in existing]
+    if remaining_chips:
+        chip_cols = st.columns(4)
+        for i, chip in enumerate(remaining_chips):
+            if chip_cols[i % 4].button(chip, key=f"log_chip_{chip}", use_container_width=True):
+                tier = RECOVERY_CONCERN_PRIORITY_TIER.get(chip, 4)
+                issues.append({"issue": chip, "frequency": 2, "severity": RECOVERY_SEVERITY_BY_TIER.get(tier, 2)})
+                st.rerun()
+    else:
+        st.caption("모든 항목을 이미 추가했어요.")
+
+    st.markdown("**직접 추가**")
+    c1, c2, c3, c4 = st.columns([3, 1, 1, 1])
+    custom_label = c1.text_input(
+        "고민을 입력하세요 (예: 피부 톤 불균일)", key="log_custom_label", label_visibility="collapsed",
+    )
+    custom_freq = c2.number_input("빈도", 1, 10, 3, key="log_custom_freq")
+    custom_sev = c3.number_input("심각도", 1, 5, 3, key="log_custom_sev")
+    if c4.button("추가", key="log_custom_add", use_container_width=True) and custom_label.strip():
+        issues.append({"issue": custom_label.strip(), "frequency": custom_freq, "severity": custom_sev})
+        st.rerun()
+
+    st.divider()
+    nav1, nav2 = st.columns(2)
+    with nav1:
+        if st.button("⬅ 설문 다시 하기", use_container_width=True):
+            st.session_state.recovery_stage = "survey"
+            st.rerun()
+    with nav2:
+        if st.button("우선순위 확인 →", type="primary", use_container_width=True, disabled=not issues):
+            st.session_state.recovery_stage = "priority"
+            st.rerun()
+
+
+_RECOVERY_RANK_CARD_CSS = """
+<style>
+.recovery-rank-card { background:#131a2b; border-radius:18px; padding:22px 24px; margin:8px 0 20px; }
+.recovery-rank-row { margin-bottom:18px; }
+.recovery-rank-row:last-child { margin-bottom:0; }
+.recovery-rank-head { display:flex; align-items:center; gap:10px; color:#eef1fb; font-size:1.05rem;
+    margin-bottom:8px; flex-wrap:wrap; }
+.recovery-rank-name { font-weight:700; }
+.recovery-rank-score { margin-left:auto; color:#9aa1b8; font-size:.85rem; }
+.recovery-badge { font-size:.72rem; font-weight:700; letter-spacing:.03em; padding:3px 9px; border-radius:6px; }
+.recovery-badge-primary { background:#3d3315; color:#f5c344; }
+.recovery-badge-secondary { background:#123329; color:#3ecf9e; }
+.recovery-rank-track { background:#232b40; border-radius:6px; height:8px; overflow:hidden; }
+.recovery-rank-fill { height:100%; border-radius:6px; }
+</style>
+"""
+
+
+def _recovery_ranking_card_html(ranking):
+    max_score = max((r["score"] for r in ranking), default=1) or 1
+    rows_html = ""
+    for idx, r in enumerate(ranking):
+        badge_html, bar_color = "", "#8a8fa3"
+        if idx == 0:
+            badge_html = '<span class="recovery-badge recovery-badge-primary">PRIMARY</span>'
+            bar_color = "#f5c344"
+        elif idx == 1:
+            badge_html = '<span class="recovery-badge recovery-badge-secondary">SECONDARY</span>'
+            bar_color = "#3ecf9e"
+        pct = round(r["score"] / max_score * 100)
+        rows_html += f"""
+        <div class="recovery-rank-row">
+            <div class="recovery-rank-head">{badge_html}<span class="recovery-rank-name">{html.escape(r['issue'])}</span>
+                <span class="recovery-rank-score">{r['score']}점 (빈도{r['frequency']}×심각도{r['severity']})</span></div>
+            <div class="recovery-rank-track"><div class="recovery-rank-fill" style="width:{pct}%;background:{bar_color};"></div></div>
+        </div>"""
+    return f'{_RECOVERY_RANK_CARD_CSS}<div class="recovery-rank-card">{rows_html}</div>'
+
+
+def _render_recovery_priority():
+    st.caption("02 · 우선순위")
+    st.title("무엇부터 케어할까요")
+    st.caption("점수 = 빈도 × 심각도. 가장 높은 두 가지가 primary·secondary stressor가 돼요.")
+
+    ranking = compute_recovery_stressor_ranking(st.session_state.recovery_logged_issues)
+    html_block(_recovery_ranking_card_html(ranking))
+
+    nav1, nav2 = st.columns(2)
+    with nav1:
+        if st.button("⬅ 고민 기록 수정", use_container_width=True):
+            st.session_state.recovery_stage = "concern_log"
+            st.rerun()
+    with nav2:
+        if st.button("7일 프로그램 만들기 →", type="primary", use_container_width=True):
+            st.session_state.recovery_stage = "analyzing"
+            st.rerun()
+
+
+def _render_recovery_analyzing():
+    st.title("🔎 피부 상태를 분석하고 필요한 제품을 추천중입니다")
+    html_block(
+        """
+        <style>
+        @keyframes recov-potion-shake {
+            0%,100% { transform: rotate(0deg); }
+            25%     { transform: rotate(-6deg); }
+            75%     { transform: rotate(6deg); }
+        }
+        .recov-analyzing-icon { display:block; margin:6px auto 0; width:120px;
+            animation: recov-potion-shake .5s ease-in-out infinite; }
+        </style>
+        """
+        + f'<div class="recov-analyzing-icon">{POTION_ICON_SVG}</div>'
+    )
+
+    bar = st.progress(0)
+    pct_slot = st.empty()
+    step_slot = st.empty()
+    steps_text = [
+        "여행 중 고민 데이터를 확인하는 중...",
+        "우선순위 stressor를 계산하는 중...",
+        "카탈로그에서 맞는 제품을 매칭하는 중...",
+        "7일 프로그램을 구성하는 중...",
+    ]
+    n = 34
+    for i in range(n + 1):
+        pct = int(i / n * 100)
+        bar.progress(pct / 100)
+        pct_slot.markdown(
+            f'<div style="text-align:center;font-family:\'Jua\',sans-serif;font-size:1.7rem;'
+            f'color:#ff6fb8;">{pct}%</div>',
+            unsafe_allow_html=True,
+        )
+        step_slot.caption(steps_text[min(i * len(steps_text) // (n + 1), len(steps_text) - 1)])
+        time.sleep(0.1)  # n=34 x 0.1s = 3.4초
+
+    code = st.session_state.recovery_trip_code
+    country = COUNTRIES.get(code) if code else None
+    st.session_state.recovery_program = generate_recovery_program(
+        st.session_state.recovery_logged_issues,
+        st.session_state.recovery_flight_hours,
+        st.session_state.recovery_minimal_ingredients,
+        country,
+    )
+    st.session_state.recovery_stage = "result"
+    st.rerun()
+
+
 def _render_recovery_result():
     st.title("🏠 나만의 7일 피부 복귀 프로그램")
     code = st.session_state.recovery_trip_code
     country = COUNTRIES.get(code) if code else None
+    trip_bits = []
     if country:
-        st.caption(f"{country['flag']} {country['name']} 여행을 기준으로 짜봤어요")
+        trip_bits.append(f"{country['flag']} {country['name']}")
+    start, end = st.session_state.recovery_trip_start, st.session_state.recovery_trip_end
+    if start and end:
+        nights = max((end - start).days, 0)
+        trip_bits.append(f"{start:%Y.%m.%d} ~ {end:%Y.%m.%d} ({nights}박{nights + 1}일)")
+    if trip_bits:
+        st.caption(" · ".join(trip_bits) + " 여행을 기준으로 짜봤어요")
 
     program = st.session_state.recovery_program
     if not program or not program["days"]:
         st.success("여행 중 특별히 힘들었던 피부 고민이 없었네요! 평소 루틴을 가볍게 유지해보세요 ✨")
     else:
         st.markdown("### 우선순위")
-        for i, r in enumerate(program["ranking"]):
-            tag = "🥇 PRIMARY · " if i == 0 else ("🥈 SECONDARY · " if i == 1 else "")
-            st.write(f"{tag}{r['issue']} — 점수 {r['score']} (빈도{r['frequency']} × 심각도{r['severity']})")
+        html_block(_recovery_ranking_card_html(program["ranking"]))
 
         st.markdown("### 7일 여정표")
+        html_block(
+            """
+            <style>
+            .recovery-day-card { background:#131a2b; border-radius:16px; padding:18px 22px; margin-bottom:14px; }
+            .recovery-day-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+            .recovery-day-num { background:#ff6fb8; color:#fff; font-weight:800; border-radius:8px;
+                padding:2px 10px; font-size:.9rem; }
+            .recovery-day-label { color:#eef1fb; font-weight:700; font-size:1.05rem; }
+            .recovery-day-badge { margin-left:auto; background:#2b2440; color:#c9a6ff; font-size:.75rem;
+                padding:2px 9px; border-radius:6px; }
+            .recovery-product-name { color:#ffd9ec; font-weight:700; margin-top:4px; }
+            .recovery-product-meta { color:#9aa1b8; font-size:.82rem; margin:2px 0 6px; }
+            .recovery-product-desc { color:#d8dcec; font-size:.92rem; line-height:1.5; }
+            .recovery-note { margin-top:10px; background:#20283d; border-left:3px solid #7c8bee;
+                padding:8px 12px; border-radius:8px; color:#cfd4ea; font-size:.85rem; }
+            .recovery-context { margin-top:6px; color:#f5c344; font-size:.82rem; }
+            </style>
+            """
+        )
         for d in program["days"]:
-            with st.container(border=True):
-                title_line = f"DAY {d['day']} · {d['label']}"
-                if d.get("badge"):
-                    title_line += f"  ·  ✈ {d['badge']}"
-                st.markdown(f"**{title_line}**")
-                if d["product"]:
-                    p = d["product"]
-                    st.write(f"🧴 **{p['name']}** · {p['texture']}")
-                    st.caption(" · ".join(p["key_ingredients"]))
-                    st.write(p["description"])
-                elif d["day"] == 7:
-                    st.checkbox("붉은기가 남아있나요?", key="recov_check_1")
-                    st.checkbox("당김·건조함이 남아있나요?", key="recov_check_2")
-                    st.checkbox("트러블 자리가 진정됐나요?", key="recov_check_3")
-                    st.caption("셀프 체크만 하는 날이에요. 꼭 필요하면 평소 쓰던 보습제 정도만 가볍게 사용하세요.")
-                if d.get("note"):
-                    st.info(d["note"])
-                if d.get("context_note"):
-                    st.caption(f"✈️ {d['context_note']}")
+            badge_html = (
+                f'<span class="recovery-day-badge">✈ {html.escape(d["badge"])}</span>' if d.get("badge") else ""
+            )
+            product_html = ""
+            if d["product"]:
+                p = d["product"]
+                product_html = f"""
+                <div class="recovery-product-name">🧴 {html.escape(p['name'])} · {html.escape(p['texture'])}</div>
+                <div class="recovery-product-meta">{' · '.join(html.escape(k) for k in p['key_ingredients'])}</div>
+                <div class="recovery-product-desc">{html.escape(p['description'])}</div>
+                """
+            note_html = f'<div class="recovery-note">💬 {html.escape(d["note"])}</div>' if d.get("note") else ""
+            context_html = (
+                f'<div class="recovery-context">✈️ {html.escape(d["context_note"])}</div>'
+                if d.get("context_note") else ""
+            )
+            html_block(f"""
+                <div class="recovery-day-card">
+                    <div class="recovery-day-top">
+                        <span class="recovery-day-num">DAY {d['day']}</span>
+                        <span class="recovery-day-label">{html.escape(d['label'])}</span>
+                        {badge_html}
+                    </div>
+                    {product_html}
+                    {note_html}
+                    {context_html}
+                </div>
+            """)
+            if d["day"] == 7 and not d["product"]:
+                st.checkbox("붉은기가 남아있나요?", key="recov_check_1")
+                st.checkbox("당김·건조함이 남아있나요?", key="recov_check_2")
+                st.checkbox("트러블 자리가 진정됐나요?", key="recov_check_3")
+                st.caption("셀프 체크만 하는 날이에요. 꼭 필요하면 평소 쓰던 보습제 정도만 가볍게 사용하세요.")
+
+    st.markdown("### 출발 전 · 귀국 후 스캔 비교")
+    st.caption("두 장을 올리면 나란히 비교해볼 수 있어요.")
+    up1, up2 = st.columns(2)
+    with up1:
+        before_img = st.file_uploader("여행 전 사진", type=["png", "jpg", "jpeg"], key="recov_before_photo")
+        if before_img:
+            st.image(before_img, use_container_width=True)
+    with up2:
+        after_img = st.file_uploader("귀국 후 사진", type=["png", "jpg", "jpeg"], key="recov_after_photo")
+        if after_img:
+            st.image(after_img, use_container_width=True)
+    st.caption(
+        "이 비교는 두 사진의 밝기·색상 차이를 눈으로 보기 쉽게 보여주는 도구예요. "
+        "의학적 진단이 아니니, 트러블이나 붉음이 계속되면 피부과 상담을 받아보세요."
+    )
 
     nav1, nav2 = st.columns(2)
     with nav1:
         if st.button("🔁 설문 다시 하기", use_container_width=True):
             st.session_state.recovery_answers = {}
+            st.session_state.recovery_logged_issues = []
             st.session_state.recovery_stage = "survey"
             st.rerun()
     with nav2:
