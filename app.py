@@ -186,7 +186,11 @@ def _load_world_map_svg():
     highlight = ",".join(f".{code}" for code in COUNTRIES)
     raw = raw.replace(
         "</svg>",
-        "<style>.land{fill:#dbe7fb;stroke:#ffffff;}"
+        # 국가 대부분은 class="land ..."로 묶여 있지만, 원본 파일에 class 없이
+        # id만 있고 자기 style에 회색을 박아둔 나라가 섞여 있어서(수단 등) .land
+        # 클래스만 override하면 그런 나라만 회색으로 튀어 보인다. path 전체에
+        # 기본색을 먼저 깔고, 바다/호수/강조국만 그 위에 다시 덮는다.
+        "<style>svg path{fill:#dbe7fb !important;stroke:#ffffff !important;}"
         ".ocean,.lake{fill:none !important;stroke:none !important;}"
         f"{highlight}{{fill:#ff6fb8 !important;}}</style></svg>",
     )
@@ -2255,6 +2259,11 @@ def render_character():
                 "travel_style": draft.get("travel_style"),
                 "cosmetic_prefs": list(draft.get("cosmetic_prefs") or []),
             }
+            specs = _generate_bubble_specs()
+            st.session_state.bubble_specs = specs
+            render_bubble_cover(specs)
+            time.sleep(bubble_cover_seconds(specs))
+            st.session_state.show_page_transition = True
             goto("map")
             st.rerun()
 
