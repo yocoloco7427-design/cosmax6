@@ -18,7 +18,7 @@ import requests
 import streamlit as st
 import streamlit.components.v1 as components
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageFilter, ImageStat
 
 try:
     import anthropic
@@ -220,6 +220,16 @@ COUNTRIES = {
         "drugstores": ["올리브영 명동점", "롭스 홍대점", "다이소 강남점"],
     },
 }
+
+# 무료로 바로 열려 있는 여행지(호주/일본/중국/한국/미국). 나머지는 기본 잠금 —
+# 코인으로 해제하면 st.session_state.unlocked_countries에 코드가 쌓인다.
+FREE_COUNTRY_CODES = {"au", "jp", "cn", "kr", "us"}
+UNLOCK_COST_COINS = 50
+
+
+def is_country_unlocked(code):
+    return code in FREE_COUNTRY_CODES or code in st.session_state.unlocked_countries
+
 
 # ----------------------------------------------------------------------
 # 포스트잇 "유의사항" — 국가/도시별 피부 리스크. COUNTRIES와 별도 표로 관리해서
@@ -681,6 +691,16 @@ if "diagnosis_country" not in st.session_state:
     st.session_state.diagnosis_country = None
 if "diagnosis_result" not in st.session_state:
     st.session_state.diagnosis_result = None
+if "skin_scan" not in st.session_state:
+    st.session_state.skin_scan = None  # 카메라 스캔(정면+좌우 3장) 분석 결과, 없으면 자가응답 기반
+if "skin_scan_ui_open" not in st.session_state:
+    st.session_state.skin_scan_ui_open = False
+if "skin_scan_step" not in st.session_state:
+    st.session_state.skin_scan_step = 0  # 0=정면, 1=왼쪽, 2=오른쪽
+if "skin_scan_photos" not in st.session_state:
+    st.session_state.skin_scan_photos = {}
+if "skin_scan_widget_key" not in st.session_state:
+    st.session_state.skin_scan_widget_key = 0  # camera_input 리마운트(재촬영)용 카운터
 if "coins" not in st.session_state:
     st.session_state.coins = 9999  # 베타 단계 임시 초기값 — 추후 실제 0부터 시작하도록 변경 필요
 if "coin_history" not in st.session_state:
@@ -689,6 +709,8 @@ if "show_ad_reward" not in st.session_state:
     st.session_state.show_ad_reward = False
 if "current_ad_video" not in st.session_state:
     st.session_state.current_ad_video = None
+if "unlocked_countries" not in st.session_state:
+    st.session_state.unlocked_countries = set()  # 코인으로 잠금 해제한 여행지 코드
 
 
 def get_character():
@@ -715,6 +737,87 @@ def get_skin_profile(char):
         "badge_text": type_badge["text"],
         "extra_badges": extra_badges,
     }
+
+
+# ----------------------------------------------------------------------
+# 얼굴 스캔으로 baseline 갱신 — 정면/왼쪽/오른쪽 3장을 찍으면 온보딩 자가응답
+# 대신 이 스캔 결과를 추천 매트릭스의 우선 입력값으로 쓴다. Streamlit은 실시간
+# 프레임 분석/자동 캡처를 지원하지 않으므로 st.camera_input()으로 매 각도마다
+# "촬영 버튼을 눌러 셀피 찍기" 방식으로 구현했다. analyze_skin_scan()은 지금은
+# 이미지 밝기/채도/대비 통계로부터 유도한 더미 규칙 기반 추정치이며, 실제 피부
+# 분석 비전 모델/API로 교체할 때 이 함수 내부만 바꾸면 된다(호출부는 photos=
+# {"front","left","right"} 입력과 반환 dict 구조만 알면 됨).
+# ----------------------------------------------------------------------
+SCAN_ANGLES = [
+    {"key": "front", "label": "정면", "guide": "카메라를 정면으로 보고 찍어주세요"},
+    {"key": "left", "label": "왼쪽 얼굴", "guide": "고개를 살짝 왼쪽으로 돌려 옆모습을 찍어주세요"},
+    {"key": "right", "label": "오른쪽 얼굴", "guide": "고개를 살짝 오른쪽으로 돌려 옆모습을 찍어주세요"},
+]
+
+
+def _scan_quality_check(image):
+    """촬영된 이미지가 분석하기에 너무 어둡거나/너무 밝거나/흔들렸는지를
+    이미지 통계로 대략 판단한다. 기준 미달이면 (False, 안내문구)를 반환."""
+    gray = image.convert("L")
+    brightness = ImageStat.Stat(gray).mean[0]
+    if brightness < 60:
+        return False, "💡 조명이 어두워요. 조명이 밝은 곳에서 다시 찍어주세요"
+    if brightness > 215:
+        return False, "💡 빛이 너무 강해요. 조명을 조절하고 다시 찍어주세요"
+    edges = gray.filter(ImageFilter.FIND_EDGES)
+    sharpness = ImageStat.Stat(edges).stddev[0] ** 2
+    if sharpness < 60:
+        return False, "📷 사진이 흔들렸어요. 흔들리지 않게 다시 찍어주세요"
+    return True, ""
+
+
+def _single_scan_metrics(image):
+    gray = image.convert("L")
+    stat = ImageStat.Stat(gray)
+    contrast = stat.stddev[0]
+    saturation = ImageStat.Stat(image.convert("HSV")).mean[1]
+    r, g, b = ImageStat.Stat(image.convert("RGB")).mean
+    return {
+        "hydration": max(5, min(95, round(70 - contrast * 0.6))),
+        "redness": max(5, min(95, round((r - (g + b) / 2) * 1.4 + 40))),
+        "pore_visibility": max(5, min(95, round(contrast * 1.1))),
+        "texture_evenness": max(5, min(95, round(100 - contrast * 0.9))),
+        "oiliness": max(5, min(95, round(saturation / 255 * 100))),
+    }
+
+
+def analyze_skin_scan(photos):
+    """정면/왼쪽/오른쪽 3장(photos: {"front","left","right"} -> PIL Image)을
+    종합해 hydration/redness/pore_visibility/texture_evenness/oiliness
+    (0~100)를 추정한다. 모공·결은 측면에서 더 잘 드러난다고 보고 좌우 사진
+    평균을 우선 쓰고, 없으면 있는 각도들의 평균으로 대체한다."""
+    per_angle = {angle: _single_scan_metrics(img) for angle, img in photos.items()}
+    all_angles = list(per_angle.keys())
+    sides = [a for a in ("left", "right") if a in per_angle]
+
+    def avg(key, angles):
+        vals = [per_angle[a][key] for a in angles if a in per_angle]
+        return round(sum(vals) / len(vals)) if vals else 50
+
+    return {
+        "hydration": avg("hydration", ["front"] if "front" in per_angle else all_angles),
+        "redness": avg("redness", all_angles),
+        "pore_visibility": avg("pore_visibility", sides or all_angles),
+        "texture_evenness": avg("texture_evenness", sides or all_angles),
+        "oiliness": avg("oiliness", all_angles),
+    }
+
+
+def get_skin_baseline(char):
+    """추천 로직이 공통으로 쓰는 피부 baseline. 카메라 스캔 결과가 있으면 그
+    5개 지표를 자가응답 피부타입보다 우선해서 쓰고 baseline_source=
+    "camera_scan"으로 표시하고, 없으면 온보딩 자가응답 프로필만으로
+    baseline_source="self_reported"를 반환한다."""
+    profile = get_skin_profile(char)
+    scan = st.session_state.get("skin_scan")
+    if scan:
+        return {**profile, **scan, "baseline_source": "camera_scan"}
+    return {**profile, "baseline_source": "self_reported"}
 
 
 # ----------------------------------------------------------------------
@@ -984,7 +1087,7 @@ def render_ad_reward_button():
         """
         <style>
         .st-key-watch_ad_btn button {
-            position: fixed !important; bottom: 20px !important; left: 20px !important;
+            position: fixed !important; top: 132px !important; right: 16px !important;
             z-index: 99997 !important; border-radius: 999px !important;
             padding: 0.7rem 1.3rem !important; font-family: 'Jua', sans-serif !important;
             font-size: 1.05rem !important; font-weight: 700 !important;
@@ -3463,7 +3566,9 @@ def _world_map_dialog():
             for code, c in COUNTRIES.items():
                 if not c.get("geo"):
                     continue
-                if st.button(c["flag"], key=f"pin_{code}", help=c["name"]):
+                pin_label = c["flag"] if is_country_unlocked(code) else "🔒"
+                pin_help = c["name"] if is_country_unlocked(code) else f"{c['name']} · 잠김 (코인 {UNLOCK_COST_COINS}개로 해제)"
+                if st.button(pin_label, key=f"pin_{code}", help=pin_help):
                     st.session_state.selected_country = code
                     st.session_state.country_stage = "map"
                     st.session_state.active_country_sheet = None
@@ -3791,11 +3896,11 @@ def _render_country_scene_stage(country, char, code):
         }}
         .scene-landmark-bg {{
             position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-            font-size: min(60vw, 420px); opacity: .12; pointer-events: none; user-select: none;
+            font-size: min(60vw, 420px); opacity: .3; pointer-events: none; user-select: none;
         }}
         .scene-doll-box {{
             position: absolute; left: 50%; top: 52%; transform: translate(-50%,-50%);
-            width: min(46vw, 260px); pointer-events: none; z-index: 2; opacity: .55;
+            width: min(46vw, 260px); pointer-events: none; z-index: 2; opacity: .85;
             filter: drop-shadow(0 18px 20px rgba(60,30,60,.28));
         }}
         .scene-doll-box svg {{ width: 100%; height: auto; display: block; }}
@@ -3806,12 +3911,12 @@ def _render_country_scene_stage(country, char, code):
            아이콘 자기 폭(84px)만큼의 오프셋을 상쇄해야 좌우가 실제로 대칭이 된다.
            (예전엔 left가 아이콘의 왼쪽 모서리 기준이라 84px만큼 오른쪽으로 치우쳐
            보였음 -- 오른쪽 아이콘이 캐릭터에 더 가깝게 보이던 원인) */
-        .st-key-icn_water {{ top: 4%; left: 15%; transform: translateX(-50%); }}
-        .st-key-icn_lipstick {{ top: 4%; left: 85%; transform: translateX(-50%); }}
-        .st-key-icn_shop {{ top: 43%; left: 5%; transform: translateX(-50%); }}
-        .st-key-icn_hair {{ top: 43%; left: 95%; transform: translateX(-50%); }}
-        .st-key-icn_carrier {{ top: 84%; left: 15%; transform: translateX(-50%); }}
-        .st-key-icn_star {{ top: 84%; left: 85%; transform: translateX(-50%); }}
+        .st-key-icn_water {{ top: 12%; left: 27%; transform: translateX(-50%); }}
+        .st-key-icn_lipstick {{ top: 12%; left: 73%; transform: translateX(-50%); }}
+        .st-key-icn_shop {{ top: 46%; left: 15%; transform: translateX(-50%); }}
+        .st-key-icn_hair {{ top: 46%; left: 85%; transform: translateX(-50%); }}
+        .st-key-icn_carrier {{ top: 78%; left: 27%; transform: translateX(-50%); }}
+        .st-key-icn_star {{ top: 78%; left: 73%; transform: translateX(-50%); }}
         div[class*="st-key-icn_"] button {{
             width: 84px !important; height: 84px !important; min-width: 0 !important;
             border-radius: 50% !important; padding: 0 !important; font-size: 2.3rem !important;
@@ -3906,25 +4011,30 @@ def _bottom_sheet_css():
         <style>
         div[data-testid="stDialog"] [slot="title"] { display: none !important; }
         div[data-testid="stDialog"] div { background: transparent !important; box-shadow: none !important; }
+        /* 하단에 딱 붙어서 눈에 잘 안 띈다는 피드백 — 화면 정중앙에 뜨도록 바꾸고,
+           바닥에서 슬라이드업하던 애니메이션도 살짝 튕기며 커지는 팝인으로 교체 */
         div[data-testid="stDialog"] > div {
-            position: fixed !important; left: 50% !important; bottom: 0 !important; top: auto !important;
-            transform: translateX(-50%) !important; margin: 0 !important;
-            max-width: min(94vw, 640px) !important; width: min(94vw, 640px) !important;
-            max-height: 82vh !important; overflow-y: auto !important;
-            border-radius: 22px 22px 0 0 !important;
-            animation: sheet-slide-up .28s ease both;
+            position: fixed !important; left: 50% !important; top: 50% !important; bottom: auto !important;
+            transform: translate(-50%, -50%) !important; margin: 0 !important;
+            max-width: min(92vw, 620px) !important; width: min(92vw, 620px) !important;
+            max-height: 86vh !important; overflow-y: auto !important;
+            border-radius: 26px !important;
+            animation: sheet-pop-in .32s cubic-bezier(.2,.9,.3,1.25) both;
         }
-        @keyframes sheet-slide-up {
-            from { transform: translate(-50%, 100%); }
-            to   { transform: translate(-50%, 0); }
+        @keyframes sheet-pop-in {
+            from { opacity: 0; transform: translate(-50%, -50%) scale(.88); }
+            to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
         /* 위 "div[data-testid='stDialog'] div"가 태그 2개짜리라 명시도가
            (0,1,2)라서 클래스 하나뿐인 규칙(0,1,0)로는 못 이긴다 — 뷰티 패스포트의
            .page 규칙과 동일하게 dialog 속성 선택자를 앞에 한 번 더 붙여 명시도를
            (0,2,1)로 올려야 실제로 크림색이 보인다. */
         div[data-testid="stDialog"] .st-key-country_sheet_card {
-            background: #fffaf3 !important; border-radius: 22px 22px 0 0 !important;
-            padding: 0 !important; box-shadow: 0 -10px 30px rgba(120,40,90,.22) !important;
+            background: #fffaf3 !important; border-radius: 26px !important;
+            padding: 0 !important;
+            box-shadow:
+                0 0 0 1px rgba(255,255,255,.7) inset,
+                0 24px 60px rgba(70,20,60,.38) !important;
             min-height: 240px; overflow: hidden;
         }
         /* 여행 컨셉에 맞춰 항공권(보딩패스) 느낌으로 — 색상 헤더(칩 아이콘 + 제목 +
@@ -3933,45 +4043,80 @@ def _bottom_sheet_css():
            건네받는데, 그 값을 실제로 칠하는 background 선언은 위 카드와 같은 이유로
            dialog 속성 선택자를 붙여 명시도를 올려야 인라인이 아니라 진짜로 먹는다. */
         div[data-testid="stDialog"] .sheet-ticket-header {
-            position: relative; padding: 22px 26px 18px; color: #fff;
-            border-radius: 22px 22px 0 0;
-            display: flex; align-items: center; gap: 14px;
+            position: relative; padding: 26px 28px 20px; color: #fff;
+            border-radius: 26px 26px 0 0;
+            display: flex; align-items: center; gap: 16px;
             background: var(--ticket-accent) !important;
         }
+        .sheet-ticket-header::after {
+            content: ''; position: absolute; inset: 0; border-radius: 26px 26px 0 0;
+            background: linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 60%);
+            pointer-events: none;
+        }
         .sheet-ticket-icon {
-            font-size: 2.4rem; line-height: 1;
+            font-size: 2.6rem; line-height: 1; flex-shrink: 0;
             filter: drop-shadow(0 3px 4px rgba(0,0,0,.28));
         }
         .sheet-ticket-title {
-            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.42rem;
+            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.55rem;
+            text-shadow: 0 1px 3px rgba(0,0,0,.15);
         }
         .sheet-ticket-sub {
-            font-family: 'Jua', sans-serif; font-size: .78rem; opacity: .9;
-            letter-spacing: .5px; margin-top: 3px;
+            font-family: 'Jua', sans-serif; font-size: .8rem; opacity: .92;
+            letter-spacing: .6px; margin-top: 4px;
         }
         .sheet-ticket-stamp {
-            position: absolute; right: 22px; top: 16px; font-size: 1.9rem;
-            opacity: .55; transform: rotate(10deg);
+            position: absolute; right: 24px; top: 18px; font-size: 2rem;
+            opacity: .5; transform: rotate(10deg);
             filter: drop-shadow(0 2px 2px rgba(0,0,0,.25));
         }
         .sheet-perf {
-            position: relative; height: 0; margin: 0 22px;
-            border-top: 3px dashed rgba(255,255,255,.6);
+            position: relative; height: 0; margin: 0 24px;
+            border-top: 3px dashed rgba(255,255,255,.65);
         }
         .sheet-perf::before, .sheet-perf::after {
-            content: ''; position: absolute; top: -11px; width: 22px; height: 22px;
+            content: ''; position: absolute; top: -12px; width: 24px; height: 24px;
             border-radius: 50%; background: #fffaf3;
         }
-        .sheet-perf::before { left: -33px; }
-        .sheet-perf::after { right: -33px; }
-        .sheet-body { padding: 20px 26px 26px; }
+        .sheet-perf::before { left: -36px; }
+        .sheet-perf::after { right: -36px; }
+        .sheet-body { padding: 22px 28px 28px; }
         .sheet-title {
             font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.4rem;
             color: #9c2f5c; margin-bottom: 10px;
         }
+        /* 기존 st.metric 스택은 라벨/숫자만 덜렁 나열돼 밋밋했다 — 아이콘 달린
+           작은 통계 타일 그리드로 바꿔서 한눈에 훑어볼 수 있게 함 */
+        .stat-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            margin: 4px 0 14px;
+        }
+        .stat-grid.stat-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+        .stat-tile {
+            background: linear-gradient(160deg, #fff6e8 0%, #ffeef6 100%);
+            border: 1.5px solid rgba(255,143,192,.35); border-radius: 14px;
+            padding: 12px 14px;
+        }
+        .stat-tile-icon { font-size: 1.1rem; margin-bottom: 2px; }
+        .stat-tile-label {
+            font-family: 'Jua', sans-serif; font-size: .74rem; color: #b23a6e;
+            letter-spacing: .3px; text-transform: uppercase; opacity: .85;
+        }
+        .stat-tile-value {
+            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.08rem;
+            color: #4a2035; margin-top: 2px; line-height: 1.3;
+        }
+        .stat-tile-value.stat-tile-alert { color: #c0392b; }
+        .sheet-note {
+            font-family: 'Jua', sans-serif; font-size: .85rem; color: #8a5a72;
+            margin: 2px 2px 14px; line-height: 1.45;
+        }
         .st-key-close_country_sheet button {
             border-radius: 999px !important; font-family: 'Jua', sans-serif !important;
+            font-weight: 700 !important; border: none !important;
+            background: #f3e4d8 !important; color: #6b4423 !important;
         }
+        .st-key-close_country_sheet button:hover { background: #e9d5c3 !important; }
         </style>
         """
     )
@@ -4029,11 +4174,33 @@ def _render_country_sheet_body(kind, country, char, code):
                 f"⚠ {', '.join(skin_notes)} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. "
                 f"저자극 클렌징워터를 꼭 챙기세요."
             )
-        st.metric("기후", country["climate"])
-        st.metric("습도", country["humidity"])
-        st.metric("자외선", country["uv"])
-        st.metric("수질", country["water"])
-        st.caption(country["water_note"])
+        html_block(
+            f"""
+            <div class="stat-grid">
+                <div class="stat-tile">
+                    <div class="stat-tile-icon">🌤️</div>
+                    <div class="stat-tile-label">기후</div>
+                    <div class="stat-tile-value">{html.escape(country['climate'])}</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-tile-icon">💧</div>
+                    <div class="stat-tile-label">습도</div>
+                    <div class="stat-tile-value">{html.escape(country['humidity'])}</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-tile-icon">☀️</div>
+                    <div class="stat-tile-label">자외선</div>
+                    <div class="stat-tile-value">{html.escape(country['uv'])}</div>
+                </div>
+                <div class="stat-tile">
+                    <div class="stat-tile-icon">🚰</div>
+                    <div class="stat-tile-label">수질</div>
+                    <div class="stat-tile-value">{html.escape(country['water'])}</div>
+                </div>
+            </div>
+            <div class="sheet-note">{html.escape(country['water_note'])}</div>
+            """
+        )
         feed_path = country.get("aqi_station") or (
             f"geo:{country['geo']}" if country.get("geo") else None
         )
@@ -4041,14 +4208,27 @@ def _render_country_sheet_body(kind, country, char, code):
         if aq and aq.get("aqi") not in (None, "-"):
             try:
                 aqi_val = int(aq["aqi"])
-                st.metric("미세먼지 (AQI)", f"{aqi_val} · {_aqi_level_label(aqi_val)}")
+                is_bad = aqi_val >= 101
                 pm_parts = []
                 if aq.get("pm25") is not None:
                     pm_parts.append(f"PM2.5 {aq['pm25']}㎍/㎥")
                 if aq.get("pm10") is not None:
                     pm_parts.append(f"PM10 {aq['pm10']}㎍/㎥")
-                if pm_parts:
-                    st.caption(" · ".join(pm_parts))
+                pm_line = f'<div class="sheet-note">{" · ".join(pm_parts)}</div>' if pm_parts else ""
+                html_block(
+                    f"""
+                    <div class="stat-grid" style="grid-template-columns:1fr;">
+                        <div class="stat-tile">
+                            <div class="stat-tile-icon">🌫️</div>
+                            <div class="stat-tile-label">실시간 미세먼지 (AQI)</div>
+                            <div class="stat-tile-value {'stat-tile-alert' if is_bad else ''}">
+                                {aqi_val} · {_aqi_level_label(aqi_val)}
+                            </div>
+                        </div>
+                    </div>
+                    {pm_line}
+                    """
+                )
             except (TypeError, ValueError):
                 pass
 
