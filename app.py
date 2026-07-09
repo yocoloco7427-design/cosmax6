@@ -682,6 +682,255 @@ AFTERCARE_ADVICE = {
 }
 
 # ----------------------------------------------------------------------
+# 여행 후 피부 복귀 프로그램 — 제품 카탈로그.
+# 추천 엔진(generate_recovery_program 등)은 반드시 이 표에 있는 제품만 골라야
+# 한다 — 이름/브랜드/성분/효능을 절대 새로 지어내지 않는다. 각 제품의
+# key_ingredients/description은 화장품법상 허용되는 범위의 표현만 쓴다
+# ("완화를 도와줄 수 있어요" 류) — "치료/제거/재생" 같은 의약품 오인 표현 금지.
+# 14개는 참고 프로토타입에 있던 것을 그대로 옮기고, 설문 문항이 요구하는데
+# 기존 14개로는 커버가 안 되는 두 가지(피부결/각질 탄력, AHA·BHA·LHA·PHA
+# 복합 필링)를 새로 추가했다(p15, p16).
+# ----------------------------------------------------------------------
+RECOVERY_PRODUCT_CATALOG = [
+    {"id": "p1", "name": "세라마이드 배리어 크림", "texture": "고밀도 크림",
+     "target_concern": ["피로/장벽", "건조"], "key_ingredients": ["세라마이드", "판테놀"],
+     "description": "손상되기 쉬운 피부 장벽을 채워주고 수분을 오래 붙잡아주는 데 도움을 줄 수 있는 고밀도 크림이에요."},
+    {"id": "p2", "name": "판테놀 진정 마스크", "texture": "시트 마스크",
+     "target_concern": ["자극/붉음", "피로/장벽"], "key_ingredients": ["판테놀", "병풀추출물"],
+     "description": "붉어지고 예민해진 피부에 수분과 진정감을 더해주는 데 도움을 줄 수 있는 시트 마스크예요."},
+    {"id": "p3", "name": "시카 수딩 앰플", "texture": "저점도 앰플",
+     "target_concern": ["자극/붉음", "트러블"], "key_ingredients": ["센텔라아시아티카(시카)", "마데카소사이드"],
+     "description": "자극받은 피부를 가볍게 가라앉히는 데 도움을 줄 수 있는 저점도 진정 앰플이에요."},
+    {"id": "p4", "name": "히알루론 딥 모이스처 세럼", "texture": "수분 세럼",
+     "target_concern": ["건조", "피로/장벽"], "key_ingredients": ["히알루론산", "베타글루칸"],
+     "description": "여러 분자량의 히알루론산이 결을 촉촉하게 채워주는 데 도움을 줄 수 있는 수분 세럼이에요."},
+    {"id": "p5", "name": "저자극 약산성 클렌저", "texture": "클렌징 폼",
+     "target_concern": ["자극/붉음", "트러블", "정상 루틴"], "key_ingredients": ["약산성 계면활성제", "판테놀"],
+     "description": "약산성으로 자극을 줄이면서 부드럽게 세정하는 데 도움을 줄 수 있는 클렌저예요."},
+    {"id": "p6", "name": "티트리 스팟 케어 젤", "texture": "스팟 젤",
+     "target_concern": ["트러블"], "key_ingredients": ["티트리오일", "살리실릭애씨드"],
+     "description": "트러블이 신경 쓰이는 부위에 부분적으로 발라 진정에 도움을 줄 수 있는 젤 타입 스팟 케어예요."},
+    {"id": "p7", "name": "나이아신아마이드 톤업 에센스", "texture": "에센스",
+     "target_concern": ["칙칙함/톤", "피부 톤 불균일"], "key_ingredients": ["나이아신아마이드"],
+     "description": "칙칙해진 톤을 환하게 정돈하는 데 도움을 줄 수 있는 에센스예요."},
+    {"id": "p8", "name": "비타민C 브라이트닝 세럼", "texture": "세럼",
+     "target_concern": ["칙칙함/톤", "피부 톤 불균일", "기미", "자극 성분 재도입"],
+     "key_ingredients": ["비타민C(아스코르빈산)"],
+     "description": "톤 개선에 도움을 줄 수 있는 비타민C 세럼이에요. 자극감이 있을 수 있어 서서히 늘려가며 사용하는 걸 권해요."},
+    {"id": "p9", "name": "약산성 BHA 각질 케어 토너", "texture": "토너",
+     "target_concern": ["모공", "자극 성분 재도입"], "key_ingredients": ["BHA(살리실릭애씨드)"],
+     "description": "묵은 각질과 모공 속 노폐물을 부드럽게 정돈하는 데 도움을 줄 수 있는 약산성 토너예요."},
+    {"id": "p10", "name": "유수분 밸런스 로션", "texture": "로션",
+     "target_concern": ["정상 루틴", "건조"], "key_ingredients": ["스쿠알란", "판테놀"],
+     "description": "가볍게 수분과 유분 밸런스를 맞춰주는 데 도움을 줄 수 있는 데일리 로션이에요."},
+    {"id": "p11", "name": "카페인 다크서클 아이크림", "texture": "아이크림",
+     "target_concern": ["다크서클"], "key_ingredients": ["카페인", "펩타이드"],
+     "description": "눈가를 산뜩하게 케어하는 데 도움을 줄 수 있는 아이크림이에요."},
+    {"id": "p12", "name": "저분자 콜라겐 리커버리 크림", "texture": "크림",
+     "target_concern": ["피로/장벽", "정상 루틴"], "key_ingredients": ["저분자 콜라겐", "아데노신"],
+     "description": "지친 피부에 탄력과 활력을 더해주는 데 도움을 줄 수 있는 리커버리 크림이에요."},
+    {"id": "p13", "name": "무기자차 저자극 선크림", "texture": "선크림",
+     "target_concern": ["정상 루틴", "자극/붉음"], "key_ingredients": ["징크옥사이드", "티타늄디옥사이드"],
+     "description": "예민해진 피부도 부담 없이 쓸 수 있는 무기자차 선크림이에요."},
+    {"id": "p14", "name": "진정 수분 미스트", "texture": "미스트",
+     "target_concern": ["피로/장벽", "건조", "자극/붉음", "기미", "칙칙함/톤"],
+     "key_ingredients": ["판테놀", "알로에베라추출물"],
+     "description": "언제든 가볍게 뿌려 수분과 진정감을 더하는 데 도움을 줄 수 있는 미스트예요."},
+    {"id": "p15", "name": "아하바하라하파하 각질 필링 패드", "texture": "필링 패드",
+     "target_concern": ["피부결/각질", "모공", "자극 성분 재도입"],
+     "key_ingredients": ["AHA(글라이콜릭애씨드)", "BHA(살리실릭애씨드)", "LHA(캡릴로일살리실릭애씨드)", "PHA(글루코노락톤)"],
+     "description": "AHA·BHA·LHA·PHA 복합 각질 케어 성분이 담긴 필링 패드로, 묵은 각질을 부드럽게 정돈하는 데 도움을 줄 수 있어요. "
+                    "자극감이 있을 수 있으니 저녁에 소량부터 시작하는 걸 권해요."},
+    {"id": "p16", "name": "리페어 탄력 앰플", "texture": "앰플",
+     "target_concern": ["피부결/각질", "피로/장벽"], "key_ingredients": ["아데노신", "펩타이드"],
+     "description": "결이 거칠어졌을 때 탄력과 매끈함을 더하는 데 도움을 줄 수 있는 앰플이에요."},
+]
+
+# 우선순위 규칙 — 숫자가 작을수록 먼저 케어(급함). 나중에 조정하고 싶으면
+# 이 표만 바꾸면 된다(코드 로직에는 하드코딩 안 함).
+RECOVERY_CONCERN_PRIORITY_TIER = {
+    "자극/붉음": 1,
+    "트러블": 2,
+    "건조": 3,
+    "피부결/각질": 3,
+    "칙칙함/톤": 4,
+}
+RECOVERY_SEVERITY_BY_TIER = {1: 5, 2: 4, 3: 3, 4: 2}
+
+# 여행 후 설문조사 5문항 — 각 옵션이 가리키는 target_concern 키로 로직이
+# 연결된다. 문항은 서로 독립적이라 여러 개를 동시에 "해당"으로 고를 수 있다.
+RECOVERY_SURVEY_QUESTIONS = [
+    {
+        "id": "tone", "prompt": "나는 여행 후 피부톤이",
+        "options": [
+            {"label": "칙칙해졌다", "concern": "칙칙함/톤"},
+            {"label": "붉어졌다", "concern": "자극/붉음"},
+        ],
+    },
+    {
+        "id": "trouble", "prompt": "나는 여행 동안 트러블이",
+        "options": [
+            {"label": "생겼다", "concern": "트러블"},
+            {"label": "안 생겼다", "concern": None},
+        ],
+    },
+    {
+        "id": "texture", "prompt": "나는 여행 후 피부결이",
+        "options": [
+            {"label": "거칠어졌다", "concern": "피부결/각질"},
+            {"label": "그대로다", "concern": None},
+        ],
+    },
+    {
+        "id": "sensitive", "prompt": "나는 여행 후 피부가",
+        "options": [
+            {"label": "예민해지고 자극에 쉽게 반응한다", "concern": "자극/붉음"},
+            {"label": "평소와 비슷하다", "concern": None},
+        ],
+    },
+    {
+        "id": "dry", "prompt": "나는 여행 후 피부가",
+        "options": [
+            {"label": "건조하고 각질이 일어난다", "concern": "건조"},
+            {"label": "그렇지 않다", "concern": None},
+        ],
+    },
+]
+
+# 여행 로그(방문 국가의 환경 데이터) × 설문 concern을 연결해 문구를 조금 더
+# 구체적으로 바꿔주는 규칙 — 예: 자외선이 강한 나라를 다녀왔고 "칙칙함/톤"을
+# 겪었다면 단순 미백이 아니라 자외선 손상 회복 관점으로 안내한다.
+RECOVERY_TRIP_CONTEXT_NOTES = [
+    {"concern": "칙칙함/톤", "when": lambda c: "강함" in (c.get("uv") or ""),
+     "note": "자외선 노출이 많았던 여행이라 톤 케어와 함께 자외선 손상 회복에도 신경 써보면 좋아요."},
+    {"concern": "건조", "when": lambda c: (c.get("humidity") or "").startswith("평균 2") or "매우 건조" in (c.get("humidity") or ""),
+     "note": "습도가 낮은 지역을 다녀와서 평소보다 건조가 심할 수 있어요. 보습은 평소보다 한 단계 더 챙겨보세요."},
+    {"concern": "트러블", "when": lambda c: c.get("water") == "경수",
+     "note": "경수 지역을 다녀온 영향으로 트러블이 났을 수 있어요. 저자극 클렌징을 며칠 더 유지해보세요."},
+    {"concern": "자극/붉음", "when": lambda c: "매우 강함" in (c.get("uv") or "") or "매우 높은" in (c.get("water_note") or ""),
+     "note": "환경 자극이 컸던 여행지였어요. 진정 루틴을 평소보다 여유롭게 잡아보세요."},
+]
+
+
+def _recovery_match_score(product, concern_key):
+    """제품의 target_concern이 이 날의 concern과 얼마나 맞는지 점수화.
+    정확히 일치하면 3점, 부분 문자열로 겹치면(예: '톤') 1점, 아니면 0점."""
+    if not concern_key:
+        return 0
+    if concern_key in product["target_concern"]:
+        return 3
+    if any(k in concern_key or concern_key in k for k in product["target_concern"]):
+        return 1
+    return 0
+
+
+def _recovery_pick_product(concern_key, last_product_id, streak):
+    """concern에 가장 잘 맞는 제품을 고르되, 같은 제품이 3일 연속(streak>=2에서
+    또 고르면 3일째)이 되면 다음으로 잘 맞는 제품으로 대체한다."""
+    scored = sorted(
+        RECOVERY_PRODUCT_CATALOG,
+        key=lambda p: _recovery_match_score(p, concern_key),
+        reverse=True,
+    )
+    for product in scored:
+        would_extend_streak = product["id"] == last_product_id
+        if would_extend_streak and streak >= 2:
+            continue
+        return product
+    return scored[0]
+
+
+def compute_recovery_stressor_ranking(logged_issues):
+    """빈도x심각도 점수로 내림차순 정렬 — 1순위가 primary_stressor."""
+    ranked = [dict(issue, score=issue["frequency"] * issue["severity"]) for issue in logged_issues]
+    ranked.sort(key=lambda i: i["score"], reverse=True)
+    return ranked
+
+
+def get_recovery_trip_context_note(concern_key, country):
+    """이 concern과 여행지 환경 데이터가 맞물리는 규칙이 있으면 그 문구를 반환."""
+    if not country:
+        return None
+    for rule in RECOVERY_TRIP_CONTEXT_NOTES:
+        if rule["concern"] == concern_key and rule["when"](country):
+            return rule["note"]
+    return None
+
+
+def generate_recovery_program(logged_issues, flight_hours, minimal_ingredients, country=None):
+    """설문에서 뽑아낸 logged_issues로 7일 복귀 프로그램을 생성한다.
+    입력 데이터 처리 규칙(우선순위 산정 -> 1~2일 primary -> 3~4일 secondary ->
+    5~6일 정상 복귀/재도입 판단 -> 7일 셀프체크)을 그대로 따른다."""
+    ranking = compute_recovery_stressor_ranking(logged_issues)
+    if not ranking:
+        return {"ranking": [], "days": []}
+
+    primary = ranking[0]
+    secondary = ranking[1] if len(ranking) > 1 else ranking[0]
+    long_flight = flight_hours >= 3
+    max_severity = max(i["severity"] for i in logged_issues)
+    cautious_reintro = max_severity >= 4 or minimal_ingredients
+
+    day_defs = [
+        {
+            "day": 1,
+            "concern": "피로/장벽" if long_flight else primary["issue"],
+            "label": "피로/장벽 회복" if long_flight else f"{primary['issue']} 집중 케어",
+            "badge": "장거리 비행 회복 우선" if long_flight else None,
+        },
+        {"day": 2, "concern": primary["issue"], "label": f"{primary['issue']} 집중 케어"},
+        {"day": 3, "concern": secondary["issue"], "label": f"{secondary['issue']} 케어"},
+        {"day": 4, "concern": secondary["issue"], "label": f"순한 루틴 전환 · {secondary['issue']} 마무리"},
+        {"day": 5, "concern": "정상 루틴", "label": "정상 루틴 복귀 준비"},
+        {
+            "day": 6, "concern": "자극 성분 재도입", "label": "자극 성분 재도입 검토",
+            "note": (
+                "피부가 아직 예민할 수 있어요. 비타민C·AHA/BHA 같은 활성 성분은 다음 주로 미루고 "
+                "저자극 루틴을 유지해보세요."
+                if cautious_reintro else
+                "자극 반응이 크지 않았어요. 가벼운 농도로 서서히 재도입해볼 수 있어요."
+            ),
+        },
+        {"day": 7, "concern": None, "label": "상태 점검 (셀프 체크)"},
+    ]
+
+    last_product_id, streak = None, 0
+    days = []
+    for d in day_defs:
+        product = None
+        if d["concern"]:
+            product = _recovery_pick_product(d["concern"], last_product_id, streak)
+            streak = streak + 1 if product["id"] == last_product_id else 1
+            last_product_id = product["id"]
+        else:
+            last_product_id, streak = None, 0
+        context_note = get_recovery_trip_context_note(d["concern"], country) if d["concern"] else None
+        days.append({**d, "product": product, "context_note": context_note})
+
+    return {"ranking": ranking, "primary": primary, "secondary": secondary, "days": days}
+
+
+def build_recovery_logged_issues(answers):
+    """설문 답변(질문id -> 고른 옵션의 concern 값)을 빈도/심각도가 있는
+    logged_issues 리스트로 변환한다. 같은 concern을 두 문항 이상에서 골랐으면
+    frequency가 올라가서(예: 붉어짐+예민함 모두 선택) 우선순위 점수도 커진다."""
+    counts = {}
+    for concern in answers.values():
+        if not concern:
+            continue
+        counts[concern] = counts.get(concern, 0) + 1
+    issues = []
+    for concern, frequency in counts.items():
+        tier = RECOVERY_CONCERN_PRIORITY_TIER.get(concern, 4)
+        issues.append({
+            "issue": concern,
+            "frequency": frequency,
+            "severity": RECOVERY_SEVERITY_BY_TIER.get(tier, 2),
+        })
+    return issues
+
+
+# ----------------------------------------------------------------------
 # 세션 상태 초기화
 # ----------------------------------------------------------------------
 if "character" not in st.session_state:
@@ -736,6 +985,16 @@ if "diagnosis_country" not in st.session_state:
     st.session_state.diagnosis_country = None
 if "diagnosis_result" not in st.session_state:
     st.session_state.diagnosis_result = None
+if "recovery_stage" not in st.session_state:
+    st.session_state.recovery_stage = "pick_trip"  # "pick_trip" | "survey" | "result"
+if "recovery_trip_code" not in st.session_state:
+    st.session_state.recovery_trip_code = None
+if "recovery_answers" not in st.session_state:
+    st.session_state.recovery_answers = {}  # 문항 id -> 고른 concern (또는 None)
+if "recovery_flight_hours" not in st.session_state:
+    st.session_state.recovery_flight_hours = 3.0
+if "recovery_program" not in st.session_state:
+    st.session_state.recovery_program = None
 if "skin_scan" not in st.session_state:
     st.session_state.skin_scan = None  # 카메라 스캔(정면+좌우 3장) 분석 결과, 없으면 자가응답 기반
 if "skin_scan_ui_open" not in st.session_state:
@@ -1019,6 +1278,7 @@ PARENT_VIEW = {
     "country": "map",
     "aftercare": "map",
     "diagnosis": "country",
+    "recovery": "map",
 }
 
 
@@ -1065,7 +1325,7 @@ def render_top_icons():
     html_block(
         f"""
         <style>
-        .st-key-nav_map_icon button, .st-key-open_passport_icon button {{
+        .st-key-nav_map_icon button, .st-key-open_passport_icon button, .st-key-open_recovery_icon button {{
             position: fixed !important; top: 60px !important;
             z-index: 99997 !important;
             width: 62px !important; height: 62px !important;
@@ -1078,10 +1338,13 @@ def render_top_icons():
         }}
         .st-key-nav_map_icon button {{ right: 92px !important; }}
         .st-key-open_passport_icon button {{ right: 16px !important; }}
-        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover {{
+        .st-key-open_recovery_icon button {{ right: 168px !important; }}
+        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover,
+        .st-key-open_recovery_icon button:hover {{
             transform: translateY(-2px) scale(1.06);
         }}
-        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active {{
+        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active,
+        .st-key-open_recovery_icon button:active {{
             transform: translateY(1px) scale(.96);
         }}
         /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 */
@@ -1097,6 +1360,10 @@ def render_top_icons():
     if st.button("🗺️", key="nav_map_icon", help="여행지 지도"):
         st.session_state.map_globe_opened = True  # 지구본 단계를 건너뛰고 세계지도를 바로 띄움
         goto("map" if get_character() else "character")
+        st.rerun()
+    if st.button("🏠", key="open_recovery_icon", help="여행 후 피부 복귀 프로그램"):
+        st.session_state.recovery_stage = "pick_trip"
+        goto("recovery")
         st.rerun()
     if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
         st.session_state.show_passport = True
@@ -5007,6 +5274,136 @@ def render_aftercare():
 
 
 # ----------------------------------------------------------------------
+# 여행 후 피부 복귀 프로그램 — 여행 "중"이 아니라 귀국한 뒤의 피부를 챙기는
+# 별도 흐름. 우상단 🏠 아이콘으로 언제든 들어올 수 있고, 내부적으로
+# pick_trip(기준 여행 고르기) -> survey(5문항) -> result(7일 프로그램) 3단계를
+# recovery_stage로 관리한다.
+# ----------------------------------------------------------------------
+def render_recovery():
+    if not get_character():
+        goto("character")
+        st.rerun()
+        return
+    stage = st.session_state.recovery_stage
+    if stage == "survey":
+        _render_recovery_survey()
+    elif stage == "result":
+        _render_recovery_result()
+    else:
+        _render_recovery_pick_trip()
+
+
+def _render_recovery_pick_trip():
+    st.title("🏠 여행 후 피부 복귀 프로그램")
+    st.caption("여독이 풀리는 시점의 피부를 챙겨봐요. 먼저 어떤 여행을 기준으로 할지 골라주세요.")
+    saved = get_passport()
+    if saved:
+        labels = [f"{p['flag']} {p['name']}" for p in saved]
+        choice = st.selectbox("어떤 여행을 기준으로 할까요?", labels, index=len(labels) - 1)
+        st.session_state.recovery_trip_code = saved[labels.index(choice)]["code"]
+    else:
+        st.info("아직 뷰티 패스포트에 저장된 여행이 없어요 — 설문 응답만으로 진행할게요.")
+        st.session_state.recovery_trip_code = None
+
+    st.session_state.recovery_flight_hours = st.slider(
+        "비행 시간(시간)", 0.0, 20.0, st.session_state.recovery_flight_hours, 0.5,
+    )
+    st.caption("비행시간이 3시간 이상이면 Day 1은 다른 고민보다 피로·장벽 회복을 먼저 배정해요.")
+    if st.button("설문 시작 →", type="primary", use_container_width=True):
+        st.session_state.recovery_answers = {}
+        st.session_state.recovery_stage = "survey"
+        st.rerun()
+
+
+def _render_recovery_survey():
+    st.title("🏠 여행 후 설문조사")
+    st.caption("해당되는 것을 골라주세요 — 문항마다 독립적이라 여러 개를 동시에 골라도 괜찮아요")
+    answers = st.session_state.recovery_answers
+    for q in RECOVERY_SURVEY_QUESTIONS:
+        st.markdown(f"**{q['prompt']}**")
+        chosen_idx = answers.get(q["id"])
+        cols = st.columns(len(q["options"]))
+        for i, (col, opt) in enumerate(zip(cols, q["options"])):
+            with col:
+                is_selected = chosen_idx == i
+                if st.button(opt["label"], key=f"recov_{q['id']}_{i}",
+                             type="primary" if is_selected else "secondary",
+                             use_container_width=True):
+                    st.session_state.recovery_answers[q["id"]] = i
+                    st.rerun()
+
+    answered = len(answers)
+    total = len(RECOVERY_SURVEY_QUESTIONS)
+    all_answered = answered == total
+    if not all_answered:
+        st.caption(f"{answered}/{total}문항 응답했어요")
+    if st.button("복귀 프로그램 만들기 →", type="primary", use_container_width=True, disabled=not all_answered):
+        concerns_map = {q["id"]: q["options"][answers[q["id"]]]["concern"] for q in RECOVERY_SURVEY_QUESTIONS}
+        logged_issues = build_recovery_logged_issues(concerns_map)
+        minimal_ingredients = concerns_map.get("sensitive") == "자극/붉음"
+        code = st.session_state.recovery_trip_code
+        country = COUNTRIES.get(code) if code else None
+        st.session_state.recovery_program = generate_recovery_program(
+            logged_issues, st.session_state.recovery_flight_hours, minimal_ingredients, country,
+        )
+        st.session_state.recovery_stage = "result"
+        st.rerun()
+    if st.button("⬅ 여행 다시 고르기", key="recovery_back_to_pick"):
+        st.session_state.recovery_stage = "pick_trip"
+        st.rerun()
+
+
+def _render_recovery_result():
+    st.title("🏠 나만의 7일 피부 복귀 프로그램")
+    code = st.session_state.recovery_trip_code
+    country = COUNTRIES.get(code) if code else None
+    if country:
+        st.caption(f"{country['flag']} {country['name']} 여행을 기준으로 짜봤어요")
+
+    program = st.session_state.recovery_program
+    if not program or not program["days"]:
+        st.success("여행 중 특별히 힘들었던 피부 고민이 없었네요! 평소 루틴을 가볍게 유지해보세요 ✨")
+    else:
+        st.markdown("### 우선순위")
+        for i, r in enumerate(program["ranking"]):
+            tag = "🥇 PRIMARY · " if i == 0 else ("🥈 SECONDARY · " if i == 1 else "")
+            st.write(f"{tag}{r['issue']} — 점수 {r['score']} (빈도{r['frequency']} × 심각도{r['severity']})")
+
+        st.markdown("### 7일 여정표")
+        for d in program["days"]:
+            with st.container(border=True):
+                title_line = f"DAY {d['day']} · {d['label']}"
+                if d.get("badge"):
+                    title_line += f"  ·  ✈ {d['badge']}"
+                st.markdown(f"**{title_line}**")
+                if d["product"]:
+                    p = d["product"]
+                    st.write(f"🧴 **{p['name']}** · {p['texture']}")
+                    st.caption(" · ".join(p["key_ingredients"]))
+                    st.write(p["description"])
+                elif d["day"] == 7:
+                    st.checkbox("붉은기가 남아있나요?", key="recov_check_1")
+                    st.checkbox("당김·건조함이 남아있나요?", key="recov_check_2")
+                    st.checkbox("트러블 자리가 진정됐나요?", key="recov_check_3")
+                    st.caption("셀프 체크만 하는 날이에요. 꼭 필요하면 평소 쓰던 보습제 정도만 가볍게 사용하세요.")
+                if d.get("note"):
+                    st.info(d["note"])
+                if d.get("context_note"):
+                    st.caption(f"✈️ {d['context_note']}")
+
+    nav1, nav2 = st.columns(2)
+    with nav1:
+        if st.button("🔁 설문 다시 하기", use_container_width=True):
+            st.session_state.recovery_answers = {}
+            st.session_state.recovery_stage = "survey"
+            st.rerun()
+    with nav2:
+        if st.button("⬅ 지도로 돌아가기", key="recovery_back_to_map", use_container_width=True):
+            goto("map")
+            st.rerun()
+
+
+# ----------------------------------------------------------------------
 # 피부 궁합 진단 — 여행지 지도에서 국가/도시를 고른 뒤(country_stage="map")
 # 화면 왼쪽의 반짝이는 포션을 누르면 들어오는 진단 단계.
 # scan(얼굴 스캔하기) -> brewing(포션 진행 애니메이션) -> result(궁합 스코어)
@@ -5342,6 +5739,7 @@ VIEWS = {
     "country": render_country,
     "aftercare": render_aftercare,
     "diagnosis": render_diagnosis,
+    "recovery": render_recovery,
 }
 render_bubble_clear()
 render_passport_modal()
