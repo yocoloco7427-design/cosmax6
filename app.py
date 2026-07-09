@@ -595,19 +595,19 @@ def render_home():
         /* div 태그 + !important: Streamlit 기본 <p> 타이포그래피 규칙이 명시도가 더 높아
            일반 클래스 font-size를 눌러 이겨버리는 문제를 막기 위함 (실측 확인된 버그) */
         div.hero-sub {{
-            position: absolute !important; left: 50% !important; top: 71% !important;
+            position: absolute !important; left: 50% !important; top: 76% !important;
             transform: translateX(-50%) !important;
             width: auto !important; max-width: 94% !important;
             text-align: center !important;
             font-family: 'Gamja Flower', 'Jua', cursive !important;
-            font-size: clamp(1.5rem,3.4vw,2.6rem) !important;
-            font-weight: 700 !important; line-height: 1.3 !important;
-            color: #ffffff !important; z-index: 6 !important;
-            padding: .25em 1em !important;
-            background: linear-gradient(180deg, rgba(130,55,150,.62), rgba(95,30,115,.5)) !important;
-            border-radius: 22px !important;
-            box-shadow: 0 10px 24px rgba(40,10,60,.4), inset 0 0 0 3px rgba(255,255,255,.45) !important;
-            text-shadow: 0 3px 0 rgba(0,0,0,.32) !important;
+            font-size: clamp(1.1rem,2.3vw,1.8rem) !important;
+            font-weight: 700 !important; line-height: 1.35 !important;
+            color: #6a3d8a !important; z-index: 6 !important;
+            padding: 0 !important;
+            background: none !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            text-shadow: 0 2px 0 rgba(255,255,255,.85), 0 1px 10px rgba(255,255,255,.6) !important;
             animation: rise .9s ease 2.6s both;
         }}
         @keyframes rise {{ from{{ opacity:0; transform: translateX(-50%) translateY(18px);}} to{{ opacity:1; transform: translateX(-50%) translateY(0);}} }}
