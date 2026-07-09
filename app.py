@@ -1464,7 +1464,8 @@ def render_home():
 # 캐릭터 미리보기 인형 (3D 토이 느낌의 SVG) — 선택한 옵션을 실시간으로 반영
 # ----------------------------------------------------------------------
 def _shade(hex_color, factor):
-    """hex 색을 factor(0~1)만큼 어둡게 만들어 그라데이션 하단색을 만든다."""
+    """hex 색에 factor를 곱해 그라데이션 색을 만든다 (1보다 작으면 어둡게,
+    크면 밝게 — 구체감을 주는 하이라이트/그림자 색 둘 다 이 함수로 만든다)."""
     hex_color = (hex_color or "#cccccc").lstrip("#")
     r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
     r, g, b = (max(0, min(255, int(c * factor))) for c in (r, g, b))
@@ -1515,7 +1516,9 @@ def character_doll_svg(draft):
     gloves_hex = _catalog_hex("gloves", acc.get("gloves"))
 
     skin_dark = _shade(skin, 0.82)
+    skin_light = _shade(skin, 1.18)
     top_dark = _shade(top_hex, 0.78)
+    top_light = _shade(top_hex, 1.2)
     bottom_dark = _shade(bottom_hex, 0.78)
     hair_dark = _shade(HAIR_COLOR, 0.7)
     glove_dark = _shade(gloves_hex or skin, 0.8)
@@ -1524,14 +1527,17 @@ def character_doll_svg(draft):
     use_skirt = style_conf["skirt"] and not outfit.get("bottom")
     if use_skirt:
         legs_svg = (
-            f'<path d="M105,278 L195,278 L216,358 L84,358 Z" fill="url(#bottomGrad)"/>'
+            f'<path d="M105,278 L195,278 L216,358 L84,358 Z" fill="url(#bottomGrad)" '
+            f'stroke="{bottom_dark}" stroke-width="2" stroke-opacity=".5"/>'
             f'<rect x="118" y="344" width="20" height="46" rx="9" fill="url(#skinGrad)"/>'
             f'<rect x="162" y="344" width="20" height="46" rx="9" fill="url(#skinGrad)"/>'
         )
     else:
         legs_svg = (
-            f'<rect x="112" y="278" width="32" height="102" rx="14" fill="url(#bottomGrad)"/>'
-            f'<rect x="156" y="278" width="32" height="102" rx="14" fill="url(#bottomGrad)"/>'
+            f'<rect x="112" y="278" width="32" height="102" rx="14" fill="url(#bottomGrad)" '
+            f'stroke="{bottom_dark}" stroke-width="2" stroke-opacity=".5"/>'
+            f'<rect x="156" y="278" width="32" height="102" rx="14" fill="url(#bottomGrad)" '
+            f'stroke="{bottom_dark}" stroke-width="2" stroke-opacity=".5"/>'
         )
 
     socks_svg = ""
@@ -1578,9 +1584,19 @@ def character_doll_svg(draft):
             <linearGradient id="skinGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stop-color="{skin}"/><stop offset="1" stop-color="{skin_dark}"/>
             </linearGradient>
+            <radialGradient id="skinHeadGrad" cx="36%" cy="28%" r="78%">
+                <stop offset="0" stop-color="{skin_light}"/>
+                <stop offset="55%" stop-color="{skin}"/>
+                <stop offset="100%" stop-color="{skin_dark}"/>
+            </radialGradient>
             <linearGradient id="topGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stop-color="{top_hex}"/><stop offset="1" stop-color="{top_dark}"/>
             </linearGradient>
+            <radialGradient id="topRadGrad" cx="34%" cy="16%" r="88%">
+                <stop offset="0" stop-color="{top_light}"/>
+                <stop offset="60%" stop-color="{top_hex}"/>
+                <stop offset="100%" stop-color="{top_dark}"/>
+            </radialGradient>
             <linearGradient id="bottomGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0" stop-color="{bottom_hex}"/><stop offset="1" stop-color="{bottom_dark}"/>
             </linearGradient>
@@ -1589,18 +1605,20 @@ def character_doll_svg(draft):
             </linearGradient>
             {glove_defs}
         </defs>
-        <ellipse cx="150" cy="400" rx="72" ry="14" fill="rgba(20,20,40,.28)"/>
+        <ellipse cx="150" cy="402" rx="88" ry="17" fill="rgba(20,20,40,.32)"/>
         {legs_svg}
         {socks_svg}
         <ellipse cx="128" cy="378" rx="24" ry="13" fill="{shoe_hex}" stroke="{style_conf['sole']}" stroke-width="4"/>
         <ellipse cx="172" cy="378" rx="24" ry="13" fill="{shoe_hex}" stroke="{style_conf['sole']}" stroke-width="4"/>
-        <rect x="98" y="172" width="104" height="112" rx="36" fill="url(#topGrad)"/>
+        <rect x="98" y="172" width="104" height="112" rx="36" fill="url(#topRadGrad)" stroke="{top_dark}" stroke-width="2" stroke-opacity=".5"/>
+        <ellipse cx="126" cy="196" rx="20" ry="30" fill="#ffffff" opacity=".2" transform="rotate(-16 126 196)"/>
         <rect x="8" y="182" width="92" height="26" rx="13" fill="url(#topGrad)" transform="rotate(-12 100 195)"/>
         <rect x="200" y="182" width="92" height="26" rx="13" fill="url(#topGrad)" transform="rotate(12 200 195)"/>
         <circle cx="10" cy="214" r="16" fill="{hand_fill}"/>
         <circle cx="290" cy="214" r="16" fill="{hand_fill}"/>
         {_hair_back(hair_type)}
-        <circle cx="150" cy="115" r="54" fill="url(#skinGrad)"/>
+        <circle cx="150" cy="115" r="54" fill="url(#skinHeadGrad)" stroke="{skin_dark}" stroke-width="2" stroke-opacity=".4"/>
+        <ellipse cx="130" cy="98" rx="15" ry="10" fill="#ffffff" opacity=".25"/>
         {_hair_front(hair_type)}
         {hat_svg}
         {necklace_svg}
@@ -1615,19 +1633,17 @@ def character_doll_svg(draft):
 
 
 def render_doll_stage(draft):
+    # 카드/배경 없이 캐릭터만 화면에 크게 떠 있도록 — 배경, 테두리, 그림자 박스 없음
     html_block(
         f"""
         <style>
         .doll-stage {{
-            position: relative; border-radius: 28px; overflow: hidden;
-            background: linear-gradient(160deg,#3b3f7a 0%,#23264f 60%,#171933 100%);
-            padding: 22px 12px 6px; text-align: center;
-            box-shadow: 0 18px 34px rgba(20,20,50,.35);
+            position: relative; text-align: center; padding: 4px 0 18px;
         }}
         .doll-stage .doll-svg {{
-            width: 76%; max-width: 250px; height: auto;
+            width: 94%; max-width: 480px; height: auto;
             animation: doll-bob 3.4s ease-in-out infinite;
-            filter: drop-shadow(0 14px 10px rgba(0,0,0,.35));
+            filter: drop-shadow(0 24px 20px rgba(20,20,50,.4)) drop-shadow(0 6px 6px rgba(20,20,50,.25));
         }}
         @keyframes doll-bob {{
             0%,100% {{ transform: translateY(0); }}
