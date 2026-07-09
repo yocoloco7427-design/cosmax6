@@ -1681,10 +1681,35 @@ const stage = document.getElementById('stage');
 const width = window.innerWidth;
 const height = window.innerHeight;
 
+// --- 인체 비율 리깅: 발밑(y=0)부터 위로 각 부위 길이를 누적해서 위치를 계산한다.
+//     좌표를 하드코딩하지 않고 이렇게 쌓아 올려야 부위 사이에 뜨거나 겹치는
+//     틈이 생기지 않는다 (예전 버전이 "사람 같지 않다"는 소리를 들은 이유 중 하나).
+const FOOT_H = 0.20, FOOT_R = 0.19;
+const SHIN_LEN = 0.52, SHIN_R = 0.155;
+const THIGH_LEN = 0.56, THIGH_R = 0.19;
+const HIP_LEN = 0.20, HIP_R = 0.40;
+const WAIST_LEN = 0.28, WAIST_R = 0.34;
+const CHEST_LEN = 0.46, CHEST_R = 0.44;
+const NECK_LEN = 0.12, NECK_R = 0.155;
+const HEAD_R = 0.40;
+const LEG_X = 0.20;
+
+let _y = FOOT_H;
+const shinY = _y + SHIN_LEN / 2; _y += SHIN_LEN;
+const thighY = _y + THIGH_LEN / 2; _y += THIGH_LEN;
+const hipY = _y + HIP_LEN / 2; _y += HIP_LEN;
+const waistY = _y + WAIST_LEN / 2; _y += WAIST_LEN;
+const chestY = _y + CHEST_LEN / 2; _y += CHEST_LEN;
+const neckY = _y + NECK_LEN / 2; _y += NECK_LEN;
+const headY = _y + HEAD_R;
+const shoulderY = chestY + CHEST_LEN * 0.38;
+const totalTop = headY + HEAD_R;
+const midY = totalTop * 0.5;
+
 const scene = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 100);
-camera.position.set(0, 1.05, 7.2);
-camera.lookAt(0, 0.75, 0);
+const camera = new THREE.PerspectiveCamera(28, width / height, 0.1, 100);
+camera.position.set(0, midY + totalTop * 0.06, totalTop * 2.25);
+camera.lookAt(0, midY, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -1720,6 +1745,11 @@ function makeMat(hex, opts) {
     }, opts));
 }
 
+function shadeHex(hex, factor) {
+    const c = new THREE.Color(hex);
+    return new THREE.Color(c.r * factor, c.g * factor, c.b * factor);
+}
+
 function makeCapsule(radius, length, mat) {
     const g = new THREE.Group();
     const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 24, 1, true), mat);
@@ -1735,140 +1765,233 @@ function makeCapsule(radius, length, mat) {
     return g;
 }
 
+function headSurfacePoint(dx, dy, inset) {
+    inset = inset === undefined ? 0.92 : inset;
+    const r2 = HEAD_R * HEAD_R - dx * dx - dy * dy;
+    const dz = Math.sqrt(Math.max(0.02, r2)) * inset;
+    return new THREE.Vector3(dx, headY + dy, dz);
+}
+
 const doll = new THREE.Group();
-const bottomMat = makeMat(CHAR.bottom);
+const bottomMat = makeMat(CHAR.bottom, { roughness: 0.75, clearcoat: 0.08 });
+const shoeMat = makeMat(CHAR.shoe, { roughness: 0.35, clearcoat: 0.5 });
+const topMat = makeMat(CHAR.top, { roughness: 0.55, clearcoat: 0.3 });
 
 if (CHAR.skirt) {
-    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.72, 0.62, 24, 1, true), bottomMat);
-    skirt.position.y = -0.02; skirt.castShadow = true;
+    const skirtBottomY = thighY;
+    const skirtTopY = hipY + HIP_LEN / 2;
+    const skirt = new THREE.Mesh(
+        new THREE.CylinderGeometry(HIP_R * 0.85, HIP_R * 1.6, skirtTopY - skirtBottomY, 24, 1, true),
+        bottomMat
+    );
+    skirt.position.y = (skirtTopY + skirtBottomY) / 2;
+    skirt.castShadow = true;
     doll.add(skirt);
-    [-0.24, 0.24].forEach((x) => {
-        const leg = makeCapsule(0.16, 0.55, makeMat(CHAR.skin));
-        leg.position.set(x, -0.62, 0);
-        doll.add(leg);
+    [-LEG_X, LEG_X].forEach((x) => {
+        const bareLeg = makeCapsule(SHIN_R, SHIN_LEN + THIGH_LEN * 0.6, makeMat(CHAR.skin, { roughness: 0.45, clearcoat: 0.4 }));
+        bareLeg.position.set(x, shinY, 0);
+        doll.add(bareLeg);
     });
 } else {
-    [-0.26, 0.26].forEach((x) => {
-        const leg = makeCapsule(0.24, 1.05, bottomMat);
-        leg.position.set(x, -0.55, 0);
-        doll.add(leg);
+    [-LEG_X, LEG_X].forEach((x) => {
+        const thigh = makeCapsule(THIGH_R, THIGH_LEN, bottomMat);
+        thigh.position.set(x, thighY, 0);
+        doll.add(thigh);
+        const shin = makeCapsule(SHIN_R, SHIN_LEN, bottomMat);
+        shin.position.set(x, shinY, 0);
+        doll.add(shin);
     });
+    const hip = makeCapsule(HIP_R, HIP_LEN, bottomMat);
+    hip.position.y = hipY;
+    hip.scale.set(1.15, 1, 0.85);
+    doll.add(hip);
 }
 
 if (CHAR.socks && !CHAR.skirt) {
-    const sockMat = makeMat(CHAR.socks, { roughness: 0.7, clearcoat: 0.1 });
-    [-0.26, 0.26].forEach((x) => {
-        const sock = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.22, 20), sockMat);
-        sock.position.set(x, -1.0, 0);
+    const sockMat = makeMat(CHAR.socks, { roughness: 0.75, clearcoat: 0.08 });
+    [-LEG_X, LEG_X].forEach((x) => {
+        const sock = new THREE.Mesh(new THREE.CylinderGeometry(SHIN_R * 1.05, SHIN_R * 0.95, FOOT_H * 0.9, 18), sockMat);
+        sock.position.set(x, FOOT_H + 0.02, 0);
         doll.add(sock);
     });
 }
 
-const shoeMat = makeMat(CHAR.shoe, { roughness: 0.35, clearcoat: 0.5 });
-[-0.26, 0.26].forEach((x) => {
-    const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.26, 20, 16), shoeMat);
-    shoe.scale.set(1, 0.62, 1.35);
-    shoe.position.set(x, -1.14, 0.08);
+[-LEG_X, LEG_X].forEach((x) => {
+    const shoe = new THREE.Mesh(new THREE.SphereGeometry(FOOT_R, 20, 16), shoeMat);
+    shoe.scale.set(1, 0.55, 1.5);
+    shoe.position.set(x, FOOT_H * 0.55, 0.09);
     shoe.castShadow = true;
     doll.add(shoe);
+    const sole = new THREE.Mesh(
+        new THREE.BoxGeometry(FOOT_R * 1.7, FOOT_H * 0.3, FOOT_R * 2.7),
+        makeMat(CHAR.sole || '#ffffff', { roughness: 0.8, clearcoat: 0.05 })
+    );
+    sole.position.set(x, FOOT_H * 0.16, 0.09);
+    sole.castShadow = true;
+    doll.add(sole);
 });
 
-const topMat = makeMat(CHAR.top);
-const torso = makeCapsule(0.62, 0.85, topMat);
-torso.position.y = 0.32;
-doll.add(torso);
+const waist = makeCapsule(WAIST_R, WAIST_LEN, topMat);
+waist.position.y = waistY;
+waist.scale.set(1.05, 1, 0.8);
+doll.add(waist);
 
-[-1, 1].forEach((sign) => {
-    const arm = makeCapsule(0.17, 0.95, topMat);
-    arm.rotation.z = (Math.PI / 2) * sign * -1;
-    arm.position.set(sign * 0.92, 0.5, 0);
-    doll.add(arm);
-    const handMat = makeMat(CHAR.gloves || CHAR.skin, { roughness: CHAR.gloves ? 0.6 : 0.4 });
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.18, 18, 14), handMat);
-    hand.position.set(sign * 1.42, 0.5, 0);
+const chest = makeCapsule(CHEST_R, CHEST_LEN, topMat);
+chest.position.y = chestY;
+chest.scale.set(1.18, 1, 0.82);
+doll.add(chest);
+
+const neck = makeCapsule(NECK_R, NECK_LEN, makeMat(CHAR.skin));
+neck.position.y = neckY;
+doll.add(neck);
+
+function buildArm(sign) {
+    const pivot = new THREE.Group();
+    pivot.position.set(sign * CHEST_R * 1.05, shoulderY, 0.02);
+
+    const upperLen = 0.46, foreLen = 0.44, r = 0.115;
+    const upper = makeCapsule(r, upperLen, topMat);
+    upper.position.y = -upperLen / 2;
+    pivot.add(upper);
+
+    const forearmPivot = new THREE.Group();
+    forearmPivot.position.y = -upperLen;
+    pivot.add(forearmPivot);
+
+    const forearm = makeCapsule(r * 0.88, foreLen, topMat);
+    forearm.position.y = -foreLen / 2;
+    forearmPivot.add(forearm);
+
+    const handMat = makeMat(CHAR.gloves || CHAR.skin, {
+        roughness: CHAR.gloves ? 0.65 : 0.42,
+        clearcoat: CHAR.gloves ? 0.15 : 0.4,
+    });
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(r * 1.2, 16, 12), handMat);
+    hand.scale.set(1, 0.9, 0.65);
+    hand.position.y = -foreLen - r * 0.5;
     hand.castShadow = true;
-    doll.add(hand);
-});
+    forearmPivot.add(hand);
+
+    pivot.rotation.z = sign * 0.32;
+    forearmPivot.rotation.z = sign * -0.18;
+    return pivot;
+}
+[-1, 1].forEach((sign) => doll.add(buildArm(sign)));
 
 if (CHAR.necklace) {
     const neckMat = makeMat(CHAR.necklace, { roughness: 0.25, clearcoat: 0.7, metalness: 0.4 });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.03, 12, 30, Math.PI * 1.3), neckMat);
-    ring.position.set(0, 0.72, 0.5);
-    ring.rotation.x = Math.PI * 0.42;
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(NECK_R * 1.3, 0.025, 10, 28, Math.PI * 1.3), neckMat);
+    ring.position.set(0, chestY + CHEST_LEN / 2 + 0.02, WAIST_R * 0.55);
+    ring.rotation.x = Math.PI * 0.46;
     doll.add(ring);
 }
 
-const skinMat = makeMat(CHAR.skin, { roughness: 0.45, clearcoat: 0.45 });
-const head = new THREE.Mesh(new THREE.SphereGeometry(0.58, 32, 24), skinMat);
-head.position.y = 1.28;
+const skinMat = makeMat(CHAR.skin, { roughness: 0.42, clearcoat: 0.5 });
+const head = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R, 32, 24), skinMat);
+head.position.y = headY;
+head.scale.set(0.98, 1.05, 0.95);
 head.castShadow = true;
 doll.add(head);
 
+const browMat = makeMat(shadeHex(CHAR.hair, 0.75), { roughness: 0.8, clearcoat: 0 });
+[-1, 1].forEach((sign) => {
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.026, 0.02), browMat);
+    brow.position.copy(headSurfacePoint(sign * 0.16, 0.12, 0.9));
+    brow.rotation.z = sign * -0.15;
+    doll.add(brow);
+});
+
+const eyeMat = makeMat(0x3a2a20, { roughness: 0.25, clearcoat: 0.7 });
+const eyeHighlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+[-1, 1].forEach((sign) => {
+    const eyePos = headSurfacePoint(sign * 0.155, 0.02, 0.94);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 10), eyeMat);
+    eye.scale.set(0.9, 1.2, 0.5);
+    eye.position.copy(eyePos);
+    doll.add(eye);
+    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), eyeHighlightMat);
+    hl.position.copy(eyePos).add(new THREE.Vector3(sign * 0.015, 0.018, 0.02));
+    doll.add(hl);
+});
+
+const noseMat = makeMat(CHAR.skin, { roughness: 0.4, clearcoat: 0.4 });
+const nose = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), noseMat);
+nose.position.copy(headSurfacePoint(0, -0.06, 1.02));
+doll.add(nose);
+
+const mouthMat = makeMat(0xb35a5a, { roughness: 0.5, clearcoat: 0.3 });
+const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 8, 20, Math.PI * 0.55), mouthMat);
+mouth.position.copy(headSurfacePoint(0, -0.16, 0.92));
+mouth.rotation.z = Math.PI * 1.22;
+doll.add(mouth);
+
 [-1, 1].forEach((sign) => {
     const cheek = new THREE.Mesh(
-        new THREE.SphereGeometry(0.09, 12, 10),
-        makeMat(0xff9ab3, { roughness: 1, clearcoat: 0, transparent: true, opacity: 0.4 })
+        new THREE.SphereGeometry(0.075, 12, 10),
+        makeMat(0xff9ab3, { roughness: 1, clearcoat: 0, transparent: true, opacity: 0.38 })
     );
-    cheek.position.set(sign * 0.32, 1.18, 0.48);
+    cheek.position.copy(headSurfacePoint(sign * 0.24, -0.1, 0.9));
     doll.add(cheek);
 });
 
-[-1, 1].forEach((sign) => {
-    const eye = new THREE.Mesh(
-        new THREE.SphereGeometry(0.045, 10, 8),
-        makeMat(0x3a2a20, { roughness: 0.3, clearcoat: 0.6 })
-    );
-    eye.position.set(sign * 0.19, 1.3, 0.53);
-    doll.add(eye);
-});
-
-const hairMat = makeMat(CHAR.hair, { roughness: 0.55, clearcoat: 0.2 });
-const hairCap = new THREE.Mesh(
-    new THREE.SphereGeometry(0.61, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.62),
+const hairMat = makeMat(CHAR.hair, { roughness: 0.5, clearcoat: 0.25 });
+const faceHalf = 0.72;
+const domeThetaLen = (CHAR.hairType === '숏컷') ? Math.PI * 0.62 : Math.PI * 0.8;
+const hairDome = new THREE.Mesh(
+    new THREE.SphereGeometry(
+        HEAD_R * 1.05, 32, 24,
+        Math.PI / 2 + faceHalf, Math.PI * 2 - faceHalf * 2,
+        0, domeThetaLen
+    ),
     hairMat
 );
-hairCap.position.y = 1.3;
-hairCap.castShadow = true;
-doll.add(hairCap);
+hairDome.position.y = headY;
+hairDome.castShadow = true;
+doll.add(hairDome);
 
 if (CHAR.hairType === '웨이브' || CHAR.hairType === '스트레이트') {
-    const back = makeCapsule(0.5, 1.0, hairMat);
-    back.position.set(0, 0.95, -0.28);
-    back.scale.set(0.85, 1, 0.55);
-    doll.add(back);
+    [-1, 1].forEach((sign) => {
+        const strand = makeCapsule(0.15, 0.85, hairMat);
+        strand.position.set(sign * HEAD_R * 0.92, headY - 0.55, -0.05);
+        strand.rotation.z = sign * (CHAR.hairType === '웨이브' ? 0.12 : 0.04);
+        doll.add(strand);
+    });
 } else if (CHAR.hairType === '컬리') {
-    const curlPts = [[-0.5, 1.55, 0.05], [0.5, 1.55, 0.05], [-0.62, 1.25, -0.15], [0.62, 1.25, -0.15], [0, 1.68, -0.1]];
-    curlPts.forEach((p) => {
-        const curl = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 12), hairMat);
-        curl.position.set(p[0], p[1], p[2]);
+    const curlOffsets = [
+        [-HEAD_R * 0.95, 0.05, -0.05], [HEAD_R * 0.95, 0.05, -0.05],
+        [-HEAD_R * 0.75, -0.28, -0.15], [HEAD_R * 0.75, -0.28, -0.15],
+        [0, HEAD_R * 0.65, -0.2],
+    ];
+    curlOffsets.forEach((o) => {
+        const curl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 12), hairMat);
+        curl.position.set(o[0], headY + o[1], o[2]);
         doll.add(curl);
     });
 }
 
 if (CHAR.hat) {
-    const hatMat = makeMat(CHAR.hat, { roughness: 0.65, clearcoat: 0.15 });
-    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.06, 24), hatMat);
-    brim.position.y = 1.62;
+    const hatMat = makeMat(CHAR.hat, { roughness: 0.62, clearcoat: 0.18 });
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(HEAD_R * 1.35, HEAD_R * 1.4, 0.05, 24), hatMat);
+    brim.position.y = headY + HEAD_R * 0.62;
     doll.add(brim);
     const crown = new THREE.Mesh(
-        new THREE.SphereGeometry(0.5, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
+        new THREE.SphereGeometry(HEAD_R * 1.08, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
         hatMat
     );
-    crown.position.y = 1.66;
+    crown.position.y = headY + HEAD_R * 0.62;
     doll.add(crown);
 }
 
 if (CHAR.sunglasses) {
-    const glassMat = makeMat(CHAR.sunglasses, { roughness: 0.15, clearcoat: 0.9, metalness: 0.1 });
+    const glassMat = makeMat(CHAR.sunglasses, { roughness: 0.12, clearcoat: 0.9, metalness: 0.1 });
     [-1, 1].forEach((sign) => {
-        const lens = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), glassMat);
-        lens.scale.set(1, 0.85, 0.4);
-        lens.position.set(sign * 0.2, 1.3, 0.55);
+        const lens = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), glassMat);
+        lens.scale.set(1, 0.85, 0.35);
+        lens.position.copy(headSurfacePoint(sign * 0.17, 0.02, 1.0));
         doll.add(lens);
     });
 }
 
-doll.position.y = 0.35;
 scene.add(doll);
 
 const shadowPlane = new THREE.Mesh(
@@ -1876,22 +1999,23 @@ const shadowPlane = new THREE.Mesh(
     new THREE.ShadowMaterial({ opacity: 0.32 })
 );
 shadowPlane.rotation.x = -Math.PI / 2;
-shadowPlane.position.y = -1.16;
+shadowPlane.position.y = -0.02;
 shadowPlane.receiveShadow = true;
 scene.add(shadowPlane);
 
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enablePan = false;
 controls.enableZoom = false;
-controls.minPolarAngle = Math.PI / 2 - 0.35;
-controls.maxPolarAngle = Math.PI / 2 + 0.1;
+controls.minPolarAngle = Math.PI / 2 - 0.3;
+controls.maxPolarAngle = Math.PI / 2 + 0.08;
 controls.autoRotate = true;
 controls.autoRotateSpeed = 1.4;
-controls.target.set(0, 0.75, 0);
+controls.target.set(0, midY, 0);
 
+const bobBaseY = doll.position.y;
 function animate() {
     requestAnimationFrame(animate);
-    doll.position.y = 0.35 + Math.sin(Date.now() * 0.0012) * 0.05;
+    doll.position.y = bobBaseY + Math.sin(Date.now() * 0.0012) * 0.035;
     controls.update();
     renderer.render(scene, camera);
 }
