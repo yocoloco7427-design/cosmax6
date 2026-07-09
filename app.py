@@ -214,6 +214,14 @@ CLOUD_SHAPES = [
 # 패럴랙스 3레이어 — 원경(far): 작고 느리고 흐릿 / 중경(mid) / 근경(near): 크고 빠르고 선명
 # (top%, width px, duration s, delay s, opacity, shape idx, depth)
 CLOUD_LAYOUT = [
+    # 티끌(tiny) — 아주 작은 조각구름 다수, 느리게(90~130s)
+    (2, 55, 96, -5, 0.55, 2, "far"), (10, 45, 108, -35, 0.5, 1, "far"),
+    (17, 60, 100, -70, 0.55, 2, "far"), (25, 50, 118, -18, 0.5, 1, "far"),
+    (33, 65, 92, -50, 0.55, 2, "far"), (41, 45, 112, -88, 0.5, 1, "far"),
+    (49, 55, 104, -28, 0.55, 2, "far"), (57, 50, 122, -63, 0.5, 1, "far"),
+    (65, 60, 96, -8, 0.55, 2, "far"), (72, 45, 110, -95, 0.5, 1, "far"),
+    (80, 55, 100, -40, 0.55, 2, "far"), (87, 50, 114, -73, 0.5, 1, "far"),
+    (93, 60, 106, -20, 0.55, 2, "far"),
     # 원경 (far) — 느림(100~120s), 작고 흐릿
     (6, 120, 118, -10, 0.6, 2, "far"), (20, 100, 108, -60, 0.55, 2, "far"),
     (38, 140, 120, -30, 0.6, 1, "far"), (58, 110, 112, -85, 0.55, 2, "far"),
@@ -403,7 +411,7 @@ def render_home():
         .stage {{
             position: relative;
             width: 100%;
-            height: min(90vh, 820px);
+            height: min(76vh, 700px);
             margin: 0 auto;
             perspective: 1400px;
             overflow: hidden;
@@ -435,48 +443,66 @@ def render_home():
             transform: translate(-50%,-50%);
             border-radius: 50%; z-index: 3; overflow: hidden;
             box-shadow:
-                inset 0 0 30px 6px rgba(150,210,255,.35),
-                0 0 60px 14px rgba(120,190,255,.6),
-                0 40px 70px rgba(20,40,90,.55);
+                inset 0 0 36px 8px rgba(170,220,255,.5),
+                0 0 26px 4px rgba(255,255,255,.35),
+                0 0 74px 18px rgba(120,190,255,.68),
+                0 46px 80px rgba(20,40,90,.58);
             animation: earth-float 7s ease-in-out infinite;
         }}
-        /* 회전하는 지구 텍스처 (equirectangular 가로 스크롤 = 자전) */
+        /* 회전하는 지구 텍스처 (equirectangular 가로 스크롤 = 자전) — 밝기·채도 보정 */
         .earth .tex {{
             position: absolute; inset: 0; border-radius: 50%;
             background-image: url('{earth}');
             background-size: 960px 480px;
             background-repeat: repeat-x;
             background-position: 0 center;
+            filter: brightness(1.24) contrast(1.1) saturate(1.2);
             animation: spin-earth 34s linear infinite;
         }}
         @keyframes spin-earth {{
             from {{ background-position: 0 center; }}
             to   {{ background-position: -960px center; }}
         }}
-        /* 구 입체감 레이어1: 강한 명암(구 라이팅) — 좌상단 광원, 우하단 그림자 */
+        /* 구 입체감 레이어1: 라이팅(좌상단 주광원 + 우하단 코어 섀도우 + 가장자리 앰비언트 오클루전) */
         .earth .shade {{
             position: absolute; inset: 0; border-radius: 50%; z-index: 2;
             pointer-events: none;
             background:
-                radial-gradient(circle at 30% 26%,
-                    rgba(255,255,255,.55) 0%, rgba(255,255,255,.18) 12%, rgba(255,255,255,0) 30%),
-                radial-gradient(circle at 68% 74%,
-                    rgba(0,0,0,0) 30%, rgba(2,6,24,.34) 66%, rgba(1,3,16,.9) 100%),
+                radial-gradient(circle at 28% 24%,
+                    rgba(255,255,255,.7) 0%, rgba(255,255,255,.22) 11%, rgba(255,255,255,0) 27%),
+                radial-gradient(circle at 70% 76%,
+                    rgba(0,0,0,0) 24%, rgba(2,6,24,.4) 58%, rgba(1,3,16,.94) 100%),
                 radial-gradient(circle at 50% 50%,
-                    rgba(3,8,28,0) 52%, rgba(3,8,28,.3) 82%, rgba(1,3,14,.7) 100%);
+                    rgba(3,8,28,0) 46%, rgba(3,8,28,.32) 80%, rgba(1,3,14,.78) 100%);
         }}
-        /* 구 입체감 레이어2: 프레넬 림 라이트(가장자리 파란 빛) + 광택 하이라이트 */
+        /* 구 입체감 레이어2: 프레넬 림 라이트 + 하이라이트 + 반대편 보조광(파란 바운스) */
         .earth .gloss {{
             position: absolute; inset: 0; border-radius: 50%; z-index: 3;
             pointer-events: none;
             box-shadow:
-                inset 6px 6px 22px rgba(180,225,255,.5),
-                inset -4px -6px 20px rgba(120,180,255,.35);
+                inset 9px 9px 28px rgba(210,238,255,.65),
+                inset -6px -8px 24px rgba(110,175,255,.4),
+                inset 0 0 44px rgba(255,255,255,.14);
             background:
-                radial-gradient(ellipse 42% 26% at 34% 24%,
-                    rgba(255,255,255,.6) 0%, rgba(255,255,255,0) 70%);
+                radial-gradient(ellipse 34% 20% at 31% 21%,
+                    rgba(255,255,255,.9) 0%, rgba(255,255,255,.35) 38%, rgba(255,255,255,0) 68%),
+                radial-gradient(ellipse 60% 44% at 76% 80%,
+                    rgba(50,110,220,.4) 0%, rgba(50,110,220,0) 70%),
+                radial-gradient(circle at 50% 50%,
+                    rgba(140,205,255,0) 82%, rgba(140,205,255,.5) 96%, rgba(160,215,255,.75) 100%);
             mix-blend-mode: screen;
         }}
+        /* 구 입체감 레이어3: 미세한 대기 스월(회전과 함께 은은하게 흐르는 하이라이트) */
+        .earth .sheen {{
+            position: absolute; inset: -6%; border-radius: 50%; z-index: 4;
+            pointer-events: none; opacity: .5; mix-blend-mode: soft-light;
+            background: conic-gradient(from 0deg,
+                rgba(255,255,255,0) 0deg, rgba(255,255,255,.5) 18deg, rgba(255,255,255,0) 55deg,
+                rgba(255,255,255,0) 200deg, rgba(255,255,255,.3) 230deg, rgba(255,255,255,0) 265deg,
+                rgba(255,255,255,0) 360deg);
+            animation: sheen-spin 34s linear infinite;
+        }}
+        @keyframes sheen-spin {{ from {{ transform: rotate(0deg); }} to {{ transform: rotate(360deg); }} }}
         @keyframes earth-float {{
             0%,100% {{ transform: translate(-50%,-50%) translateY(0); }}
             50%     {{ transform: translate(-50%,-50%) translateY(-16px); }}
@@ -492,17 +518,6 @@ def render_home():
         @keyframes eshadow {{
             0%,100% {{ transform: translateX(-50%) scale(1);   opacity:.8; }}
             50%     {{ transform: translateX(-50%) scale(.85); opacity:.55; }}
-        }}
-
-        /* ---- 장식 이모지 ---- */
-        .deco {{
-            position: absolute; z-index: 2;
-            filter: drop-shadow(0 4px 4px rgba(0,0,0,.12));
-            animation: bob 3.6s ease-in-out infinite;
-        }}
-        @keyframes bob {{
-            0%,100% {{ transform: translateY(0) rotate(-6deg); }}
-            50%     {{ transform: translateY(-14px) rotate(6deg); }}
         }}
 
         /* ---- 타이틀 — 자유분방한 손글씨, 글자마다 색·기울기, 땅! 등장 ---- */
@@ -538,14 +553,19 @@ def render_home():
             100% {{ transform: scale(1); }}
         }}
         .hero-sub {{
-            position: absolute; left: 50%; top: 85%;
+            position: absolute; left: 50%; top: 19%;
             transform: translateX(-50%);
-            width: 92%; text-align: center;
+            width: auto; max-width: 88%;
+            text-align: center;
             font-family: 'Gamja Flower', 'Jua', cursive;
-            font-size: clamp(1.7rem,3.6vw,2.6rem);
-            font-weight: 700;
-            color: #5a2f78; z-index: 6;
-            text-shadow: 0 3px 0 rgba(255,255,255,.9), 0 1px 14px rgba(255,255,255,.7);
+            font-size: clamp(1.9rem,4vw,2.9rem);
+            font-weight: 700; line-height: 1.3;
+            color: #ffffff; z-index: 6;
+            padding: .3em .9em;
+            background: linear-gradient(180deg, rgba(130,55,150,.6), rgba(95,30,115,.48));
+            border-radius: 22px;
+            box-shadow: 0 8px 20px rgba(40,10,60,.35), inset 0 0 0 2px rgba(255,255,255,.4);
+            text-shadow: 0 2px 0 rgba(0,0,0,.3);
             animation: rise .9s ease 2.6s both;
         }}
         @keyframes rise {{ from{{ opacity:0; transform: translateX(-50%) translateY(18px);}} to{{ opacity:1; transform: translateX(-50%) translateY(0);}} }}
@@ -593,7 +613,7 @@ def render_home():
 
         /* ---- start game? 픽셀 다이얼로그 — 타이틀 애니메이션이 끝난 뒤 등장 ---- */
         .start-dialog {{
-            max-width: 360px; margin: .5rem auto 0;
+            max-width: 360px; margin: -.5rem auto 0;
             font-family: 'Press Start 2P', 'Jua', cursive;
             border: 4px solid #b23a6e; border-bottom: none;
             border-radius: 10px 10px 0 0; overflow: hidden;
@@ -633,11 +653,21 @@ def render_home():
             animation: dialog-in .8s cubic-bezier(.2,1.6,.35,1) 2.9s both;
         }}
         .st-key-start_heart_btn button {{
-            width: 78px; height: 46px; padding: 0; min-height: 0;
+            width: 78px !important; height: 46px !important;
+            min-width: 78px !important; max-width: 78px !important;
+            min-height: 46px !important; max-height: 46px !important;
+            padding: 0 !important; margin: 0 auto !important;
+            box-sizing: border-box !important; overflow: hidden !important;
             background: #fff0f6 !important; border: 3px solid #b23a6e !important;
-            border-radius: 5px; box-shadow: inset 0 0 0 2px #ffd0e6;
-            color: transparent !important; position: relative;
+            border-radius: 5px !important; box-shadow: inset 0 0 0 2px #ffd0e6;
+            position: relative; display: block !important;
             transition: transform .1s ease;
+        }}
+        /* 라벨 텍스트는 스크린리더용으로만 남기고 시각적으로는 완전히 접어버려 —
+           안 그러면 숨긴 긴 라벨이 줄바꿈되며 버튼 상자가 찌그러져 보인다 */
+        .st-key-start_heart_btn button * {{
+            font-size: 0 !important; line-height: 0 !important;
+            color: transparent !important; margin: 0 !important; padding: 0 !important;
         }}
         .st-key-start_heart_btn button:hover {{ transform: translateY(-2px); }}
         .st-key-start_heart_btn button:active {{ transform: translateY(1px); }}
@@ -650,24 +680,19 @@ def render_home():
         }}
 
         @media (prefers-reduced-motion: reduce) {{
-            .earth, .earth .tex, .earth-shadow, .atmos, .plane-main, .plane-bg, .deco, .trail,
+            .earth, .earth .tex, .earth-shadow, .atmos, .plane-main, .plane-bg, .trail,
             .start-dialog, .st-key-start_heart_btn {{ animation: none !important; }}
         }}
         </style>
 
         <div class="stage">
-            <span class="deco" style="top:5%;  left:8%;  font-size:2.6rem; animation-delay:.0s;">🌈</span>
-            <span class="deco" style="top:44%; left:4%;  font-size:2.2rem; animation-delay:1.0s;">💕</span>
-            <span class="deco" style="top:10%; right:26%; font-size:1.8rem; animation-delay:.3s;">⭐</span>
-            <span class="deco" style="bottom:9%;  left:13%; font-size:2.1rem; animation-delay:.8s;">🗼</span>
-            <span class="deco" style="bottom:7%;  right:14%; font-size:2.1rem; animation-delay:1.3s;">🏰</span>
-            <span class="deco" style="bottom:20%; left:45%; font-size:1.9rem; animation-delay:.6s;">🕌</span>
             <div class="atmos"></div>
             <div class="earth-shadow"></div>
             <div class="earth">
                 <div class="tex"></div>
                 <div class="shade"></div>
                 <div class="gloss"></div>
+                <div class="sheen"></div>
             </div>
             <div class="plane-bg">{PLANE_SIDE_SVG}</div>
             <div class="plane-main">
@@ -857,26 +882,34 @@ def render_aftercare():
 # ----------------------------------------------------------------------
 # 사이드바 내비게이션
 # ----------------------------------------------------------------------
-with st.sidebar:
-    st.title("🧴 TravelMax+")
-    character = get_character()
-    if character:
-        st.caption(f"{character['gender']} · {character['skin_type']} 피부")
-        if st.button("🗺️ 지도", use_container_width=True):
-            goto("map")
-            st.rerun()
-        if st.button(f"📘 여권 ({len(get_passport())})", use_container_width=True):
-            goto("passport")
-            st.rerun()
-        if st.button("💧 애프터케어", use_container_width=True):
-            goto("aftercare")
-            st.rerun()
-        st.divider()
-        if st.button("👤 캐릭터 다시 설정", use_container_width=True):
-            goto("character")
-            st.rerun()
-    else:
-        st.caption("캐릭터를 먼저 만들어보세요!")
+# 홈 화면은 게임 인트로 느낌을 위해 사이드바를 아예 띄우지 않는다.
+if st.session_state.view != "home":
+    with st.sidebar:
+        st.title("🧴 TravelMax+")
+        character = get_character()
+        if character:
+            st.caption(f"{character['gender']} · {character['skin_type']} 피부")
+            if st.button("🗺️ 지도", use_container_width=True):
+                goto("map")
+                st.rerun()
+            if st.button(f"📘 여권 ({len(get_passport())})", use_container_width=True):
+                goto("passport")
+                st.rerun()
+            if st.button("💧 애프터케어", use_container_width=True):
+                goto("aftercare")
+                st.rerun()
+            st.divider()
+            if st.button("👤 캐릭터 다시 설정", use_container_width=True):
+                goto("character")
+                st.rerun()
+        else:
+            st.caption("캐릭터를 먼저 만들어보세요!")
+else:
+    st.markdown(
+        '<style>section[data-testid="stSidebar"], div[data-testid="stSidebarCollapsedControl"] '
+        "{ display: none !important; } </style>",
+        unsafe_allow_html=True,
+    )
 
 # ----------------------------------------------------------------------
 # 화면 라우팅
