@@ -227,9 +227,20 @@ COUNTRIES = {
 FREE_COUNTRY_CODES = {"au", "jp", "cn", "kr", "us"}
 UNLOCK_COST_COINS = 50
 
+# 옷장/액세서리 각 카테고리의 첫 번째 아이템(항상 화이트 계열, _build_catalog가
+# COLOR_PALETTE_10 순서대로 만들어서 인덱스 0 = 화이트)만 무료 — 나머지 9개는
+# 코인으로 해제. st.session_state.unlocked_closet_items에 해제한 item id가 쌓인다
+# (id가 카테고리별 prefix로 이미 전역에서 고유해서 카테고리 구분 없이 하나의
+# set으로 관리해도 된다).
+CLOSET_UNLOCK_COST_COINS = 20
+
 
 def is_country_unlocked(code):
     return code in FREE_COUNTRY_CODES or code in st.session_state.unlocked_countries
+
+
+def is_closet_item_unlocked(item_id, index):
+    return index == 0 or item_id in st.session_state.unlocked_closet_items
 
 
 # 기내 액체류 반입 규정 — 캐리어 담기 서비스에서 쓰는 판정 기준.
@@ -747,6 +758,10 @@ if "current_ad_video" not in st.session_state:
     st.session_state.current_ad_video = None
 if "unlocked_countries" not in st.session_state:
     st.session_state.unlocked_countries = set()  # 코인으로 잠금 해제한 여행지 코드
+if "unlocked_closet_items" not in st.session_state:
+    st.session_state.unlocked_closet_items = set()  # 코인으로 잠금 해제한 옷장/액세서리 item id
+if "confirming_closet_unlock" not in st.session_state:
+    st.session_state.confirming_closet_unlock = None  # 언락 확인 문구를 보여줄 item id (없으면 None)
 if "confirming_unlock" not in st.session_state:
     st.session_state.confirming_unlock = None  # 언락 확인 문구를 보여줄 국가 코드 (없으면 None)
 if "coin_celebration_amount" not in st.session_state:
@@ -3476,24 +3491,67 @@ def render_closet():
         items = catalog["items"]
         per_row = 5
         for start in range(0, len(items), per_row):
-            row_items = items[start:start + per_row]
+            row_items = list(enumerate(items))[start:start + per_row]
             cols = st.columns(per_row)
-            for col, item in zip(cols, row_items):
+            for col, (idx, item) in zip(cols, row_items):
                 with col:
-                    selected = current == item["id"]
+                    unlocked_item = is_closet_item_unlocked(item["id"], idx)
+                    selected = unlocked_item and current == item["id"]
                     border = "4px solid #ff6fb8" if selected else "3px solid rgba(0,0,0,.08)"
                     shadow = "0 0 0 3px #fff, 0 6px 14px rgba(255,111,184,.4)" if selected else "0 3px 8px rgba(0,0,0,.1)"
                     icon_svg = item_icon_svg(cat_key, item)
-                    html_block(
-                        f'<div style="width:100%;aspect-ratio:1;border-radius:14px;background:#faf7f2;'
-                        f'display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box;'
-                        f'border:{border};box-shadow:{shadow};">{icon_svg}</div>'
+                    lock_badge = (
+                        '<div style="position:absolute;top:6px;right:6px;width:26px;height:26px;'
+                        'border-radius:50%;background:#fff;border:2px solid #ff6fb8;display:flex;'
+                        'align-items:center;justify-content:center;font-size:14px;'
+                        'box-shadow:0 2px 4px rgba(0,0,0,.25);z-index:2;">🔒</div>'
+                        if not unlocked_item else ""
                     )
-                    if st.button(item["label"], key=f"pick_{item['id']}", use_container_width=True):
-                        bucket_dict = dict(draft.get(bucket) or {})
-                        bucket_dict[cat_key] = None if bucket_dict.get(cat_key) == item["id"] else item["id"]
-                        draft[bucket] = bucket_dict
+                    icon_opacity = "opacity:.45;filter:grayscale(.3);" if not unlocked_item else ""
+                    html_block(
+                        f'<div style="position:relative;width:100%;aspect-ratio:1;border-radius:14px;'
+                        f'background:#faf7f2;display:flex;align-items:center;justify-content:center;'
+                        f'padding:10px;box-sizing:border-box;border:{border};box-shadow:{shadow};">'
+                        f'<div style="width:100%;height:100%;{icon_opacity}">{icon_svg}</div>'
+                        f'{lock_badge}</div>'
+                    )
+                    btn_label = item["label"] if unlocked_item else f"🔒 {item['label']}"
+                    if st.button(btn_label, key=f"pick_{item['id']}", use_container_width=True):
+                        if unlocked_item:
+                            bucket_dict = dict(draft.get(bucket) or {})
+                            bucket_dict[cat_key] = None if bucket_dict.get(cat_key) == item["id"] else item["id"]
+                            draft[bucket] = bucket_dict
+                        else:
+                            st.session_state.confirming_closet_unlock = item["id"]
                         st.rerun()
+
+        confirming_id = st.session_state.confirming_closet_unlock
+        confirming_item = next((i for i in items if i["id"] == confirming_id), None)
+        if confirming_item:
+            st.divider()
+            st.markdown(
+                f"**{confirming_item['label']}** — {CLOSET_UNLOCK_COST_COINS}코인을 사용하여 오픈하시겠습니까?"
+            )
+            c1, c2 = st.columns(2)
+            with c1:
+                can_afford = st.session_state.coins >= CLOSET_UNLOCK_COST_COINS
+                if st.button("예", key="confirm_closet_unlock_yes", type="primary",
+                             use_container_width=True, disabled=not can_afford):
+                    st.session_state.coins -= CLOSET_UNLOCK_COST_COINS
+                    st.session_state.unlocked_closet_items.add(confirming_id)
+                    st.session_state.coin_history.append({
+                        "amount": -CLOSET_UNLOCK_COST_COINS,
+                        "label": f"👕 {confirming_item['label']} 잠금 해제",
+                        "when": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    })
+                    st.session_state.confirming_closet_unlock = None
+                    st.rerun()
+                if not can_afford:
+                    st.caption("코인이 부족해요 — 광고를 보고 코인을 모아보세요 🎬")
+            with c2:
+                if st.button("아니오", key="confirm_closet_unlock_no", use_container_width=True):
+                    st.session_state.confirming_closet_unlock = None
+                    st.rerun()
 
         st.divider()
         if st.button("← 캐릭터로 돌아가기", type="primary", use_container_width=True):
