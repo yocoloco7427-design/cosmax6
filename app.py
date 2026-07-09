@@ -10,6 +10,7 @@ import random
 import re
 import time
 from pathlib import Path
+from urllib.parse import quote as urlquote
 
 import plotly.graph_objects as go
 import requests
@@ -254,6 +255,56 @@ def _is_aqi_severe(country):
         return int(aq["aqi"]) >= 101
     except (TypeError, ValueError):
         return False
+
+
+# ----------------------------------------------------------------------
+# 드럭스토어 & 뷰티스토어 상세 리스트 — 국가/도시별로 급하게 화장품을 살 수
+# 있는 실제 매장. 로컬 브랜드는 현지어 표기를 병기하고("local" 필드), 지도
+# 검색 링크를 붙여서 "리스트만 보고 못 찾는" 문제를 방지한다. 아직 MVP라
+# 상하이/시드니/서울 3개 도시만 채워뒀고, 나머지 국가는 COUNTRIES의 기존
+# 단순 문자열 리스트("drugstores")로 계속 표시한다.
+# ----------------------------------------------------------------------
+DRUGSTORE_CITY_EN = {"cn": "Shanghai", "au": "Sydney", "kr": "Seoul"}
+
+DRUGSTORE_DIRECTORY = {
+    "cn": [
+        {"kr": "왓슨스", "local": "屈臣氏", "en": "Watsons"},
+        {"kr": "세포라", "local": "丝芙兰", "en": "Sephora"},
+        {"kr": "하메이", "local": "话梅", "en": "HARMAY"},
+        {"kr": "더 컬러리스트", "local": "调色师", "en": "The Colorist"},
+        {"kr": "아피오나", "local": "妍丽", "en": "AFIONA"},
+        {"kr": "와우컬러", "local": None, "en": "WOW COLOUR"},
+    ],
+    "au": [
+        {"kr": "더블유 코스메틱스", "local": None, "en": "W Cosmetics"},
+        {"kr": "라 코스메티크", "local": None, "en": "La Cosmetique"},
+        {"kr": "보니크", "local": None, "en": "BONIIK"},
+        {"kr": "프라이스라인", "local": None, "en": "Priceline"},
+        {"kr": "케미스트 웨어하우스", "local": None, "en": "Chemist Warehouse"},
+    ],
+    "kr": [
+        {"kr": "올리브영", "local": None, "en": "Olive Young"},
+    ],
+}
+
+
+def get_drugstore_cards(code):
+    """구조화된 드럭스토어 리스트(위 DRUGSTORE_DIRECTORY)가 있는 나라만 카드용
+    데이터를 만들어 반환한다. 지도 검색 링크는 영문 상호명 + 영문 도시명으로
+    구글맵 검색 URL을 만들어서, 로컬 표기만 보고는 못 찾는 문제를 피한다."""
+    stores = DRUGSTORE_DIRECTORY.get(code)
+    if not stores:
+        return None
+    city_en = DRUGSTORE_CITY_EN.get(code, "")
+    cards = []
+    for store in stores:
+        label = store["kr"] + (f" {store['local']}" if store.get("local") else "") + f" / {store['en']}"
+        query = urlquote(f"{store['en']} {city_en}".strip())
+        cards.append({
+            "label": label,
+            "maps_url": f"https://www.google.com/maps/search/?api=1&query={query}",
+        })
+    return cards
 
 
 # 헤어 아이콘에서 "3WAU 추천 및 구매 사이트로 이동" 버튼이 여는 실제 스토어 링크
@@ -583,6 +634,8 @@ if "just_opened_passport_page" not in st.session_state:
     st.session_state.just_opened_passport_page = False
 if "passport_notes" not in st.session_state:
     st.session_state.passport_notes = []  # 적립된 "나만의 여행 꿀팁" 목록 (각 항목 = 한 줄)
+if "passport_stores" not in st.session_state:
+    st.session_state.passport_stores = []  # ⭐로 저장한 드럭스토어/뷰티스토어 목록
 if "tip_input_counter" not in st.session_state:
     st.session_state.tip_input_counter = 0  # 입력창을 매번 새 위젯으로 만들어 제출 후 비우기 위한 값
 if "country_stage" not in st.session_state:
@@ -999,15 +1052,17 @@ def _passport_dialog_css():
             margin-bottom: 6px;
         }
         .tip-empty { font-family: 'Jua', sans-serif; font-size: .95rem; color: #a06; opacity: .8; }
-        /* 꿀팁 삭제(✕) 버튼 — key가 del_tip_0, del_tip_1... 로 매번 달라지므로
+        /* 꿀팁/스토어 삭제(✕) 버튼 — key가 del_tip_0, del_store_0... 로 매번 달라지므로
            부분일치 선택자로 전부 한 번에 스타일 준다 */
-        div[data-testid="stDialog"] div[class*="st-key-del_tip_"] button {
+        div[data-testid="stDialog"] div[class*="st-key-del_tip_"] button,
+        div[data-testid="stDialog"] div[class*="st-key-del_store_"] button {
             min-width: 0 !important; width: 30px !important; height: 30px !important;
             padding: 0 !important; border-radius: 50% !important; margin-top: 2px !important;
             background: rgba(255,111,184,.15) !important; border: 1.5px solid #ff8fc0 !important;
             color: #b23a6e !important; font-size: .85rem !important; line-height: 1 !important;
         }
-        div[data-testid="stDialog"] div[class*="st-key-del_tip_"] button:hover {
+        div[data-testid="stDialog"] div[class*="st-key-del_tip_"] button:hover,
+        div[data-testid="stDialog"] div[class*="st-key-del_store_"] button:hover {
             background: rgba(255,111,184,.32) !important;
         }
         /* 여권 맨 아래에 붙는 한 줄 입력창 — 책의 일부처럼 핑크 테두리로 마감 */
@@ -1124,6 +1179,23 @@ def _beauty_passport_dialog():
                     with del_col:
                         if st.button("✕", key=f"del_tip_{i}", help="이 꿀팁 삭제"):
                             st.session_state.passport_notes.pop(i)
+                            st.rerun()
+
+            html_block('<div class="p-section-title">🛍️ 저장한 뷰티 스토어</div>')
+            stores = st.session_state.passport_stores
+            if not stores:
+                html_block(
+                    '<div class="tip-empty">아직 저장한 스토어가 없어요 — '
+                    '드럭스토어 목록에서 ⭐을 눌러보세요</div>'
+                )
+            else:
+                for i, s in enumerate(stores):
+                    store_col, del_store_col = st.columns([6, 1], gap="small", vertical_alignment="center")
+                    with store_col:
+                        html_block(f'<div class="tip-entry">{s["flag"]} {html.escape(s["label"])}</div>')
+                    with del_store_col:
+                        if st.button("✕", key=f"del_store_{i}", help="이 스토어 삭제"):
+                            st.session_state.passport_stores.pop(i)
                             st.rerun()
 
     # 여권 맨 아래에 붙는 한 줄 입력창 — 여기 적고 Enter 치면 위 '나만의 여행
@@ -3815,8 +3887,36 @@ def _render_country_sheet_body(kind, country, char, code):
         for item in country["essentials"]:
             st.write(f"- {item}")
         st.markdown("**📍 현지 드럭스토어**")
-        for store in country.get("drugstores") or []:
-            st.write(f"- {store}")
+        cards = get_drugstore_cards(code)
+        if cards:
+            saved_labels = {
+                s["label"] for s in st.session_state.passport_stores if s["code"] == code
+            }
+            for i, card in enumerate(cards):
+                is_saved = card["label"] in saved_labels
+                name_col, map_col, star_col = st.columns([5, 2, 1], vertical_alignment="center")
+                with name_col:
+                    st.write(card["label"])
+                with map_col:
+                    st.link_button("🗺️ 지도", card["maps_url"], use_container_width=True)
+                with star_col:
+                    if st.button("💛" if is_saved else "⭐", key=f"save_store_{code}_{i}",
+                                 help="뷰티 패스포트에서 빼기" if is_saved else "뷰티 패스포트에 저장"):
+                        if is_saved:
+                            st.session_state.passport_stores = [
+                                s for s in st.session_state.passport_stores
+                                if not (s["code"] == code and s["label"] == card["label"])
+                            ]
+                        else:
+                            st.session_state.passport_stores.append({
+                                "code": code, "flag": country["flag"],
+                                "label": card["label"], "maps_url": card["maps_url"],
+                            })
+                            st.toast(f"⭐ {card['label']} 저장됨!", icon="⭐")
+                        st.rerun()
+        else:
+            for store in country.get("drugstores") or []:
+                st.write(f"- {store}")
         st.markdown("**🧴 내 피부에 맞는 추천**")
         for t in _quick_skin_tip(char, country):
             st.write(f"- {t}")
