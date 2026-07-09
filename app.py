@@ -306,6 +306,219 @@ def _is_aqi_severe(country):
 
 
 # ----------------------------------------------------------------------
+# 국가별 실제 판매 제품 큐레이션 — 구매본부에서 선정한 실제 세포라 판매 제품
+# (호주 세포라 기준, 26.7.10 자료). 피부 맞춤 추천(💄 아이콘)에서 이 표가 있는
+# 나라는 반드시 이 목록 "안에서만" 골라 추천한다 — 이름/브랜드/성분을 새로
+# 지어내지 않는다. good_for/good_for_extras는 각 제품 공식 페이지의 성분·설명을
+# 조사해서 매긴 태그이고, fragrance_free=False인 제품은 향료 알러젠이 포함돼
+# 있어(체리블라썸 크림, 비타 토닝 크림) 민감성 사용자에겐 추천하지 않는다.
+# 이미지는 assets/au_products/에 저장한 실제 제품 사진(브랜드 공식/입점몰 출처).
+# ----------------------------------------------------------------------
+AU_PRODUCT_CATALOG = [
+    {"id": "au01", "brand": "Anua", "name": "하트리프 77 수딩 토너", "category": "토너",
+     "image": "au_products/au01_heartleaf_toner.png",
+     "url": "https://www.sephora.com.au/products/anua-heartleaf-77-soothing-toner",
+     "key_ingredients": ["하트리프(어성초) 77%", "판테놀", "병풀추출물"],
+     "good_for": ["건성", "지성", "복합성"], "good_for_extras": ["민감성", "트러블"],
+     "fragrance_free": True,
+     "description": "약산성 진정 토너 — 자극받고 예민해진 피부를 가라앉히고 수분을 채워줘요."},
+    {"id": "au02", "brand": "Anua", "name": "라이스 70 글로우 밀키 토너", "category": "토너",
+     "image": "au_products/au02_rice_milky_toner.png",
+     "url": "https://www.sephora.com.au/products/anua-rice-70-glow-milky-toner",
+     "key_ingredients": ["라이스브랜워터 70%", "나이아신아마이드", "세라마이드"],
+     "good_for": ["건성", "지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": True,
+     "description": "가벼운 밀키 토너 — 유수분 밸런스를 잡아주면서 은은한 광채를 더해줘요."},
+    {"id": "au03", "brand": "Innisfree", "name": "볼캐닉 PHA 포어 리파이닝 토너", "category": "토너",
+     "image": "au_products/au03_volcanic_pha_toner.png",
+     "url": "https://www.sephora.com.au/products/innisfree-volcanic-pha-pore-refining-toner",
+     "key_ingredients": ["화산송이 파우더", "PHA(글루코노락톤)", "아르기닌"],
+     "good_for": ["지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": True,
+     "description": "저자극 PHA로 묵은 각질과 모공 속 노폐물을 부드럽게 정돈해줘요."},
+    {"id": "au04", "brand": "Innisfree", "name": "그린티 엔자임 비타민C 브라이트닝 토너 패드", "category": "토너",
+     "image": "au_products/au04_greentea_vitc_pads.png",
+     "url": "https://www.sephora.com.au/products/innisfree-green-tea-enzyme-vitamin-c-brightening-toner-pads",
+     "key_ingredients": ["나이아신아마이드", "비타민C(마그네슘아스코빌포스페이트)", "마데카소사이드"],
+     "good_for": ["건성", "지성", "복합성"], "good_for_extras": ["민감성"],
+     "fragrance_free": True,
+     "description": "패드 타입 브라이트닝 토너 — 칙칙해진 톤을 환하게 정돈하는 데 도움을 줘요."},
+    {"id": "au05", "brand": "Anua", "name": "PDRN 히알루론산 캡슐 100 세럼", "category": "세럼",
+     "image": "au_products/au05_pdrn_capsule_serum.png",
+     "url": "https://www.sephora.com.au/products/anua-pdrn-hyaluronic-acid-capsule-100-serum",
+     "key_ingredients": ["PDRN", "히알루론산 11종 복합", "판테놀"],
+     "good_for": ["건성", "복합성"], "good_for_extras": ["민감성", "트러블"],
+     "fragrance_free": True,
+     "description": "PDRN과 다중 히알루론산으로 속부터 촉촉하게 채워 물광 피부를 만들어줘요."},
+    {"id": "au06", "brand": "Anua", "name": "나이아신아마이드 10 TXA 3 세럼", "category": "세럼",
+     "image": "au_products/au06_niacinamide_txa_serum.png",
+     "url": "https://www.sephora.com.au/products/anua-niacinamide-10-txa-3-serum",
+     "key_ingredients": ["나이아신아마이드 10%", "트라넥사믹애씨드(TXA) 3%", "병풀추출물"],
+     "good_for": ["건성", "지성", "복합성"], "good_for_extras": ["민감성", "트러블"],
+     "fragrance_free": True,
+     "description": "자외선 자극 후 남는 색소침착·잡티를 톤업하는 데 도움을 줘요 — 여행 중 트러블 흔적 케어에 좋아요."},
+    {"id": "au07", "brand": "Innisfree", "name": "그린티 세라마이드 밀크 배리어 에센스", "category": "에센스",
+     "image": "au_products/au07_greentea_ceramide_essence.png",
+     "url": "https://www.sephora.com.au/products/innisfree-green-tea-ceramide-milk-barrier-essence",
+     "key_ingredients": ["세라마이드NP", "그린티추출물", "나이아신아마이드"],
+     "good_for": ["건성", "지성", "복합성"], "good_for_extras": ["민감성", "트러블"],
+     "fragrance_free": True,
+     "description": "토너·에센스·로션 3-in-1 — 손상되기 쉬운 피부 장벽을 채워주는 데 도움을 줘요."},
+    {"id": "au08", "brand": "d'Alba", "name": "화이트 트러플 더블 레이어 리바이탈라이징 세럼", "category": "세럼",
+     "image": "au_products/au08_truffle_double_serum.png",
+     "url": "https://www.sephora.com.au/products/dalba-white-truffle-double-layer-revitalizing-serum",
+     "key_ingredients": ["화이트 트러플추출물", "나이아신아마이드", "아데노신"],
+     "good_for": ["건성", "복합성"], "good_for_extras": [],
+     "fragrance_free": False,
+     "description": "세럼+오일 더블 레이어 — 탄력과 광채를 더해주는 안티에이징 세럼이에요."},
+    {"id": "au09", "brand": "Anua", "name": "PDRN 히알루론산 100 모이스처라이징 크림", "category": "크림",
+     "image": "au_products/au09_pdrn_cream.png",
+     "url": "https://www.sephora.com.au/products/anua-pdrn-hyaluronic-acid-100-moisturizing-cream",
+     "key_ingredients": ["PDRN", "히알루론산 복합", "스쿠알란"],
+     "good_for": ["건성", "복합성"], "good_for_extras": ["민감성"],
+     "fragrance_free": True,
+     "description": "장시간 지속되는 고보습 크림 — 건조해지기 쉬운 여행지에서 장벽 케어에 좋아요."},
+    {"id": "au10", "brand": "Innisfree", "name": "그린티 시드 히알루론 크림", "category": "크림",
+     "image": "au_products/au10_greentea_seed_cream.png",
+     "url": "https://www.sephora.com.au/products/innisfree-green-tea-seed-hyaluronic-cream",
+     "key_ingredients": ["그린티시드오일", "히알루론산", "세라마이드NP"],
+     "good_for": ["건성", "복합성"], "good_for_extras": ["민감성", "트러블"],
+     "fragrance_free": True,
+     "description": "건조하고 결이 무너진 피부에 수분과 장벽 케어를 더해주는 데일리 크림이에요."},
+    {"id": "au11", "brand": "Innisfree", "name": "체리블라썸 글로우 젤리 크림", "category": "크림",
+     "image": "au_products/au11_cherryblossom_cream.png",
+     "url": "https://www.sephora.com.au/products/innisfree-cherry-blossom-glow-jelly-cream",
+     "key_ingredients": ["체리블라썸(벚꽃)추출물", "나이아신아마이드", "베타인"],
+     "good_for": ["지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": False,
+     "description": "산뜻한 젤리 텍스처로 톤업과 수분감을 동시에 — 가볍게 바르는 브라이트닝 크림이에요."},
+    {"id": "au12", "brand": "d'Alba", "name": "비타 토닝 캡슐 크림", "category": "크림",
+     "image": "au_products/au12_vita_toning_cream.png",
+     "url": "https://www.sephora.com.au/products/dalba-vita-toning-capsule-cream",
+     "key_ingredients": ["화이트트러플·비타민C 복합", "나이아신아마이드", "아데노신"],
+     "good_for": ["건성", "지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": False,
+     "description": "캡슐+크림 듀얼 텍스처 — 칙칙한 톤과 잔주름 케어를 동시에 잡아주는 크림이에요."},
+    {"id": "au13", "brand": "Anua", "name": "라이스 70 인텐시브 모이스처라이징 밀크", "category": "로션",
+     "image": "au_products/au13_rice_milk_lotion.png",
+     "url": "https://www.sephora.com.au/products/anua-rice-70-intensive-moisturizing-milk",
+     "key_ingredients": ["라이스브랜워터 70%", "세라마이드 복합", "아데노신"],
+     "good_for": ["건성", "지성", "복합성"], "good_for_extras": ["민감성"],
+     "fragrance_free": True,
+     "description": "가볍게 흡수되는 로션 — 칙칙함 없이 촉촉한 유광 피부로 정돈해줘요."},
+    {"id": "au14", "brand": "d'Alba", "name": "더블 세럼 올인원 멀티밤", "category": "로션",
+     "image": "au_products/au14_multibalm.png",
+     "url": "https://www.sephora.com.au/products/dalba-double-serum-all-in-one-multi-balm",
+     "key_ingredients": ["비건 콜라겐", "세라마이드", "화이트트러플·비타민C"],
+     "good_for": ["건성", "지성", "복합성"], "good_for_extras": ["민감성", "트러블"],
+     "fragrance_free": True,
+     "description": "저자극 올인원 멀티밤 — 로션 대신 얼굴 전체에 가볍게 겹겹이 발라도 좋아요."},
+]
+
+# 큐레이션 카탈로그가 있는 나라만 등록 — 국가 추가 시 이 표에 한 줄만 추가하면
+# get_curated_product_recommendation()이 자동으로 그 나라 페이지에서만 동작한다.
+COUNTRY_PRODUCT_CATALOGS = {
+    "au": AU_PRODUCT_CATALOG,
+}
+
+
+def _curated_catalog_prompt_block(catalog):
+    lines = []
+    for p in catalog:
+        lines.append(
+            f"- id:{p['id']} | {p['brand']} {p['name']} ({p['category']}) | "
+            f"성분: {', '.join(p['key_ingredients'])} | 적합 피부타입: {', '.join(p['good_for']) or '전체'} | "
+            f"적합 특이사항: {', '.join(p['good_for_extras']) or '해당없음'} | "
+            f"무향(fragrance-free): {'예' if p['fragrance_free'] else '아니오'}"
+        )
+    return "\n".join(lines)
+
+
+@st.cache_data(show_spinner=False, ttl=86400)
+def _cached_curated_product_recommendation(skin_type, extras_key, prefs_key, country_code):
+    catalog = COUNTRY_PRODUCT_CATALOGS[country_code]
+    country = COUNTRIES[country_code]
+    prompt = (
+        "너는 여행 뷰티 코디네이터야. 아래는 이 여행지에서 실제로 판매 중인 스킨케어 "
+        "제품 목록이야. 이 목록 '안에서만' 여행자의 피부타입/특이사항/선호와 이 여행지 "
+        "기후에 가장 잘 맞는 제품을 정확히 3개 골라줘. 목록에 없는 제품/브랜드/성분을 "
+        "새로 지어내면 안 돼.\n\n"
+        f"[제품 목록]\n{_curated_catalog_prompt_block(catalog)}\n\n"
+        f"[여행자] 피부타입: {skin_type} / 피부 특이사항: {', '.join(extras_key) or '없음'} / "
+        f"선호 화장품 특성: {', '.join(prefs_key) or '없음'}\n"
+        f"[목적지 기후] {country['name']} — {country['climate']} / 자외선: {country['uv']} / "
+        f"수질: {country['water']} ({country['water_note']})\n\n"
+        '다른 설명 없이 순수 JSON 배열만 출력해: [{"id":"au01","reason":"추천 이유 한 문장"}, ...] '
+        "reason은 한국어로, 왜 이 여행자 피부와 이 여행지에 맞는지 한 문장으로 써."
+    )
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "".join(block.text for block in resp.content if block.type == "text").strip()
+
+
+def _rule_based_curated_picks(catalog, skin_type, extras):
+    """AI를 못 쓰거나 실패했을 때의 대체 로직 — 같은 카탈로그 안에서 점수로 고른다.
+    민감성인데 향료가 든 제품(fragrance_free=False)은 감점해서 사실상 제외한다."""
+    def score(p):
+        s = 2 if skin_type in p["good_for"] else 0
+        for e in extras:
+            if e in p["good_for_extras"]:
+                s += 1
+            if e == "민감성" and not p["fragrance_free"]:
+                s -= 5
+        return s
+
+    ranked = sorted(catalog, key=score, reverse=True)
+    picks, seen_categories = [], set()
+    for p in ranked:
+        if p["category"] in seen_categories:
+            continue
+        picks.append({**p, "reason": f"{skin_type} 피부에 잘 맞는 {p['category']}로 골라봤어요."})
+        seen_categories.add(p["category"])
+        if len(picks) == 3:
+            break
+    return picks
+
+
+def get_curated_product_recommendation(char, country_code):
+    """이 나라에 실제 제품 큐레이션(COUNTRY_PRODUCT_CATALOGS)이 있으면 그 목록
+    '안에서만' 골라 (제품, 추천 이유) 리스트를 반환하고, 없는 나라는 None을
+    반환한다(호출부는 None이면 기존 자유형 AI 추천으로 대체 표시).
+    AI 호출이 가능하면 AI가 이유까지 골라주고, 안 되거나 실패하면 같은
+    카탈로그에서 규칙 기반으로 골라 사진은 항상 뜨도록 보장한다."""
+    catalog = COUNTRY_PRODUCT_CATALOGS.get(country_code)
+    if not catalog:
+        return None
+
+    baseline = get_skin_baseline(char)
+    skin_type = baseline.get("skin_type") or SKIN_TYPES[0]
+    extras = baseline.get("extras") or []
+    prefs = char.get("cosmetic_prefs") or []
+    by_id = {p["id"]: p for p in catalog}
+
+    if ANTHROPIC_API_KEY and anthropic is not None:
+        try:
+            raw = _cached_curated_product_recommendation(
+                skin_type, tuple(sorted(extras)), tuple(sorted(prefs)), country_code
+            )
+            data = json.loads(raw)
+            picks = [
+                {**by_id[item["id"]], "reason": item.get("reason", "")}
+                for item in data if item.get("id") in by_id
+            ][:3]
+            if picks:
+                return picks
+        except Exception:
+            pass
+
+    return _rule_based_curated_picks(catalog, skin_type, extras)
+
+
+# ----------------------------------------------------------------------
 # 드럭스토어 & 뷰티스토어 상세 리스트 — 국가/도시별로 급하게 화장품을 살 수
 # 있는 실제 매장. 로컬 브랜드는 현지어 표기를 병기하고("local" 필드), 지도
 # 검색 링크를 붙여서 "리스트만 보고 못 찾는" 문제를 방지한다. 아직 MVP라
@@ -1046,6 +1259,10 @@ if "carrier_product_volume" not in st.session_state:
     st.session_state.carrier_product_volume = 100  # 제품 탭의 용량 입력값
 if "passport_carrier_checklist" not in st.session_state:
     st.session_state.passport_carrier_checklist = []  # "체크리스트로 저장"한 캐리어 목록 스냅샷
+if "passport_recovery_pages" not in st.session_state:
+    st.session_state.passport_recovery_pages = []  # 저장된 7일 복귀 프로그램 — 페이지 단위 리스트(각 페이지=프로그램 목록)
+if "passport_view_page" not in st.session_state:
+    st.session_state.passport_view_page = 0  # 0=기본 페이지(신원/스탬프/꿀팁 등), 1..N=복귀 프로그램 페이지
 if "tip_input_counter" not in st.session_state:
     st.session_state.tip_input_counter = 0  # 입력창을 매번 새 위젯으로 만들어 제출 후 비우기 위한 값
 if "country_stage" not in st.session_state:
@@ -1349,6 +1566,25 @@ def _compat_card_line(kind, score, environment_data, user_skin_profile):
 
 def get_passport():
     return st.session_state.passport
+
+
+# 뷰티 패스포트 한 페이지에 담을 수 있는 복귀 프로그램 개수 — 실제 여권처럼
+# "한 페이지 = 프로그램 하나"로 자리가 한정되어 있다는 느낌을 주기 위해 1로 둔다.
+PASSPORT_RECOVERY_PAGE_CAPACITY = 1
+
+
+def save_recovery_program_to_passport(entry):
+    """7일 복귀 프로그램을 뷰티 패스포트에 저장한다. 마지막 페이지가 이미 꽉 찼으면
+    (PASSPORT_RECOVERY_PAGE_CAPACITY 도달) 새 페이지를 만들어 그쪽에 담고, 그
+    새 페이지로 자동으로 넘어가서 보여준다. 반환값은 1부터 시작하는 복귀 페이지
+    번호(여권 전체 페이지 번호로는 +1, 기본 페이지가 1페이지라서)."""
+    pages = st.session_state.passport_recovery_pages
+    if not pages or len(pages[-1]) >= PASSPORT_RECOVERY_PAGE_CAPACITY:
+        pages.append([])
+    pages[-1].append(entry)
+    recovery_page_no = len(pages)
+    st.session_state.passport_view_page = recovery_page_no
+    return recovery_page_no
 
 
 def goto(view):
@@ -1851,119 +2087,172 @@ def _beauty_passport_dialog():
             st.rerun()
         return
 
+    recovery_pages = st.session_state.passport_recovery_pages
+    total_pages = 1 + len(recovery_pages)  # 1페이지=기본(신원/스탬프/꿀팁), 그 뒤로 복귀 프로그램 페이지
+    if st.session_state.passport_view_page > total_pages - 1:
+        st.session_state.passport_view_page = total_pages - 1
+    current = st.session_state.passport_view_page
+
     doll_svg = character_doll_svg(char) if char else ""
     just_opened = st.session_state.just_opened_passport_page
     reveal_rule = "animation: passport-reveal .4s ease both;" if just_opened else ""
     st.session_state.just_opened_passport_page = False
 
-    # 펼친 여권 — 왼쪽 신원 페이지 / 오른쪽 스탬프+꿀팁 페이지, 책처럼 나란히
+    # 펼친 여권 — 왼쪽/오른쪽 페이지, 책처럼 나란히. 기본 페이지(신원+스탬프+꿀팁
+    # 등)는 그대로 두고, 저장된 복귀 프로그램은 뒤에 별도 페이지로 넘겨서 본다.
     left_page, right_page = st.columns(2, gap=None)
 
-    with left_page:
-        html_block(
-            f"""
-            <div class="page page-left" style="{reveal_rule}">
-                <div class="p-photo-row">
-                    <div class="p-photo-box">{doll_svg}</div>
-                    <div>
-                        <div class="p-name-big">{html.escape(char.get("name") or "여행자")}</div>
-                        <div class="p-passport-no">NO. COSMAX-0001</div>
-                    </div>
-                </div>
-                {_passport_bio_fields(char)}
-            </div>
-            """
-        )
-
-    with right_page:
-        # 오른쪽은 꿀팁마다 ✕ 삭제 버튼이 있어야 해서, 문자열 HTML 한 덩어리가
-        # 아니라 실제 st.container(위/아래 왼쪽 페이지와 똑같은 여권 박스로
-        # CSS에서 스타일링)로 만들고 그 안에 진짜 버튼들을 넣는다.
-        if just_opened:
-            html_block('<style>.st-key-page_right_card{animation: passport-reveal .4s ease both;}</style>')
-        with st.container(key="page_right_card"):
+    if current > 0:
+        entry = recovery_pages[current - 1][0]
+        with left_page:
             html_block(
                 f"""
-                <div class="p-section-title">✈ VISA STAMPS</div>
-                <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
-                <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
+                <div class="page page-left" style="{reveal_rule}">
+                    <div class="p-section-title">🏠 여행 후 복귀 프로그램</div>
+                    <div class="tip-entry">{html.escape(entry['trip_label'])}</div>
+                    <div class="tip-entry" style="opacity:.65;">저장일 · {html.escape(entry['saved_at'])}</div>
+                </div>
                 """
             )
-            notes = st.session_state.passport_notes
-            if not notes:
-                html_block('<div class="tip-empty">아직 적은 꿀팁이 없어요 — 맨 아래 칸에 적어보세요 ✎</div>')
-            else:
-                for i, note in enumerate(notes):
-                    tip_col, del_col = st.columns([6, 1], gap="small", vertical_alignment="center")
-                    with tip_col:
-                        html_block(f'<div class="tip-entry">🩷 {html.escape(note)}</div>')
-                    with del_col:
-                        if st.button("✕", key=f"del_tip_{i}", help="이 꿀팁 삭제"):
-                            st.session_state.passport_notes.pop(i)
-                            st.rerun()
+            html_block(_recovery_ranking_card_html(entry["ranking"]))
+        with right_page:
+            if just_opened:
+                html_block('<style>.st-key-page_right_card{animation: passport-reveal .4s ease both;}</style>')
+            with st.container(key="page_right_card"):
+                html_block('<div class="p-section-title">7일 여정표</div>')
+                html_block(_RECOVERY_DAY_CARD_CSS)
+                for d in entry["days"]:
+                    html_block(_recovery_day_card_html(d))
+                if st.button("✕ 이 프로그램 삭제", key=f"del_recovery_page_{current}", use_container_width=True):
+                    recovery_pages.pop(current - 1)
+                    st.session_state.passport_view_page = max(0, current - 1)
+                    st.rerun()
+    else:
+        with left_page:
+            html_block(
+                f"""
+                <div class="page page-left" style="{reveal_rule}">
+                    <div class="p-photo-row">
+                        <div class="p-photo-box">{doll_svg}</div>
+                        <div>
+                            <div class="p-name-big">{html.escape(char.get("name") or "여행자")}</div>
+                            <div class="p-passport-no">NO. COSMAX-0001</div>
+                        </div>
+                    </div>
+                    {_passport_bio_fields(char)}
+                </div>
+                """
+            )
 
-            html_block('<div class="p-section-title">🛍️ 저장한 뷰티 스토어</div>')
-            stores = st.session_state.passport_stores
-            if not stores:
+        with right_page:
+            # 오른쪽은 꿀팁마다 ✕ 삭제 버튼이 있어야 해서, 문자열 HTML 한 덩어리가
+            # 아니라 실제 st.container(위/아래 왼쪽 페이지와 똑같은 여권 박스로
+            # CSS에서 스타일링)로 만들고 그 안에 진짜 버튼들을 넣는다.
+            if just_opened:
+                html_block('<style>.st-key-page_right_card{animation: passport-reveal .4s ease both;}</style>')
+            with st.container(key="page_right_card"):
                 html_block(
-                    '<div class="tip-empty">아직 저장한 스토어가 없어요 — '
-                    '드럭스토어 목록에서 ⭐을 눌러보세요</div>'
+                    f"""
+                    <div class="p-section-title">✈ VISA STAMPS</div>
+                    <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
+                    <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
+                    """
                 )
-            else:
-                for i, s in enumerate(stores):
-                    store_col, del_store_col = st.columns([6, 1], gap="small", vertical_alignment="center")
-                    with store_col:
-                        html_block(f'<div class="tip-entry">{s["flag"]} {html.escape(s["label"])}</div>')
-                    with del_store_col:
-                        if st.button("✕", key=f"del_store_{i}", help="이 스토어 삭제"):
-                            st.session_state.passport_stores.pop(i)
-                            st.rerun()
+                notes = st.session_state.passport_notes
+                if not notes:
+                    html_block('<div class="tip-empty">아직 적은 꿀팁이 없어요 — 맨 아래 칸에 적어보세요 ✎</div>')
+                else:
+                    for i, note in enumerate(notes):
+                        tip_col, del_col = st.columns([6, 1], gap="small", vertical_alignment="center")
+                        with tip_col:
+                            html_block(f'<div class="tip-entry">🩷 {html.escape(note)}</div>')
+                        with del_col:
+                            if st.button("✕", key=f"del_tip_{i}", help="이 꿀팁 삭제"):
+                                st.session_state.passport_notes.pop(i)
+                                st.rerun()
 
-            html_block(f'<div class="p-section-title">🪙 코인 적립 내역 (보유 {st.session_state.coins:,}코인)</div>')
-            history = st.session_state.coin_history
-            if not history:
-                html_block(
-                    '<div class="tip-empty">아직 적립 내역이 없어요 — '
-                    '좌하단 "광고보고 코인 받기"를 눌러보세요 🎬</div>'
-                )
-            else:
-                for entry in reversed(history[-10:]):
-                    amount = entry["amount"]
-                    sign = "+" if amount >= 0 else ""
+                html_block('<div class="p-section-title">🛍️ 저장한 뷰티 스토어</div>')
+                stores = st.session_state.passport_stores
+                if not stores:
                     html_block(
-                        f'<div class="tip-entry">{html.escape(entry["label"])} {sign}{amount}코인 '
-                        f'<span style="opacity:.6;font-size:.85em;">· {html.escape(entry["when"])}</span></div>'
+                        '<div class="tip-empty">아직 저장한 스토어가 없어요 — '
+                        '드럭스토어 목록에서 ⭐을 눌러보세요</div>'
                     )
+                else:
+                    for i, s in enumerate(stores):
+                        store_col, del_store_col = st.columns([6, 1], gap="small", vertical_alignment="center")
+                        with store_col:
+                            html_block(f'<div class="tip-entry">{s["flag"]} {html.escape(s["label"])}</div>')
+                        with del_store_col:
+                            if st.button("✕", key=f"del_store_{i}", help="이 스토어 삭제"):
+                                st.session_state.passport_stores.pop(i)
+                                st.rerun()
 
-            html_block('<div class="p-section-title">🧳 캐리어 체크리스트</div>')
-            checklist = st.session_state.passport_carrier_checklist
-            if not checklist:
-                html_block(
-                    '<div class="tip-empty">아직 저장한 체크리스트가 없어요 — '
-                    '캐리어 담기에서 "체크리스트로 저장"을 눌러보세요 🧳</div>'
-                )
-            else:
-                checklist_total = sum(i["volume_ml"] for i in checklist)
-                html_block(f'<div class="tip-entry">총 {len(checklist)}개 · {checklist_total:.0f}ml</div>')
-                for item in checklist:
-                    badge = "✅" if item["allowed"] else "❌"
+                html_block(f'<div class="p-section-title">🪙 코인 적립 내역 (보유 {st.session_state.coins:,}코인)</div>')
+                history = st.session_state.coin_history
+                if not history:
                     html_block(
-                        f'<div class="tip-entry">{badge} {html.escape(item["name"])} · '
-                        f'{item["volume_ml"]:.0f}ml</div>'
+                        '<div class="tip-empty">아직 적립 내역이 없어요 — '
+                        '좌하단 "광고보고 코인 받기"를 눌러보세요 🎬</div>'
                     )
+                else:
+                    for coin_entry in reversed(history[-10:]):
+                        amount = coin_entry["amount"]
+                        sign = "+" if amount >= 0 else ""
+                        html_block(
+                            f'<div class="tip-entry">{html.escape(coin_entry["label"])} {sign}{amount}코인 '
+                            f'<span style="opacity:.6;font-size:.85em;">· {html.escape(coin_entry["when"])}</span></div>'
+                        )
 
-    # 여권 맨 아래에 붙는 한 줄 입력창 — 여기 적고 Enter 치면 위 '나만의 여행
-    # 꿀팁' 목록에 새 줄로 쌓인다. key를 매번 바꿔서(tip_input_counter)
-    # 제출 후 입력창이 자동으로 비워지게 한다.
-    with st.container(key="tip_input_row"):
-        new_tip = st.text_input(
-            "나만의 여행 꿀팁 추가", key=f"tip_input_{st.session_state.tip_input_counter}",
-            placeholder="✎ 나만의 여행 꿀팁을 적고 Enter를 눌러보세요", label_visibility="collapsed",
-        )
-    if new_tip and new_tip.strip():
-        st.session_state.passport_notes.append(new_tip.strip())
-        st.session_state.tip_input_counter += 1
-        st.rerun()
+                html_block('<div class="p-section-title">🧳 캐리어 체크리스트</div>')
+                checklist = st.session_state.passport_carrier_checklist
+                if not checklist:
+                    html_block(
+                        '<div class="tip-empty">아직 저장한 체크리스트가 없어요 — '
+                        '캐리어 담기에서 "체크리스트로 저장"을 눌러보세요 🧳</div>'
+                    )
+                else:
+                    checklist_total = sum(i["volume_ml"] for i in checklist)
+                    html_block(f'<div class="tip-entry">총 {len(checklist)}개 · {checklist_total:.0f}ml</div>')
+                    for item in checklist:
+                        badge = "✅" if item["allowed"] else "❌"
+                        html_block(
+                            f'<div class="tip-entry">{badge} {html.escape(item["name"])} · '
+                            f'{item["volume_ml"]:.0f}ml</div>'
+                        )
+
+    if total_pages > 1:
+        nav_prev, nav_mid, nav_next = st.columns([1, 2, 1])
+        with nav_prev:
+            if st.button("◀ 이전 장", disabled=current == 0, use_container_width=True, key="passport_prev_page"):
+                st.session_state.passport_view_page -= 1
+                st.rerun()
+        with nav_mid:
+            st.markdown(
+                f"<div style='text-align:center;color:#8a6a9a;font-weight:600;padding-top:8px;'>"
+                f"{current + 1} / {total_pages} 페이지</div>",
+                unsafe_allow_html=True,
+            )
+        with nav_next:
+            if st.button(
+                "다음 장 ▶", disabled=current == total_pages - 1, use_container_width=True, key="passport_next_page",
+            ):
+                st.session_state.passport_view_page += 1
+                st.rerun()
+
+    if current == 0:
+        # 여권 맨 아래에 붙는 한 줄 입력창 — 여기 적고 Enter 치면 위 '나만의 여행
+        # 꿀팁' 목록에 새 줄로 쌓인다. key를 매번 바꿔서(tip_input_counter)
+        # 제출 후 입력창이 자동으로 비워지게 한다.
+        with st.container(key="tip_input_row"):
+            new_tip = st.text_input(
+                "나만의 여행 꿀팁 추가", key=f"tip_input_{st.session_state.tip_input_counter}",
+                placeholder="✎ 나만의 여행 꿀팁을 적고 Enter를 눌러보세요", label_visibility="collapsed",
+            )
+        if new_tip and new_tip.strip():
+            st.session_state.passport_notes.append(new_tip.strip())
+            st.session_state.tip_input_counter += 1
+            st.rerun()
 
     if st.button("✕ 닫기", key="close_passport_btn", use_container_width=True):
         st.session_state.show_passport = False
@@ -3987,10 +4276,12 @@ def _map_globe_gate():
             .st-key-open_world_map.st-key-open_world_map button,
             .st-key-open_world_map.st-key-open_world_map button::before {{ animation: none !important; }}
         }}
-        /* 여행 후 피부 복귀 프로그램 아이콘 — 지구 오른쪽에 절대좌표로 배치.
-           지구 자체가 clamp(330px,69vw,{_MAP_GLOBE_MAX_PX}px)라 그 절반 폭만큼
-           오른쪽으로 밀어야 지구 크기가 화면마다 달라져도 항상 지구 바로
-           옆(오른쪽)에 붙는다.
+        /* 여행 후 피부 복귀 프로그램 아이콘 — 지구 오른쪽 가장자리와 화면(컨테이너)
+           오른쪽 끝 사이의 "정중앙"에 절대좌표로 배치한다.
+           지구 오른쪽 가장자리 = 50% + halfGlobe, 화면 오른쪽 끝 = 100%이므로
+           그 중점 = 75% + halfGlobe/2. left는 이 중점 값을 그대로 쓰고, 아이콘
+           자신은 translate(-50%,-50%)로 가로/세로 모두 그 점을 중심으로 앉힌다
+           (전에는 지구 바로 옆에 28px만 띄워서 너무 붙어 보였다).
            Streamlit이 각 위젯의 element-container에 기본으로 position:relative를
            걸어두기 때문에, 버튼에 position:absolute를 줘도 기준점(containing
            block)이 globe_stage_row가 아니라 이 바로 위 element-container가 되어버려
@@ -4001,8 +4292,8 @@ def _map_globe_gate():
         .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button {{
             position: absolute !important;
             top: calc(14px + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px)) !important;
-            left: calc(50% + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px) + 28px) !important;
-            transform: translateY(-50%) !important;
+            left: calc(75% + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px) / 2) !important;
+            transform: translate(-50%, -50%) !important;
             width: clamp(72px, 10vw, 108px) !important; height: clamp(72px, 10vw, 108px) !important;
             min-width: 0 !important; max-width: none !important;
             border-radius: 0 !important; border: none !important; padding: 0 !important;
@@ -4016,10 +4307,10 @@ def _map_globe_gate():
             z-index: 5;
         }}
         .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:hover {{
-            transform: translateY(-50%) scale(1.06) !important;
+            transform: translate(-50%, -50%) scale(1.06) !important;
         }}
         .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:active {{
-            transform: translateY(-50%) scale(.96) !important;
+            transform: translate(-50%, -50%) scale(.96) !important;
         }}
         </style>
         <div class="map-globe-hint">🌍 지구를 눌러 세계지도를 펼쳐보세요</div>
@@ -5313,15 +5604,38 @@ def _render_country_sheet_body(kind, country, char, code):
     elif kind == "lipstick":
         _render_skin_scan_section()
         baseline = get_skin_baseline(char)
-        with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
-            rec = get_ai_cosmetic_recommendation(char, code)
-        if rec:
-            st.markdown(rec)
-            st.caption("✨ AI가 피부 baseline과 현지 기후를 분석해 추천했어요")
+        curated = get_curated_product_recommendation(char, code)
+        if curated:
+            st.caption("✨ 이 여행지에서 실제로 구매할 수 있는 제품 중 피부 프로필에 맞는 걸 골라봤어요")
+            for p in curated:
+                img_uri = asset_data_uri(p["image"], "image/png")
+                html_block(
+                    f"""
+                    <div style="display:flex;gap:14px;align-items:center;background:#fff;
+                        border-radius:14px;padding:12px;margin-bottom:8px;
+                        box-shadow:0 2px 8px rgba(0,0,0,.08);">
+                        <img src="{img_uri}" style="width:72px;height:72px;object-fit:contain;
+                            border-radius:10px;background:#faf7f2;flex:0 0 auto;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:.95rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
+                            <div style="font-size:.78rem;color:#888;margin:2px 0;">{html.escape(p['category'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
+                            <div style="font-size:.85rem;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
+                        </div>
+                    </div>
+                    """
+                )
+                st.link_button(f"{p['brand']} {p['name']} 보러 가기 →", p["url"],
+                                use_container_width=True, key=f"curated_link_{p['id']}")
         else:
-            st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
-            for t in _quick_skin_tip(char, country):
-                st.write(f"- {t}")
+            with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
+                rec = get_ai_cosmetic_recommendation(char, code)
+            if rec:
+                st.markdown(rec)
+                st.caption("✨ AI가 피부 baseline과 현지 기후를 분석해 추천했어요")
+            else:
+                st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
+                for t in _quick_skin_tip(char, country):
+                    st.write(f"- {t}")
         if baseline["baseline_source"] == "self_reported":
             st.caption("📝 자가 응답 기반 추천이라 스캔보다 정확도가 낮을 수 있어요")
 
@@ -5588,6 +5902,59 @@ def _recovery_ranking_card_html(ranking):
     return f'{_RECOVERY_RANK_CARD_CSS}<div class="recovery-rank-card">{rows_html}</div>'
 
 
+# 결과 화면과 뷰티 패스포트의 저장된 프로그램 페이지 양쪽에서 재사용하는
+# "7일 여정표" 카드 스타일 — 한 군데서만 정의해 두 화면의 디자인이 어긋나지
+# 않게 한다.
+_RECOVERY_DAY_CARD_CSS = """
+<style>
+.recovery-day-card { background:#131a2b; border-radius:16px; padding:18px 22px; margin-bottom:14px; }
+.recovery-day-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+.recovery-day-num { background:#ff6fb8; color:#fff; font-weight:800; border-radius:8px;
+    padding:2px 10px; font-size:.9rem; }
+.recovery-day-label { color:#eef1fb; font-weight:700; font-size:1.05rem; }
+.recovery-day-badge { margin-left:auto; background:#2b2440; color:#c9a6ff; font-size:.75rem;
+    padding:2px 9px; border-radius:6px; }
+.recovery-product-name { color:#ffd9ec; font-weight:700; margin-top:4px; }
+.recovery-product-meta { color:#9aa1b8; font-size:.82rem; margin:2px 0 6px; }
+.recovery-product-desc { color:#d8dcec; font-size:.92rem; line-height:1.5; }
+.recovery-note { margin-top:10px; background:#20283d; border-left:3px solid #7c8bee;
+    padding:8px 12px; border-radius:8px; color:#cfd4ea; font-size:.85rem; }
+.recovery-context { margin-top:6px; color:#f5c344; font-size:.82rem; }
+</style>
+"""
+
+
+def _recovery_day_card_html(d):
+    badge_html = (
+        f'<span class="recovery-day-badge">✈ {html.escape(d["badge"])}</span>' if d.get("badge") else ""
+    )
+    product_html = ""
+    if d["product"]:
+        p = d["product"]
+        product_html = f"""
+        <div class="recovery-product-name">🧴 {html.escape(p['name'])} · {html.escape(p['texture'])}</div>
+        <div class="recovery-product-meta">{' · '.join(html.escape(k) for k in p['key_ingredients'])}</div>
+        <div class="recovery-product-desc">{html.escape(p['description'])}</div>
+        """
+    note_html = f'<div class="recovery-note">💬 {html.escape(d["note"])}</div>' if d.get("note") else ""
+    context_html = (
+        f'<div class="recovery-context">✈️ {html.escape(d["context_note"])}</div>'
+        if d.get("context_note") else ""
+    )
+    return f"""
+    <div class="recovery-day-card">
+        <div class="recovery-day-top">
+            <span class="recovery-day-num">DAY {d['day']}</span>
+            <span class="recovery-day-label">{html.escape(d['label'])}</span>
+            {badge_html}
+        </div>
+        {product_html}
+        {note_html}
+        {context_html}
+    </div>
+    """
+
+
 def _render_recovery_priority():
     st.caption("02 · 우선순위")
     st.title("무엇부터 케어할까요")
@@ -5679,59 +6046,25 @@ def _render_recovery_result():
         html_block(_recovery_ranking_card_html(program["ranking"]))
 
         st.markdown("### 7일 여정표")
-        html_block(
-            """
-            <style>
-            .recovery-day-card { background:#131a2b; border-radius:16px; padding:18px 22px; margin-bottom:14px; }
-            .recovery-day-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
-            .recovery-day-num { background:#ff6fb8; color:#fff; font-weight:800; border-radius:8px;
-                padding:2px 10px; font-size:.9rem; }
-            .recovery-day-label { color:#eef1fb; font-weight:700; font-size:1.05rem; }
-            .recovery-day-badge { margin-left:auto; background:#2b2440; color:#c9a6ff; font-size:.75rem;
-                padding:2px 9px; border-radius:6px; }
-            .recovery-product-name { color:#ffd9ec; font-weight:700; margin-top:4px; }
-            .recovery-product-meta { color:#9aa1b8; font-size:.82rem; margin:2px 0 6px; }
-            .recovery-product-desc { color:#d8dcec; font-size:.92rem; line-height:1.5; }
-            .recovery-note { margin-top:10px; background:#20283d; border-left:3px solid #7c8bee;
-                padding:8px 12px; border-radius:8px; color:#cfd4ea; font-size:.85rem; }
-            .recovery-context { margin-top:6px; color:#f5c344; font-size:.82rem; }
-            </style>
-            """
-        )
+        html_block(_RECOVERY_DAY_CARD_CSS)
         for d in program["days"]:
-            badge_html = (
-                f'<span class="recovery-day-badge">✈ {html.escape(d["badge"])}</span>' if d.get("badge") else ""
-            )
-            product_html = ""
-            if d["product"]:
-                p = d["product"]
-                product_html = f"""
-                <div class="recovery-product-name">🧴 {html.escape(p['name'])} · {html.escape(p['texture'])}</div>
-                <div class="recovery-product-meta">{' · '.join(html.escape(k) for k in p['key_ingredients'])}</div>
-                <div class="recovery-product-desc">{html.escape(p['description'])}</div>
-                """
-            note_html = f'<div class="recovery-note">💬 {html.escape(d["note"])}</div>' if d.get("note") else ""
-            context_html = (
-                f'<div class="recovery-context">✈️ {html.escape(d["context_note"])}</div>'
-                if d.get("context_note") else ""
-            )
-            html_block(f"""
-                <div class="recovery-day-card">
-                    <div class="recovery-day-top">
-                        <span class="recovery-day-num">DAY {d['day']}</span>
-                        <span class="recovery-day-label">{html.escape(d['label'])}</span>
-                        {badge_html}
-                    </div>
-                    {product_html}
-                    {note_html}
-                    {context_html}
-                </div>
-            """)
+            html_block(_recovery_day_card_html(d))
             if d["day"] == 7 and not d["product"]:
                 st.checkbox("붉은기가 남아있나요?", key="recov_check_1")
                 st.checkbox("당김·건조함이 남아있나요?", key="recov_check_2")
                 st.checkbox("트러블 자리가 진정됐나요?", key="recov_check_3")
                 st.caption("셀프 체크만 하는 날이에요. 꼭 필요하면 평소 쓰던 보습제 정도만 가볍게 사용하세요.")
+
+        st.divider()
+        if st.button("🩷 뷰티 패스포트에 저장", key="recov_save_to_passport", use_container_width=True):
+            entry = {
+                "trip_label": " · ".join(trip_bits) if trip_bits else "여행 기록 없음",
+                "ranking": program["ranking"],
+                "days": program["days"],
+                "saved_at": datetime.now().strftime("%Y.%m.%d"),
+            }
+            recovery_page_no = save_recovery_program_to_passport(entry)
+            st.success(f"뷰티 패스포트 {recovery_page_no + 1}페이지에 저장했어요! 📔 열어서 확인해보세요.")
 
     st.markdown("### 출발 전 · 귀국 후 스캔 비교")
     st.caption("두 장을 올리면 나란히 비교해볼 수 있어요.")
