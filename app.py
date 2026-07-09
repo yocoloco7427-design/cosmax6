@@ -145,6 +145,82 @@ SKIN_TONES = [
     {"id": "deep", "hex": "#C68858", "label": "딥"},
 ]
 
+# 캐릭터 미리보기 인형이 옷 스타일별로 입는 색 배합
+CLOTHING_STYLES = {
+    "캐주얼": {"top": "#4a5d7a", "bottom": "#33333d", "shoe": "#f4f4f4", "sole": "#222222", "skirt": False},
+    "러블리": {"top": "#ff9ecb", "bottom": "#fff3e0", "shoe": "#ffffff", "sole": "#ff8fc0", "skirt": True},
+    "스트릿": {"top": "#3a3a3a", "bottom": "#5c6b4a", "shoe": "#1a1a1a", "sole": "#ffffff", "skirt": False},
+    "미니멀": {"top": "#efe9df", "bottom": "#a8a8a8", "shoe": "#ffffff", "sole": "#cccccc", "skirt": False},
+}
+HAIR_COLOR = "#4a3428"
+
+PERSONALITY_TRAITS = ["발랄한", "차분한", "모험적인", "감성적인", "도시적인", "자연친화적인", "사교적인", "독립적인"]
+TRAVEL_STYLES = ["휴양형", "액티비티형", "맛집탐방형", "문화탐방형", "쇼핑형", "자연탐방형"]
+COSMETIC_PREFS = ["저자극", "고보습", "미백", "산뜻한 마무리", "자외선 차단", "안티에이징", "모공 케어", "트러블 케어"]
+
+# 옷장/액세서리 30개 선택지 생성용 색상 팔레트 (이름, hex)
+COLOR_PALETTE_30 = [
+    ("화이트", "#FFFFFF"), ("아이보리", "#F5F0E6"), ("베이지", "#E8DCC8"), ("크림", "#FFF6DD"),
+    ("그레이", "#B9B9B9"), ("차콜", "#4A4A4A"), ("블랙", "#1C1C1C"), ("네이비", "#233158"),
+    ("스카이블루", "#8FD3F4"), ("블루", "#4A7FE0"), ("민트", "#8FE3C8"), ("그린", "#5FAE6E"),
+    ("올리브", "#7C7C4A"), ("카키", "#A79465"), ("옐로우", "#F4D35E"), ("머스타드", "#D9A441"),
+    ("오렌지", "#F2823C"), ("코랄", "#FF7F6B"), ("레드", "#E14B4B"), ("버건디", "#7A2E3A"),
+    ("와인", "#5C2233"), ("핑크", "#FFB6D9"), ("로즈", "#E67FA1"), ("라벤더", "#C9AEEA"),
+    ("퍼플", "#8E6BB0"), ("브라운", "#8B5E3C"), ("탄", "#C99A6C"), ("실버", "#D8D8D8"),
+    ("골드", "#D4AF37"), ("데님블루", "#5C7DA6"),
+]
+
+
+def _build_catalog(prefix, types):
+    """색상 30개 x 종류 목록을 돌려가며 짜서 정확히 30개의 (종류+색상) 조합을 만든다."""
+    items = []
+    for i in range(30):
+        type_name = types[i % len(types)]
+        color_name, hex_color = COLOR_PALETTE_30[i]
+        items.append({"id": f"{prefix}_{i:02d}", "label": f"{color_name} {type_name}", "hex": hex_color})
+    return items
+
+
+CLOSET_CATALOG = {
+    "top": {"title": "상의", "icon": "👕",
+            "items": _build_catalog("top", ["티셔츠", "니트", "셔츠", "후드티", "블라우스"])},
+    "bottom": {"title": "하의", "icon": "👖",
+               "items": _build_catalog("bottom", ["청바지", "슬랙스", "반바지", "치마", "레깅스"])},
+    "socks": {"title": "양말", "icon": "🧦",
+              "items": _build_catalog("socks", ["짧은양말", "긴양말", "니삭스", "레이스양말", "패턴양말"])},
+    "shoes": {"title": "신발", "icon": "👟",
+              "items": _build_catalog("shoes", ["스니커즈", "로퍼", "부츠", "샌들", "플랫슈즈"])},
+    "hat": {"title": "모자", "icon": "🎩",
+            "items": _build_catalog("hat", ["캡모자", "버킷햇", "비니", "베레모", "밀짚모자"])},
+}
+ACCESSORY_CATALOG = {
+    "necklace": {"title": "목걸이", "icon": "📿",
+                 "items": _build_catalog("necklace", ["체인목걸이", "진주목걸이", "펜던트", "초커", "레이어드목걸이"])},
+    "sunglasses": {"title": "선글라스", "icon": "🕶️",
+                   "items": _build_catalog("sunglasses", ["라운드형", "캣아이형", "스퀘어형", "오버사이즈형", "스포츠형"])},
+    "gloves": {"title": "장갑", "icon": "🧤",
+               "items": _build_catalog("gloves", ["니트장갑", "가죽장갑", "레이스장갑", "스포츠장갑", "벙어리장갑"])},
+}
+ALL_CATALOGS = {**CLOSET_CATALOG, **ACCESSORY_CATALOG}
+
+
+def _catalog_hex(cat_key, item_id):
+    if not item_id:
+        return None
+    catalog = ALL_CATALOGS.get(cat_key)
+    if not catalog:
+        return None
+    return next((it["hex"] for it in catalog["items"] if it["id"] == item_id), None)
+
+
+def _catalog_label(cat_key, item_id):
+    if not item_id:
+        return None
+    catalog = ALL_CATALOGS.get(cat_key)
+    if not catalog:
+        return None
+    return next((it["label"] for it in catalog["items"] if it["id"] == item_id), None)
+
 AFTERCARE_ADVICE = {
     "트러블": {
         "pack": "티트리 진정 팩",
@@ -173,12 +249,16 @@ AFTERCARE_ADVICE = {
 # ----------------------------------------------------------------------
 if "character" not in st.session_state:
     st.session_state.character = None
+if "char_draft" not in st.session_state:
+    st.session_state.char_draft = {}
 if "passport" not in st.session_state:
     st.session_state.passport = []
 if "view" not in st.session_state:
     st.session_state.view = "home"
 if "selected_country" not in st.session_state:
     st.session_state.selected_country = None
+if "closet_category" not in st.session_state:
+    st.session_state.closet_category = None
 
 
 def get_character():
@@ -196,6 +276,7 @@ def goto(view):
 # 화면 트리상 "뒤로" 가 어디를 가리키는지 — 히스토리 스택 없이 고정 계층으로 정의
 PARENT_VIEW = {
     "character": "home",
+    "closet": "character",
     "map": "character",
     "country": "map",
     "passport": "map",
@@ -778,48 +859,365 @@ def render_home():
             st.rerun()
 
 
+# ----------------------------------------------------------------------
+# 캐릭터 미리보기 인형 (3D 토이 느낌의 SVG) — 선택한 옵션을 실시간으로 반영
+# ----------------------------------------------------------------------
+def _shade(hex_color, factor):
+    """hex 색을 factor(0~1)만큼 어둡게 만들어 그라데이션 하단색을 만든다."""
+    hex_color = (hex_color or "#cccccc").lstrip("#")
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
+    r, g, b = (max(0, min(255, int(c * factor))) for c in (r, g, b))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def _hair_back(hair_type):
+    if hair_type == "웨이브":
+        return ('<path d="M94,78 Q94,26 150,24 Q206,26 206,78 L206,230 '
+                'Q214,240 204,248 Q212,256 200,258 L200,96 Q200,64 150,62 '
+                'Q100,64 100,96 L100,258 Q88,256 96,248 Q86,240 94,230 Z" fill="url(#hairGrad)"/>')
+    if hair_type == "컬리":
+        pts = [(92, 84, 30), (112, 58, 28), (150, 48, 30), (188, 58, 28), (208, 84, 30),
+               (96, 124, 26), (204, 124, 26), (106, 160, 24), (194, 160, 24), (150, 168, 24)]
+        return "".join(f'<circle cx="{x}" cy="{y}" r="{r}" fill="url(#hairGrad)"/>' for x, y, r in pts)
+    if hair_type == "숏컷":
+        return ('<path d="M96,80 Q96,28 150,26 Q204,28 204,80 L204,150 '
+                'Q204,162 192,158 L192,98 Q192,66 150,64 Q108,66 108,98 '
+                'L108,158 Q96,162 96,150 Z" fill="url(#hairGrad)"/>')
+    # 스트레이트 (기본값)
+    return ('<path d="M94,78 Q94,26 150,24 Q206,26 206,78 L206,250 '
+            'Q206,262 194,262 L194,96 Q194,64 150,62 Q106,64 106,96 '
+            'L106,262 Q94,262 94,250 Z" fill="url(#hairGrad)"/>')
+
+
+def _hair_front(hair_type):
+    if hair_type == "컬리":
+        pts = [(112, 74, 20), (150, 66, 22), (188, 74, 20)]
+        return "".join(f'<circle cx="{x}" cy="{y}" r="{r}" fill="url(#hairGrad)"/>' for x, y, r in pts)
+    return '<path d="M98,92 Q150,52 202,92 L202,76 Q150,40 98,76 Z" fill="url(#hairGrad)"/>'
+
+
+def character_doll_svg(draft):
+    skin = draft.get("skin_tone") or SKIN_TONES[0]["hex"]
+    hair_type = draft.get("hair_type") or HAIR_TYPES[0]
+    style = draft.get("style") or CLOTHING[0]
+    style_conf = CLOTHING_STYLES[style]
+    outfit = draft.get("outfit") or {}
+    acc = draft.get("accessories") or {}
+
+    top_hex = _catalog_hex("top", outfit.get("top")) or style_conf["top"]
+    bottom_hex = _catalog_hex("bottom", outfit.get("bottom")) or style_conf["bottom"]
+    shoe_hex = _catalog_hex("shoes", outfit.get("shoes")) or style_conf["shoe"]
+    hat_hex = _catalog_hex("hat", outfit.get("hat"))
+    socks_hex = _catalog_hex("socks", outfit.get("socks"))
+    necklace_hex = _catalog_hex("necklace", acc.get("necklace"))
+    sunglasses_hex = _catalog_hex("sunglasses", acc.get("sunglasses"))
+    gloves_hex = _catalog_hex("gloves", acc.get("gloves"))
+
+    skin_dark = _shade(skin, 0.82)
+    top_dark = _shade(top_hex, 0.78)
+    bottom_dark = _shade(bottom_hex, 0.78)
+    hair_dark = _shade(HAIR_COLOR, 0.7)
+    glove_dark = _shade(gloves_hex or skin, 0.8)
+    hand_fill = "url(#gloveGrad)" if gloves_hex else "url(#skinGrad)"
+
+    use_skirt = style_conf["skirt"] and not outfit.get("bottom")
+    if use_skirt:
+        legs_svg = (
+            f'<path d="M105,278 L195,278 L216,358 L84,358 Z" fill="url(#bottomGrad)"/>'
+            f'<rect x="118" y="344" width="20" height="46" rx="9" fill="url(#skinGrad)"/>'
+            f'<rect x="162" y="344" width="20" height="46" rx="9" fill="url(#skinGrad)"/>'
+        )
+    else:
+        legs_svg = (
+            f'<rect x="112" y="278" width="32" height="102" rx="14" fill="url(#bottomGrad)"/>'
+            f'<rect x="156" y="278" width="32" height="102" rx="14" fill="url(#bottomGrad)"/>'
+        )
+
+    socks_svg = ""
+    if socks_hex and not use_skirt:
+        socks_svg = (
+            f'<rect x="112" y="352" width="32" height="16" fill="{socks_hex}"/>'
+            f'<rect x="156" y="352" width="32" height="16" fill="{socks_hex}"/>'
+        )
+
+    hat_svg = ""
+    if hat_hex:
+        hat_dark = _shade(hat_hex, 0.85)
+        hat_svg = (
+            f'<path d="M92,72 Q150,20 208,72 L208,88 Q150,62 92,88 Z" fill="{hat_hex}" '
+            f'stroke="{hat_dark}" stroke-width="2"/>'
+            f'<ellipse cx="150" cy="88" rx="60" ry="9" fill="{hat_dark}"/>'
+        )
+
+    necklace_svg = ""
+    if necklace_hex:
+        necklace_svg = (
+            f'<path d="M126,168 Q150,190 174,168" stroke="{necklace_hex}" stroke-width="5" '
+            f'fill="none" stroke-linecap="round"/>'
+            f'<circle cx="150" cy="188" r="6" fill="{necklace_hex}"/>'
+        )
+
+    sunglasses_svg = ""
+    if sunglasses_hex:
+        sunglasses_svg = (
+            f'<rect x="118" y="103" width="28" height="17" rx="8" fill="{sunglasses_hex}"/>'
+            f'<rect x="154" y="103" width="28" height="17" rx="8" fill="{sunglasses_hex}"/>'
+            f'<rect x="146" y="108" width="8" height="4" fill="{sunglasses_hex}"/>'
+        )
+
+    glove_defs = (
+        f'<linearGradient id="gloveGrad" x1="0" y1="0" x2="0" y2="1">'
+        f'<stop offset="0" stop-color="{gloves_hex}"/><stop offset="1" stop-color="{glove_dark}"/>'
+        f'</linearGradient>' if gloves_hex else ""
+    )
+
+    return f'''
+    <svg class="doll-svg" viewBox="0 0 300 420" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="skinGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="{skin}"/><stop offset="1" stop-color="{skin_dark}"/>
+            </linearGradient>
+            <linearGradient id="topGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="{top_hex}"/><stop offset="1" stop-color="{top_dark}"/>
+            </linearGradient>
+            <linearGradient id="bottomGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="{bottom_hex}"/><stop offset="1" stop-color="{bottom_dark}"/>
+            </linearGradient>
+            <linearGradient id="hairGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0" stop-color="{HAIR_COLOR}"/><stop offset="1" stop-color="{hair_dark}"/>
+            </linearGradient>
+            {glove_defs}
+        </defs>
+        <ellipse cx="150" cy="400" rx="72" ry="14" fill="rgba(20,20,40,.28)"/>
+        {legs_svg}
+        {socks_svg}
+        <ellipse cx="128" cy="378" rx="24" ry="13" fill="{shoe_hex}" stroke="{style_conf['sole']}" stroke-width="4"/>
+        <ellipse cx="172" cy="378" rx="24" ry="13" fill="{shoe_hex}" stroke="{style_conf['sole']}" stroke-width="4"/>
+        <rect x="98" y="172" width="104" height="112" rx="36" fill="url(#topGrad)"/>
+        <rect x="8" y="182" width="92" height="26" rx="13" fill="url(#topGrad)" transform="rotate(-12 100 195)"/>
+        <rect x="200" y="182" width="92" height="26" rx="13" fill="url(#topGrad)" transform="rotate(12 200 195)"/>
+        <circle cx="10" cy="214" r="16" fill="{hand_fill}"/>
+        <circle cx="290" cy="214" r="16" fill="{hand_fill}"/>
+        {_hair_back(hair_type)}
+        <circle cx="150" cy="115" r="54" fill="url(#skinGrad)"/>
+        {_hair_front(hair_type)}
+        {hat_svg}
+        {necklace_svg}
+        <circle cx="132" cy="112" r="4.5" fill="#3a2a20"/>
+        <circle cx="168" cy="112" r="4.5" fill="#3a2a20"/>
+        {sunglasses_svg}
+        <circle cx="112" cy="126" r="9" fill="#ff9ab3" opacity=".35"/>
+        <circle cx="188" cy="126" r="9" fill="#ff9ab3" opacity=".35"/>
+        <path d="M136,130 Q150,140 164,130" stroke="#3a2a20" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </svg>
+    '''
+
+
+def render_doll_stage(draft):
+    html_block(
+        f"""
+        <style>
+        .doll-stage {{
+            position: relative; border-radius: 28px; overflow: hidden;
+            background: linear-gradient(160deg,#3b3f7a 0%,#23264f 60%,#171933 100%);
+            padding: 22px 12px 6px; text-align: center;
+            box-shadow: 0 18px 34px rgba(20,20,50,.35);
+        }}
+        .doll-stage .doll-svg {{
+            width: 76%; max-width: 250px; height: auto;
+            animation: doll-bob 3.4s ease-in-out infinite;
+            filter: drop-shadow(0 14px 10px rgba(0,0,0,.35));
+        }}
+        @keyframes doll-bob {{
+            0%,100% {{ transform: translateY(0); }}
+            50%     {{ transform: translateY(-10px); }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .doll-stage .doll-svg {{ animation: none !important; }}
+        }}
+        </style>
+        <div class="doll-stage">{character_doll_svg(draft)}</div>
+        """
+    )
+
+
+# ----------------------------------------------------------------------
+# 선택 칩 헬퍼 — 누르면 바로 반영, 다시 누르면 선택 해제(토글)
+# ----------------------------------------------------------------------
+def _toggle_single(key, value):
+    draft = st.session_state.char_draft
+    draft[key] = None if draft.get(key) == value else value
+
+
+def _toggle_multi(key, value):
+    draft = st.session_state.char_draft
+    current = set(draft.get(key) or [])
+    if value in current:
+        current.discard(value)
+    else:
+        current.add(value)
+    draft[key] = sorted(current)
+
+
+def chip_row(label, options, key, multi=False, per_row=4):
+    st.markdown(f"**{label}**" + ("  ·  복수 선택 가능" if multi else ""))
+    draft = st.session_state.char_draft
+    selected_set = set(draft.get(key) or []) if multi else {draft.get(key)}
+    for start in range(0, len(options), per_row):
+        row = options[start:start + per_row]
+        cols = st.columns(len(row))
+        for col, opt in zip(cols, row):
+            with col:
+                is_selected = opt in selected_set
+                if st.button(opt, key=f"chip_{key}_{opt}",
+                             type="primary" if is_selected else "secondary",
+                             use_container_width=True):
+                    if multi:
+                        _toggle_multi(key, opt)
+                    else:
+                        _toggle_single(key, opt)
+                    st.rerun()
+
+
+def skin_tone_row():
+    st.markdown("**피부 톤**")
+    draft = st.session_state.char_draft
+    cols = st.columns(len(SKIN_TONES))
+    for col, tone in zip(cols, SKIN_TONES):
+        with col:
+            selected = draft.get("skin_tone") == tone["hex"]
+            ring = "4px solid #ff6fb8" if selected else "3px solid rgba(0,0,0,.08)"
+            html_block(
+                f'<div style="width:100%;aspect-ratio:1;border-radius:12px;'
+                f'background:{tone["hex"]};border:{ring};box-shadow:0 3px 8px rgba(0,0,0,.12);"></div>'
+            )
+            if st.button(tone["label"], key=f"chip_tone_{tone['id']}", use_container_width=True):
+                _toggle_single("skin_tone", tone["hex"])
+                st.rerun()
+
+
+def closet_link_row(title, cat_key, bucket):
+    """옷/액세서리 항목 버튼 — 누르면 30개 선택지가 있는 하위 페이지로 이동."""
+    draft = st.session_state.char_draft
+    item_id = (draft.get(bucket) or {}).get(cat_key)
+    catalog = ALL_CATALOGS[cat_key]
+    current_label = _catalog_label(cat_key, item_id) or "선택 안 함"
+    swatch_hex = _catalog_hex(cat_key, item_id) or "#eeeeee"
+    col_sw, col_btn = st.columns([1, 4])
+    with col_sw:
+        html_block(
+            f'<div style="width:100%;aspect-ratio:1;border-radius:10px;background:{swatch_hex};'
+            f'border:2px solid rgba(0,0,0,.1);display:flex;align-items:center;justify-content:center;'
+            f'font-size:1.3rem;">{catalog["icon"]}</div>'
+        )
+    with col_btn:
+        if st.button(f"{title} · {current_label}", key=f"open_closet_{cat_key}", use_container_width=True):
+            st.session_state.closet_category = cat_key
+            goto("closet")
+            st.rerun()
+
+
 def render_character():
     st.title("👤 캐릭터 만들기")
-    char = get_character() or {}
-    with st.form("character_form"):
-        gender = st.radio("성별", GENDERS, horizontal=True,
-                           index=GENDERS.index(char.get("gender", GENDERS[0])))
-        skin_type = st.selectbox("피부 타입", SKIN_TYPES,
-                                  index=SKIN_TYPES.index(char.get("skin_type", SKIN_TYPES[0])))
-        clothing = st.selectbox("스타일", CLOTHING,
-                                 index=CLOTHING.index(char.get("clothing", CLOTHING[0])))
-        hair_type = st.selectbox("헤어 타입", HAIR_TYPES,
-                                  index=HAIR_TYPES.index(char.get("hair_type", HAIR_TYPES[0])))
-        age_range = st.selectbox("연령대", AGE_RANGES,
-                                  index=AGE_RANGES.index(char.get("age_range", AGE_RANGES[0])))
 
-        st.write("피부 톤")
-        tone_cols = st.columns(len(SKIN_TONES))
-        for col, tone in zip(tone_cols, SKIN_TONES):
-            with col:
-                st.markdown(
-                    f'<div style="width:100%;height:40px;border-radius:8px;'
-                    f'background:{tone["hex"]};border:1px solid #ddd;"></div>',
-                    unsafe_allow_html=True,
-                )
-                st.caption(tone["label"])
-        tone_labels = [t["label"] for t in SKIN_TONES]
-        current_tone = next((t["label"] for t in SKIN_TONES if t["hex"] == char.get("skin_tone")), tone_labels[0])
-        skin_tone_label = st.radio("톤 선택", tone_labels, horizontal=True,
-                                    index=tone_labels.index(current_tone), label_visibility="collapsed")
+    draft = st.session_state.char_draft
+    if not draft and get_character():
+        st.session_state.char_draft = dict(get_character())
+        draft = st.session_state.char_draft
 
-        submitted = st.form_submit_button("캐릭터 완성! →", type="primary")
-        if submitted:
-            skin_tone_hex = next(t["hex"] for t in SKIN_TONES if t["label"] == skin_tone_label)
+    left, right = st.columns([1, 1.3])
+
+    with left:
+        render_doll_stage(draft)
+
+    with right:
+        tab_basic, tab_closet, tab_taste = st.tabs(["✨ 기본", "👗 옷장 · 액세서리", "🧭 취향"])
+
+        with tab_basic:
+            chip_row("성별", GENDERS, "gender")
+            chip_row("연령대", AGE_RANGES, "age_range")
+            chip_row("피부 타입", SKIN_TYPES, "skin_type")
+            skin_tone_row()
+            chip_row("헤어 스타일", HAIR_TYPES, "hair_type")
+            chip_row("패션 스타일", CLOTHING, "style")
+
+        with tab_closet:
+            st.caption("항목을 누르면 30가지 선택지가 있는 화면으로 이동해요.")
+            st.markdown("**옷**")
+            for cat_key in ["top", "bottom", "socks", "shoes", "hat"]:
+                closet_link_row(CLOSET_CATALOG[cat_key]["title"], cat_key, "outfit")
+            st.divider()
+            st.markdown("**액세서리**")
+            for cat_key in ["necklace", "sunglasses", "gloves"]:
+                closet_link_row(ACCESSORY_CATALOG[cat_key]["title"], cat_key, "accessories")
+
+        with tab_taste:
+            chip_row("성격 특성", PERSONALITY_TRAITS, "personality", multi=True)
+            chip_row("여행 성향", TRAVEL_STYLES, "travel_style")
+            chip_row("선호하는 화장품 특성", COSMETIC_PREFS, "cosmetic_prefs", multi=True)
+
+        st.divider()
+        if st.button("캐릭터 완성! →", type="primary", use_container_width=True):
             st.session_state.character = {
-                "gender": gender,
-                "skin_type": skin_type,
-                "clothing": clothing,
-                "hair_type": hair_type,
-                "age_range": age_range,
-                "skin_tone": skin_tone_hex,
+                "gender": draft.get("gender") or GENDERS[0],
+                "skin_type": draft.get("skin_type") or SKIN_TYPES[0],
+                "skin_tone": draft.get("skin_tone") or SKIN_TONES[0]["hex"],
+                "hair_type": draft.get("hair_type") or HAIR_TYPES[0],
+                "age_range": draft.get("age_range") or AGE_RANGES[0],
+                "style": draft.get("style") or CLOTHING[0],
+                "outfit": dict(draft.get("outfit") or {}),
+                "accessories": dict(draft.get("accessories") or {}),
+                "personality": list(draft.get("personality") or []),
+                "travel_style": draft.get("travel_style"),
+                "cosmetic_prefs": list(draft.get("cosmetic_prefs") or []),
             }
             goto("map")
+            st.rerun()
+
+
+def render_closet():
+    cat_key = st.session_state.closet_category
+    catalog = ALL_CATALOGS.get(cat_key)
+    if not catalog:
+        goto("character")
+        st.rerun()
+        return
+
+    bucket = "accessories" if cat_key in ACCESSORY_CATALOG else "outfit"
+    draft = st.session_state.char_draft
+    current = (draft.get(bucket) or {}).get(cat_key)
+
+    left, right = st.columns([1, 1.3])
+    with left:
+        render_doll_stage(draft)
+    with right:
+        st.title(f"{catalog['icon']} {catalog['title']} 고르기")
+        st.caption("원하는 아이템을 눌러보세요. 같은 아이템을 다시 누르면 선택이 해제돼요.")
+
+        items = catalog["items"]
+        per_row = 5
+        for start in range(0, len(items), per_row):
+            row_items = items[start:start + per_row]
+            cols = st.columns(per_row)
+            for col, item in zip(cols, row_items):
+                with col:
+                    selected = current == item["id"]
+                    border = "4px solid #ff6fb8" if selected else "3px solid rgba(0,0,0,.08)"
+                    shadow = "0 0 0 3px #fff, 0 6px 14px rgba(255,111,184,.4)" if selected else "0 3px 8px rgba(0,0,0,.1)"
+                    html_block(
+                        f'<div style="width:100%;aspect-ratio:1;border-radius:14px;background:{item["hex"]};'
+                        f'display:flex;align-items:center;justify-content:center;font-size:1.5rem;'
+                        f'border:{border};box-shadow:{shadow};">{catalog["icon"]}</div>'
+                    )
+                    if st.button(item["label"], key=f"pick_{item['id']}", use_container_width=True):
+                        bucket_dict = dict(draft.get(bucket) or {})
+                        bucket_dict[cat_key] = None if bucket_dict.get(cat_key) == item["id"] else item["id"]
+                        draft[bucket] = bucket_dict
+                        st.rerun()
+
+        st.divider()
+        if st.button("← 캐릭터로 돌아가기", type="primary", use_container_width=True):
+            goto("character")
             st.rerun()
 
 
@@ -973,6 +1371,7 @@ inject_theme()
 VIEWS = {
     "home": render_home,
     "character": render_character,
+    "closet": render_closet,
     "map": render_map,
     "country": render_country,
     "passport": render_passport,
