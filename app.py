@@ -330,6 +330,50 @@ PLANE_SIDE_SVG = """
 </svg>
 """
 
+# 8비트 픽셀 하트 (start-game 다이얼로그의 타이틀 아이콘 · 하트 버튼에 사용)
+_HEART_OUTER = [
+    "011000110",
+    "111101111",
+    "111111111",
+    "111111111",
+    "011111110",
+    "001111100",
+    "000111000",
+    "000010000",
+]
+_HEART_INNER = [
+    "0110110",
+    "1111111",
+    "1111111",
+    "0111110",
+    "0011100",
+    "0001000",
+]
+
+
+def _pixel_heart_uri(cell, outer_color, inner_color=None):
+    """OUTER 격자를 outer_color로, 그 안쪽에 1칸 오프셋으로 INNER 격자를 inner_color로 겹쳐
+    그려 8비트풍 하트 스프라이트(윤곽선 있는 하트)를 만들고 data URI로 반환한다."""
+    rects = [
+        f'<rect x="{c*cell}" y="{r*cell}" width="{cell}" height="{cell}" fill="{outer_color}"/>'
+        for r, row in enumerate(_HEART_OUTER) for c, v in enumerate(row) if v == "1"
+    ]
+    if inner_color:
+        rects += [
+            f'<rect x="{(c+1)*cell}" y="{(r+1)*cell}" width="{cell}" height="{cell}" fill="{inner_color}"/>'
+            for r, row in enumerate(_HEART_INNER) for c, v in enumerate(row) if v == "1"
+        ]
+    w, h = len(_HEART_OUTER[0]) * cell, len(_HEART_OUTER) * cell
+    svg = f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}">{"".join(rects)}</svg>'
+    return "data:image/svg+xml;base64," + base64.b64encode(svg.encode()).decode()
+
+
+HEART_ICON_PURPLE = _pixel_heart_uri(3, "#a98be0")
+HEART_ICON_PINK = _pixel_heart_uri(3, "#ff8fc0")
+HEART_ICON_LIGHT = _pixel_heart_uri(3, "#ffd2e6")
+HEART_BUTTON_URI = _pixel_heart_uri(6, "#b23a6e", "#fff0f6")
+
+
 def _title_letters():
     """자유분방하게 — 글자마다 색·기울기 다르게, 순차 등장."""
     line1 = [("식", "#FF5D8F", -8), ("스", "#FF9E3D", 5), ("센", "#2FC4B5", -5), ("스", "#4EA8FF", 7)]
@@ -496,11 +540,12 @@ def render_home():
         .hero-sub {{
             position: absolute; left: 50%; top: 85%;
             transform: translateX(-50%);
-            width: 100%; text-align: center;
+            width: 92%; text-align: center;
             font-family: 'Gamja Flower', 'Jua', cursive;
-            font-size: clamp(1.2rem,2.6vw,1.85rem);
-            color: #6a3d8a; z-index: 6;
-            text-shadow: 0 2px 0 rgba(255,255,255,.85);
+            font-size: clamp(1.7rem,3.6vw,2.6rem);
+            font-weight: 700;
+            color: #5a2f78; z-index: 6;
+            text-shadow: 0 3px 0 rgba(255,255,255,.9), 0 1px 14px rgba(255,255,255,.7);
             animation: rise .9s ease 2.6s both;
         }}
         @keyframes rise {{ from{{ opacity:0; transform: translateX(-50%) translateY(18px);}} to{{ opacity:1; transform: translateX(-50%) translateY(0);}} }}
@@ -546,23 +591,67 @@ def render_home():
             100% {{ left: -22%; opacity: 0; }}
         }}
 
-        /* ---- 시작 버튼 — 타이틀 애니메이션이 끝난 뒤 등장 (약 2.9초 후) ---- */
-        .stButton > button[kind="primary"] {{
-            font-size: 1.75rem;
-            padding: 0.95rem 3.4rem;
-            border-width: 5px;
-            box-shadow: 0 10px 0 #E0489A, 0 18px 30px rgba(255,111,184,.5);
-            animation: btn-in .8s cubic-bezier(.2,1.6,.35,1) 2.9s both,
-                       btn-pulse 2s ease-in-out 3.8s infinite;
+        /* ---- start game? 픽셀 다이얼로그 — 타이틀 애니메이션이 끝난 뒤 등장 ---- */
+        .start-dialog {{
+            max-width: 360px; margin: .5rem auto 0;
+            font-family: 'Press Start 2P', 'Jua', cursive;
+            border: 4px solid #b23a6e; border-bottom: none;
+            border-radius: 10px 10px 0 0; overflow: hidden;
+            box-shadow: 0 10px 26px rgba(120,40,90,.3);
+            animation: dialog-in .8s cubic-bezier(.2,1.6,.35,1) 2.9s both;
         }}
-        @keyframes btn-in {{
-            0%   {{ opacity:0; transform: translateY(46px) scale(.55); pointer-events:none; }}
-            100% {{ opacity:1; transform: translateY(0)    scale(1);   pointer-events:auto; }}
+        .start-dialog .titlebar {{
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 12px; background: linear-gradient(90deg,#ff9dc4,#ff7fb8);
+        }}
+        .start-dialog .titlebar .hearts {{ display: flex; gap: 7px; }}
+        .start-dialog .titlebar .hearts img {{ width: 18px; height: auto; image-rendering: pixelated; }}
+        .start-dialog .titlebar .checker {{
+            width: 18px; height: 18px;
+            background-color: #fff;
+            background-image:
+                linear-gradient(45deg,#b23a6e 25%,transparent 25%,transparent 75%,#b23a6e 75%),
+                linear-gradient(45deg,#b23a6e 25%,transparent 25%,transparent 75%,#b23a6e 75%);
+            background-size: 9px 9px; background-position: 0 0, 4.5px 4.5px;
+        }}
+        .start-dialog .body {{
+            padding: 30px 12px 22px; background: #ffe6f0; text-align: center;
+            color: #9c2f5c; font-size: clamp(1.05rem,2.6vw,1.6rem);
+            text-shadow: 2px 2px 0 #fff; letter-spacing: 2px;
+        }}
+        @keyframes dialog-in {{
+            0%   {{ opacity: 0; transform: translateY(34px) scale(.85); }}
+            100% {{ opacity: 1; transform: translateY(0)    scale(1); }}
+        }}
+
+        /* 하트 버튼(실제 클릭 요소) — 다이얼로그 하단과 이어붙는 발판 */
+        .st-key-start_heart_btn {{
+            max-width: 360px; margin: -4px auto 1rem; padding: 12px 0 16px;
+            background: #ffd0e6; border: 4px solid #b23a6e; border-top: none;
+            border-radius: 0 0 10px 10px;
+            display: flex !important; justify-content: center;
+            animation: dialog-in .8s cubic-bezier(.2,1.6,.35,1) 2.9s both;
+        }}
+        .st-key-start_heart_btn button {{
+            width: 78px; height: 46px; padding: 0; min-height: 0;
+            background: #fff0f6 !important; border: 3px solid #b23a6e !important;
+            border-radius: 5px; box-shadow: inset 0 0 0 2px #ffd0e6;
+            color: transparent !important; position: relative;
+            transition: transform .1s ease;
+        }}
+        .st-key-start_heart_btn button:hover {{ transform: translateY(-2px); }}
+        .st-key-start_heart_btn button:active {{ transform: translateY(1px); }}
+        .st-key-start_heart_btn button::before {{
+            content: ''; position: absolute; left: 50%; top: 50%;
+            width: 34px; height: 30px; transform: translate(-50%,-50%);
+            background-image: url('{HEART_BUTTON_URI}');
+            background-size: contain; background-repeat: no-repeat;
+            image-rendering: pixelated;
         }}
 
         @media (prefers-reduced-motion: reduce) {{
             .earth, .earth .tex, .earth-shadow, .atmos, .plane-main, .plane-bg, .deco, .trail,
-            .stButton > button[kind="primary"] {{ animation: none !important; }}
+            .start-dialog, .st-key-start_heart_btn {{ animation: none !important; }}
         }}
         </style>
 
@@ -588,12 +677,24 @@ def render_home():
             <h1 class="hero-title">{title}</h1>
             <p class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰 알려주는 여행 뷰티 케어 ✈️</p>
         </div>
+
+        <div class="start-dialog">
+            <div class="titlebar">
+                <span class="hearts">
+                    <img src="{HEART_ICON_PURPLE}" alt=""/>
+                    <img src="{HEART_ICON_PINK}" alt=""/>
+                    <img src="{HEART_ICON_LIGHT}" alt=""/>
+                </span>
+                <span class="checker"></span>
+            </div>
+            <div class="body">start game?</div>
+        </div>
         """
     )
 
-    left, mid, right = st.columns([1, 1, 1])
+    _, mid, _ = st.columns([1, 1, 1])
     with mid:
-        if st.button("✈️ 여행 시작하기", type="primary", use_container_width=True):
+        if st.button("하트를 눌러 여행 시작", key="start_heart_btn"):
             goto("character")
             st.rerun()
 
