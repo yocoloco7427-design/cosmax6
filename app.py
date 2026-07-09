@@ -459,17 +459,29 @@ def _passport_dialog_css():
             background: transparent !important;
             box-shadow: none !important;
         }
+        /* 다이얼로그 좌상단 제목("Beauty Passport" + 아이콘) 숨김 — 닫기(X)
+           버튼은 별도 요소라 안 건드림. slot="title"은 프론트엔드 빌드에서
+           직접 확인한 실제 속성. */
+        div[data-testid="stDialog"] [slot="title"] { display: none !important; }
         .p-body { padding-top: 2px; }
         /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자 */
         div[data-testid="stDialog"] .page {
-            background: #fffaf3 !important; border-radius: 4px; padding: 18px 18px 12px;
-            min-height: 380px; box-shadow: 0 1px 4px rgba(0,0,0,.06) !important;
+            background: #fffaf3 !important; padding: 20px 20px 14px;
+            min-height: 380px; box-sizing: border-box;
+            border-top: 4px solid #ff6fb8 !important; border-bottom: 4px solid #ff6fb8 !important;
+            box-shadow: 0 10px 24px rgba(120,40,90,.25) !important;
         }
+        /* 왼/오른 페이지 바깥쪽에만 분홍 테두리를 둘러 하나의 책처럼 보이게 하고,
+           안쪽(제본선)에는 그림자로 명암을 줘서 접힌 느낌을 낸다 */
         div[data-testid="stDialog"] .page-left {
-            border-right: 1px solid rgba(178,58,110,.15); box-shadow: inset -8px 0 12px -8px rgba(0,0,0,.12) !important;
+            border-left: 4px solid #ff6fb8 !important; border-right: none !important;
+            border-radius: 14px 0 0 14px;
+            box-shadow: inset -14px 0 22px -12px rgba(40,10,40,.3), 0 10px 24px rgba(120,40,90,.25) !important;
         }
         div[data-testid="stDialog"] .page-right {
-            border-left: 1px solid rgba(178,58,110,.15); box-shadow: inset 8px 0 12px -8px rgba(0,0,0,.12) !important;
+            border-right: 4px solid #ff6fb8 !important; border-left: none !important;
+            border-radius: 0 14px 14px 0;
+            box-shadow: inset 14px 0 22px -12px rgba(40,10,40,.3), 0 10px 24px rgba(120,40,90,.25) !important;
         }
         @keyframes passport-reveal {
             0%   { opacity: 0; transform: translateY(-10px); }
@@ -525,7 +537,7 @@ def _passport_dialog_css():
         /* 카드/배경 없이 여권 그림 자체만 떠 있게 — 배경은 완전히 투명 */
         .st-key-open_passport_cover.st-key-open_passport_cover button {
             position: relative !important;
-            width: 100% !important; height: 320px !important; padding: 0 !important;
+            width: 100% !important; height: 480px !important; padding: 0 !important;
             min-width: 0 !important; max-width: none !important;
             border: none !important; border-radius: 0 !important; box-sizing: border-box !important;
             background: transparent !important; box-shadow: none !important;
