@@ -1651,7 +1651,6 @@ def _doll_3d_params(draft):
         "top": _catalog_hex("top", outfit.get("top")) or style_conf["top"],
         "bottom": _catalog_hex("bottom", outfit.get("bottom")) or style_conf["bottom"],
         "shoe": _catalog_hex("shoes", outfit.get("shoes")) or style_conf["shoe"],
-        "sole": style_conf["sole"],
         "skirt": bool(style_conf["skirt"] and not outfit.get("bottom")),
         "hat": _catalog_hex("hat", outfit.get("hat")),
         "socks": _catalog_hex("socks", outfit.get("socks")),
@@ -1681,28 +1680,26 @@ const stage = document.getElementById('stage');
 const width = window.innerWidth;
 const height = window.innerHeight;
 
-// --- 인체 비율 리깅: 발밑(y=0)부터 위로 각 부위 길이를 누적해서 위치를 계산한다.
-//     좌표를 하드코딩하지 않고 이렇게 쌓아 올려야 부위 사이에 뜨거나 겹치는
-//     틈이 생기지 않는다 (예전 버전이 "사람 같지 않다"는 소리를 들은 이유 중 하나).
-const FOOT_H = 0.20, FOOT_R = 0.19;
-const SHIN_LEN = 0.52, SHIN_R = 0.155;
-const THIGH_LEN = 0.56, THIGH_R = 0.19;
-const HIP_LEN = 0.20, HIP_R = 0.40;
-const WAIST_LEN = 0.28, WAIST_R = 0.34;
-const CHEST_LEN = 0.46, CHEST_R = 0.44;
-const NECK_LEN = 0.12, NECK_R = 0.155;
+// --- 참고로 받은 "3D 스틱맨" 클립아트처럼: 몸통 하나로 매끈하게, 어깨/팔꿈치/
+//     무릎에는 둥근 관절 볼을 두는 단순한 구조로 다시 리깅한다.
+//     발밑(y=0)부터 위로 부위 길이를 누적해서 위치를 계산 — 좌표 하드코딩 없이
+//     쌓아 올려야 부위 사이가 뜨거나 겹치지 않는다.
+const FOOT_R = 0.19;
+const SHIN_LEN = 0.55, THIGH_LEN = 0.58, LIMB_R = 0.135;
+const TORSO_LEN = 0.95, TORSO_R = 0.40;
+const NECK_LEN = 0.08, NECK_R = 0.16;
 const HEAD_R = 0.40;
-const LEG_X = 0.20;
+const LEG_X = 0.19;
+const JOINT_R = 0.145;
 
-let _y = FOOT_H;
+let _y = FOOT_R * 0.5;
 const shinY = _y + SHIN_LEN / 2; _y += SHIN_LEN;
+const kneeY = _y;
 const thighY = _y + THIGH_LEN / 2; _y += THIGH_LEN;
-const hipY = _y + HIP_LEN / 2; _y += HIP_LEN;
-const waistY = _y + WAIST_LEN / 2; _y += WAIST_LEN;
-const chestY = _y + CHEST_LEN / 2; _y += CHEST_LEN;
+const torsoY = _y + TORSO_LEN / 2; _y += TORSO_LEN;
 const neckY = _y + NECK_LEN / 2; _y += NECK_LEN;
 const headY = _y + HEAD_R;
-const shoulderY = chestY + CHEST_LEN * 0.38;
+const shoulderY = torsoY + TORSO_LEN * 0.42;
 const totalTop = headY + HEAD_R;
 const midY = totalTop * 0.5;
 
@@ -1721,41 +1718,36 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.05;
 stage.appendChild(renderer.domElement);
 
-scene.add(new THREE.AmbientLight(0xbfd4ff, 0.55));
+scene.add(new THREE.AmbientLight(0xbfd4ff, 0.6));
 
-const key = new THREE.DirectionalLight(0xfff3e0, 1.35);
+const key = new THREE.DirectionalLight(0xfff3e0, 1.3);
 key.position.set(-3.2, 5, 4.5);
 key.castShadow = true;
 key.shadow.mapSize.set(1024, 1024);
 key.shadow.radius = 6;
 scene.add(key);
 
-const rim = new THREE.DirectionalLight(0x7fb0ff, 1.1);
+const rim = new THREE.DirectionalLight(0x9fc4ff, 0.9);
 rim.position.set(3.5, 3.2, -4);
 scene.add(rim);
 
-const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+const fill = new THREE.DirectionalLight(0xffffff, 0.3);
 fill.position.set(2, 1, 4);
 scene.add(fill);
 
 function makeMat(hex, opts) {
     opts = opts || {};
     return new THREE.MeshPhysicalMaterial(Object.assign({
-        color: hex, roughness: 0.5, clearcoat: 0.35, clearcoatRoughness: 0.25, metalness: 0.02,
+        color: hex, roughness: 0.45, clearcoat: 0.4, clearcoatRoughness: 0.2, metalness: 0.02,
     }, opts));
-}
-
-function shadeHex(hex, factor) {
-    const c = new THREE.Color(hex);
-    return new THREE.Color(c.r * factor, c.g * factor, c.b * factor);
 }
 
 function makeCapsule(radius, length, mat) {
     const g = new THREE.Group();
-    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 24, 1, true), mat);
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 20, 1, true), mat);
     cyl.castShadow = true;
     g.add(cyl);
-    const capGeo = new THREE.SphereGeometry(radius, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+    const capGeo = new THREE.SphereGeometry(radius, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2);
     const top = new THREE.Mesh(capGeo, mat);
     top.position.y = length / 2; top.castShadow = true;
     g.add(top);
@@ -1773,83 +1765,79 @@ function headSurfacePoint(dx, dy, inset) {
 }
 
 const doll = new THREE.Group();
-const bottomMat = makeMat(CHAR.bottom, { roughness: 0.75, clearcoat: 0.08 });
-const shoeMat = makeMat(CHAR.shoe, { roughness: 0.35, clearcoat: 0.5 });
-const topMat = makeMat(CHAR.top, { roughness: 0.55, clearcoat: 0.3 });
+const bottomMat = makeMat(CHAR.bottom, { roughness: 0.7, clearcoat: 0.12 });
+const shoeMat = makeMat(CHAR.shoe, { roughness: 0.3, clearcoat: 0.55 });
+const topMat = makeMat(CHAR.top, { roughness: 0.5, clearcoat: 0.35 });
+const skinMat = makeMat(CHAR.skin, { roughness: 0.4, clearcoat: 0.5 });
+
+// --- 다리: 허벅지 - 무릎(둥근 관절 볼) - 정강이 - 발, 스커트면 허벅지 자리를
+//     치마로 바꾸고 다리는 맨살로.
+[-LEG_X, LEG_X].forEach((x) => {
+    if (CHAR.skirt) {
+        const bareLeg = makeCapsule(LIMB_R * 0.95, SHIN_LEN + THIGH_LEN * 0.55, skinMat);
+        bareLeg.position.set(x, shinY, 0);
+        doll.add(bareLeg);
+    } else {
+        const thigh = makeCapsule(LIMB_R, THIGH_LEN, bottomMat);
+        thigh.position.set(x, thighY, 0);
+        doll.add(thigh);
+        const knee = new THREE.Mesh(new THREE.SphereGeometry(JOINT_R, 16, 12), bottomMat);
+        knee.position.set(x, kneeY, 0);
+        knee.castShadow = true;
+        doll.add(knee);
+        const shin = makeCapsule(LIMB_R * 0.9, SHIN_LEN, bottomMat);
+        shin.position.set(x, shinY, 0);
+        doll.add(shin);
+    }
+    if (CHAR.socks && !CHAR.skirt) {
+        const sock = new THREE.Mesh(
+            new THREE.CylinderGeometry(LIMB_R * 1.1, LIMB_R, FOOT_R * 0.8, 16),
+            makeMat(CHAR.socks, { roughness: 0.75, clearcoat: 0.1 })
+        );
+        sock.position.set(x, FOOT_R * 0.85, 0);
+        doll.add(sock);
+    }
+    const foot = new THREE.Mesh(new THREE.SphereGeometry(FOOT_R, 18, 14), shoeMat);
+    foot.scale.set(1, 0.55, 1.55);
+    foot.position.set(x, FOOT_R * 0.32, 0.08);
+    foot.castShadow = true;
+    doll.add(foot);
+});
 
 if (CHAR.skirt) {
-    const skirtBottomY = thighY;
-    const skirtTopY = hipY + HIP_LEN / 2;
+    const skirtTopY = thighY + THIGH_LEN / 2;
+    const skirtBottomY = thighY - THIGH_LEN * 0.15;
     const skirt = new THREE.Mesh(
-        new THREE.CylinderGeometry(HIP_R * 0.85, HIP_R * 1.6, skirtTopY - skirtBottomY, 24, 1, true),
+        new THREE.CylinderGeometry(TORSO_R * 0.7, TORSO_R * 1.35, skirtTopY - skirtBottomY, 20, 1, true),
         bottomMat
     );
     skirt.position.y = (skirtTopY + skirtBottomY) / 2;
     skirt.castShadow = true;
     doll.add(skirt);
-    [-LEG_X, LEG_X].forEach((x) => {
-        const bareLeg = makeCapsule(SHIN_R, SHIN_LEN + THIGH_LEN * 0.6, makeMat(CHAR.skin, { roughness: 0.45, clearcoat: 0.4 }));
-        bareLeg.position.set(x, shinY, 0);
-        doll.add(bareLeg);
-    });
-} else {
-    [-LEG_X, LEG_X].forEach((x) => {
-        const thigh = makeCapsule(THIGH_R, THIGH_LEN, bottomMat);
-        thigh.position.set(x, thighY, 0);
-        doll.add(thigh);
-        const shin = makeCapsule(SHIN_R, SHIN_LEN, bottomMat);
-        shin.position.set(x, shinY, 0);
-        doll.add(shin);
-    });
-    const hip = makeCapsule(HIP_R, HIP_LEN, bottomMat);
-    hip.position.y = hipY;
-    hip.scale.set(1.15, 1, 0.85);
-    doll.add(hip);
 }
 
-if (CHAR.socks && !CHAR.skirt) {
-    const sockMat = makeMat(CHAR.socks, { roughness: 0.75, clearcoat: 0.08 });
-    [-LEG_X, LEG_X].forEach((x) => {
-        const sock = new THREE.Mesh(new THREE.CylinderGeometry(SHIN_R * 1.05, SHIN_R * 0.95, FOOT_H * 0.9, 18), sockMat);
-        sock.position.set(x, FOOT_H + 0.02, 0);
-        doll.add(sock);
-    });
-}
+// --- 몸통: 한 덩어리 캡슐 하나로 매끈하게 (예전엔 가슴/허리/골반을 따로
+//     쌓아서 이어붙인 자국이 두드러져 보였다).
+const torso = makeCapsule(TORSO_R, TORSO_LEN, topMat);
+torso.position.y = torsoY;
+torso.scale.set(1.02, 1, 0.85);
+doll.add(torso);
 
-[-LEG_X, LEG_X].forEach((x) => {
-    const shoe = new THREE.Mesh(new THREE.SphereGeometry(FOOT_R, 20, 16), shoeMat);
-    shoe.scale.set(1, 0.55, 1.5);
-    shoe.position.set(x, FOOT_H * 0.55, 0.09);
-    shoe.castShadow = true;
-    doll.add(shoe);
-    const sole = new THREE.Mesh(
-        new THREE.BoxGeometry(FOOT_R * 1.7, FOOT_H * 0.3, FOOT_R * 2.7),
-        makeMat(CHAR.sole || '#ffffff', { roughness: 0.8, clearcoat: 0.05 })
-    );
-    sole.position.set(x, FOOT_H * 0.16, 0.09);
-    sole.castShadow = true;
-    doll.add(sole);
-});
-
-const waist = makeCapsule(WAIST_R, WAIST_LEN, topMat);
-waist.position.y = waistY;
-waist.scale.set(1.05, 1, 0.8);
-doll.add(waist);
-
-const chest = makeCapsule(CHEST_R, CHEST_LEN, topMat);
-chest.position.y = chestY;
-chest.scale.set(1.18, 1, 0.82);
-doll.add(chest);
-
-const neck = makeCapsule(NECK_R, NECK_LEN, makeMat(CHAR.skin));
+const neck = makeCapsule(NECK_R, NECK_LEN, skinMat);
 neck.position.y = neckY;
 doll.add(neck);
 
+// --- 팔: 어깨(관절 볼) - 위팔 - 팔꿈치(관절 볼) - 아래팔 - 손, 자연스럽게
+//     아래로 늘어뜬 자세 (T자 포즈 아님).
 function buildArm(sign) {
     const pivot = new THREE.Group();
-    pivot.position.set(sign * CHEST_R * 1.05, shoulderY, 0.02);
+    pivot.position.set(sign * TORSO_R * 0.9, shoulderY, 0);
 
-    const upperLen = 0.46, foreLen = 0.44, r = 0.115;
+    const shoulderBall = new THREE.Mesh(new THREE.SphereGeometry(JOINT_R, 16, 12), topMat);
+    shoulderBall.castShadow = true;
+    pivot.add(shoulderBall);
+
+    const upperLen = 0.42, foreLen = 0.4, r = LIMB_R * 0.85;
     const upper = makeCapsule(r, upperLen, topMat);
     upper.position.y = -upperLen / 2;
     pivot.add(upper);
@@ -1858,88 +1846,72 @@ function buildArm(sign) {
     forearmPivot.position.y = -upperLen;
     pivot.add(forearmPivot);
 
-    const forearm = makeCapsule(r * 0.88, foreLen, topMat);
+    const elbowBall = new THREE.Mesh(new THREE.SphereGeometry(JOINT_R * 0.82, 16, 12), topMat);
+    elbowBall.castShadow = true;
+    forearmPivot.add(elbowBall);
+
+    const forearm = makeCapsule(r * 0.9, foreLen, topMat);
     forearm.position.y = -foreLen / 2;
     forearmPivot.add(forearm);
 
     const handMat = makeMat(CHAR.gloves || CHAR.skin, {
-        roughness: CHAR.gloves ? 0.65 : 0.42,
-        clearcoat: CHAR.gloves ? 0.15 : 0.4,
+        roughness: CHAR.gloves ? 0.65 : 0.4,
+        clearcoat: CHAR.gloves ? 0.15 : 0.45,
     });
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(r * 1.2, 16, 12), handMat);
-    hand.scale.set(1, 0.9, 0.65);
-    hand.position.y = -foreLen - r * 0.5;
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(r * 1.3, 14, 10), handMat);
+    hand.scale.set(1, 0.85, 0.7);
+    hand.position.y = -foreLen - r * 0.4;
     hand.castShadow = true;
     forearmPivot.add(hand);
 
-    pivot.rotation.z = sign * 0.32;
-    forearmPivot.rotation.z = sign * -0.18;
+    pivot.rotation.z = sign * 0.26;
+    forearmPivot.rotation.z = sign * -0.12;
     return pivot;
 }
 [-1, 1].forEach((sign) => doll.add(buildArm(sign)));
 
 if (CHAR.necklace) {
     const neckMat = makeMat(CHAR.necklace, { roughness: 0.25, clearcoat: 0.7, metalness: 0.4 });
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(NECK_R * 1.3, 0.025, 10, 28, Math.PI * 1.3), neckMat);
-    ring.position.set(0, chestY + CHEST_LEN / 2 + 0.02, WAIST_R * 0.55);
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(NECK_R * 1.25, 0.022, 10, 28, Math.PI * 1.3), neckMat);
+    ring.position.set(0, torsoY + TORSO_LEN / 2 + 0.01, TORSO_R * 0.5);
     ring.rotation.x = Math.PI * 0.46;
     doll.add(ring);
 }
 
-const skinMat = makeMat(CHAR.skin, { roughness: 0.42, clearcoat: 0.5 });
+// --- 머리: 매끈한 구 + 아주 단순한 표정(눈 두 개 + 웃는 입)만.
+//     눈썹/콧방울/볼터치처럼 잘게 쪼개진 부품을 늘어놓으면 오히려 지저분해
+//     보인다는 피드백을 받아서 최소한으로 줄였다.
 const head = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R, 32, 24), skinMat);
 head.position.y = headY;
-head.scale.set(0.98, 1.05, 0.95);
+head.scale.set(0.98, 1.04, 0.96);
 head.castShadow = true;
 doll.add(head);
 
-const browMat = makeMat(shadeHex(CHAR.hair, 0.75), { roughness: 0.8, clearcoat: 0 });
+const eyeMat = makeMat(0x3a2a20, { roughness: 0.3, clearcoat: 0.6 });
 [-1, 1].forEach((sign) => {
-    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.026, 0.02), browMat);
-    brow.position.copy(headSurfacePoint(sign * 0.16, 0.12, 0.9));
-    brow.rotation.z = sign * -0.15;
-    doll.add(brow);
-});
-
-const eyeMat = makeMat(0x3a2a20, { roughness: 0.25, clearcoat: 0.7 });
-const eyeHighlightMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-[-1, 1].forEach((sign) => {
-    const eyePos = headSurfacePoint(sign * 0.155, 0.02, 0.94);
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 14, 10), eyeMat);
-    eye.scale.set(0.9, 1.2, 0.5);
-    eye.position.copy(eyePos);
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(0.042, 12, 10), eyeMat);
+    eye.scale.set(0.85, 1.15, 0.5);
+    eye.position.copy(headSurfacePoint(sign * 0.15, 0.03, 0.95));
     doll.add(eye);
-    const hl = new THREE.Mesh(new THREE.SphereGeometry(0.012, 8, 6), eyeHighlightMat);
-    hl.position.copy(eyePos).add(new THREE.Vector3(sign * 0.015, 0.018, 0.02));
-    doll.add(hl);
 });
-
-const noseMat = makeMat(CHAR.skin, { roughness: 0.4, clearcoat: 0.4 });
-const nose = new THREE.Mesh(new THREE.SphereGeometry(0.035, 10, 8), noseMat);
-nose.position.copy(headSurfacePoint(0, -0.06, 1.02));
-doll.add(nose);
 
 const mouthMat = makeMat(0xb35a5a, { roughness: 0.5, clearcoat: 0.3 });
-const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.012, 8, 20, Math.PI * 0.55), mouthMat);
-mouth.position.copy(headSurfacePoint(0, -0.16, 0.92));
-mouth.rotation.z = Math.PI * 1.22;
+const mouth = new THREE.Mesh(new THREE.TorusGeometry(0.065, 0.011, 8, 20, Math.PI * 0.5), mouthMat);
+mouth.position.copy(headSurfacePoint(0, -0.14, 0.93));
+mouth.rotation.z = Math.PI * 1.25;
 doll.add(mouth);
 
-[-1, 1].forEach((sign) => {
-    const cheek = new THREE.Mesh(
-        new THREE.SphereGeometry(0.075, 12, 10),
-        makeMat(0xff9ab3, { roughness: 1, clearcoat: 0, transparent: true, opacity: 0.38 })
-    );
-    cheek.position.copy(headSurfacePoint(sign * 0.24, -0.1, 0.9));
-    doll.add(cheek);
-});
-
-const hairMat = makeMat(CHAR.hair, { roughness: 0.5, clearcoat: 0.25 });
-const faceHalf = 0.72;
-const domeThetaLen = (CHAR.hairType === '숏컷') ? Math.PI * 0.62 : Math.PI * 0.8;
+// --- 머리카락: 정면에 얼굴이 드러나는 구멍을 남기고 옆/뒤만 덮는 돔 하나로
+//     단순하게. 길이별로 따로 붙였던 다발/컬 조각이 카메라 각도에 따라
+//     한쪽만 거대하게 튀어나와 보이는 문제가 있어서 없앴다.
+const hairMat = makeMat(CHAR.hair, { roughness: 0.55, clearcoat: 0.15 });
+const faceHalf = 0.75;
+const domeThetaLen = (CHAR.hairType === '숏컷') ? Math.PI * 0.55
+    : (CHAR.hairType === '컬리') ? Math.PI * 0.7
+    : Math.PI * 0.92;
 const hairDome = new THREE.Mesh(
     new THREE.SphereGeometry(
-        HEAD_R * 1.05, 32, 24,
+        HEAD_R * (CHAR.hairType === '컬리' ? 1.12 : 1.05), 28, 20,
         Math.PI / 2 + faceHalf, Math.PI * 2 - faceHalf * 2,
         0, domeThetaLen
     ),
@@ -1949,45 +1921,25 @@ hairDome.position.y = headY;
 hairDome.castShadow = true;
 doll.add(hairDome);
 
-if (CHAR.hairType === '웨이브' || CHAR.hairType === '스트레이트') {
-    [-1, 1].forEach((sign) => {
-        const strand = makeCapsule(0.15, 0.85, hairMat);
-        strand.position.set(sign * HEAD_R * 0.92, headY - 0.55, -0.05);
-        strand.rotation.z = sign * (CHAR.hairType === '웨이브' ? 0.12 : 0.04);
-        doll.add(strand);
-    });
-} else if (CHAR.hairType === '컬리') {
-    const curlOffsets = [
-        [-HEAD_R * 0.95, 0.05, -0.05], [HEAD_R * 0.95, 0.05, -0.05],
-        [-HEAD_R * 0.75, -0.28, -0.15], [HEAD_R * 0.75, -0.28, -0.15],
-        [0, HEAD_R * 0.65, -0.2],
-    ];
-    curlOffsets.forEach((o) => {
-        const curl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 14, 12), hairMat);
-        curl.position.set(o[0], headY + o[1], o[2]);
-        doll.add(curl);
-    });
-}
-
 if (CHAR.hat) {
-    const hatMat = makeMat(CHAR.hat, { roughness: 0.62, clearcoat: 0.18 });
+    const hatMat = makeMat(CHAR.hat, { roughness: 0.6, clearcoat: 0.2 });
     const brim = new THREE.Mesh(new THREE.CylinderGeometry(HEAD_R * 1.35, HEAD_R * 1.4, 0.05, 24), hatMat);
-    brim.position.y = headY + HEAD_R * 0.62;
+    brim.position.y = headY + HEAD_R * 0.6;
     doll.add(brim);
     const crown = new THREE.Mesh(
         new THREE.SphereGeometry(HEAD_R * 1.08, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.5),
         hatMat
     );
-    crown.position.y = headY + HEAD_R * 0.62;
+    crown.position.y = headY + HEAD_R * 0.6;
     doll.add(crown);
 }
 
 if (CHAR.sunglasses) {
-    const glassMat = makeMat(CHAR.sunglasses, { roughness: 0.12, clearcoat: 0.9, metalness: 0.1 });
+    const glassMat = makeMat(CHAR.sunglasses, { roughness: 0.1, clearcoat: 0.9, metalness: 0.1 });
     [-1, 1].forEach((sign) => {
-        const lens = new THREE.Mesh(new THREE.SphereGeometry(0.13, 16, 12), glassMat);
-        lens.scale.set(1, 0.85, 0.35);
-        lens.position.copy(headSurfacePoint(sign * 0.17, 0.02, 1.0));
+        const lens = new THREE.Mesh(new THREE.SphereGeometry(0.125, 16, 12), glassMat);
+        lens.scale.set(1, 0.8, 0.35);
+        lens.position.copy(headSurfacePoint(sign * 0.16, 0.03, 1.0));
         doll.add(lens);
     });
 }
@@ -1996,10 +1948,10 @@ scene.add(doll);
 
 const shadowPlane = new THREE.Mesh(
     new THREE.PlaneGeometry(3, 3),
-    new THREE.ShadowMaterial({ opacity: 0.32 })
+    new THREE.ShadowMaterial({ opacity: 0.3 })
 );
 shadowPlane.rotation.x = -Math.PI / 2;
-shadowPlane.position.y = -0.02;
+shadowPlane.position.y = -0.01;
 shadowPlane.receiveShadow = true;
 scene.add(shadowPlane);
 
