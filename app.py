@@ -3943,20 +3943,21 @@ def _render_unlock_burst_stage(country, code):
     SHAKE_S = 1.1  # 흔들림+화이트아웃이 끝나는 시점 — 폭죽/문구가 이 시점에 맞춰 터진다
     HOLD_S = 1.8   # 폭죽·문구가 다 보인 다음 실제 페이지로 넘어가기 전 대기 시간
     pieces = []
-    n = 24
+    n = 40  # 폭죽 조각 수를 늘리고 더 멀리·크게 날려서 훨씬 화려하게 "터지는" 느낌을 낸다
     for i in range(n):
-        angle = math.radians((360 / n) * i + random.uniform(-10, 10))
-        dist = random.uniform(160, 300)
+        angle = math.radians((360 / n) * i + random.uniform(-12, 12))
+        dist = random.uniform(220, 460)
         dx = round(math.cos(angle) * dist, 1)
         dy = round(math.sin(angle) * dist, 1)
-        size = round(random.uniform(9, 17), 1)
+        size = round(random.uniform(10, 22), 1)
         color = random.choice(COIN_CELEBRATION_COLORS)
         delay = SHAKE_S + round(random.uniform(0, 0.12), 2)
-        dur = round(random.uniform(0.85, 1.2), 2)
-        rot = round(random.uniform(180, 640))
+        dur = round(random.uniform(0.9, 1.4), 2)
+        rot = round(random.uniform(200, 760))
+        radius = "50%" if i % 3 == 0 else "3px"
         pieces.append(
             f'<span class="unlock-confetti-piece" style="--dx:{dx}px; --dy:{dy}px; --rot:{rot}deg; '
-            f'width:{size}px; height:{size}px; background:{color}; '
+            f'width:{size}px; height:{size}px; background:{color}; border-radius:{radius}; '
             f'animation-delay:{delay}s; animation-duration:{dur}s;"></span>'
         )
 
@@ -3969,22 +3970,19 @@ def _render_unlock_burst_stage(country, code):
             background: linear-gradient(160deg, #ffe9f3 0%, #ffd3e7 55%, #ffbadc 100%);
             box-shadow: inset 0 0 0 4px rgba(255,255,255,.55), 0 16px 32px rgba(150,50,100,.25);
             display: flex; align-items: center; justify-content: center;
-            animation: unlock-box-shake {SHAKE_S}s ease-in-out both;
+            animation: unlock-box-pulse {SHAKE_S}s ease-in-out both;
         }}
-        @keyframes unlock-box-shake {{
-            0%   {{ transform: translate(0,0) rotate(0deg); }}
-            8%   {{ transform: translate(-3px,2px) rotate(-1deg); }}
-            16%  {{ transform: translate(3px,-2px) rotate(1deg); }}
-            24%  {{ transform: translate(-5px,3px) rotate(-2deg); }}
-            32%  {{ transform: translate(5px,-3px) rotate(2deg); }}
-            40%  {{ transform: translate(-8px,5px) rotate(-3deg); }}
-            48%  {{ transform: translate(8px,-5px) rotate(3deg); }}
-            56%  {{ transform: translate(-11px,7px) rotate(-4deg); }}
-            64%  {{ transform: translate(11px,-7px) rotate(4deg); }}
-            72%  {{ transform: translate(-15px,9px) rotate(-5deg); }}
-            80%  {{ transform: translate(15px,-9px) rotate(5deg); }}
-            88%  {{ transform: translate(-18px,11px) rotate(-6deg); }}
-            100% {{ transform: translate(0,0) rotate(0deg); }}
+        /* 박스 자체는 스케일(중심 기준)로만 살짝 들썩여서 절대 좌우로 밀리지
+           않게 하고, 흔들리는 느낌은 자물쇠 이모지 쪽에서 회전으로만 표현한다
+           (translate를 쓰면 박스/이모지가 카드 밖으로 밀려 나가 왼쪽으로 쏠려
+           보이는 문제가 있었음 — 회전·스케일은 중심이 고정이라 그 문제가 없다) */
+        @keyframes unlock-box-pulse {{
+            0%, 100% {{ transform: scale(1); }}
+            20%  {{ transform: scale(1.006); }}
+            40%  {{ transform: scale(1.002); }}
+            60%  {{ transform: scale(1.014); }}
+            80%  {{ transform: scale(1.006); }}
+            92%  {{ transform: scale(1.022); }}
         }}
         .unlock-whiteout {{
             position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 1;
@@ -3994,58 +3992,94 @@ def _render_unlock_burst_stage(country, code):
         .unlock-lock-icon {{
             position: relative; z-index: 2; font-size: min(32vw, 190px); line-height: 1;
             filter: drop-shadow(0 12px 20px rgba(150,50,100,.35));
-            animation: unlock-icon-vanish .3s ease-in {SHAKE_S - 0.15}s both;
+            transform-origin: 50% 50%;
+            animation:
+                unlock-icon-shake {SHAKE_S - 0.15}s ease-in-out both,
+                unlock-icon-vanish .3s ease-in {SHAKE_S - 0.15}s both;
+        }}
+        @keyframes unlock-icon-shake {{
+            0%   {{ transform: rotate(0deg); }}
+            10%  {{ transform: rotate(-3deg); }}
+            20%  {{ transform: rotate(3deg); }}
+            30%  {{ transform: rotate(-5deg); }}
+            40%  {{ transform: rotate(5deg); }}
+            50%  {{ transform: rotate(-7deg); }}
+            60%  {{ transform: rotate(7deg); }}
+            70%  {{ transform: rotate(-9deg); }}
+            80%  {{ transform: rotate(9deg); }}
+            90%  {{ transform: rotate(-12deg); }}
+            100% {{ transform: rotate(0deg); }}
         }}
         @keyframes unlock-icon-vanish {{
             0%   {{ transform: scale(1) rotate(0deg); opacity: 1; }}
             100% {{ transform: scale(0) rotate(35deg); opacity: 0; }}
         }}
+        .unlock-shockwave {{
+            position: absolute; top: 50%; left: 50%; z-index: 2;
+            width: 40px; height: 40px; margin: -20px 0 0 -20px;
+            border-radius: 50%; border: 6px solid #fff;
+            opacity: 0;
+            animation: unlock-shockwave-ring .7s cubic-bezier(.1,.7,.3,1) {SHAKE_S}s both;
+        }}
+        @keyframes unlock-shockwave-ring {{
+            0%   {{ transform: scale(.3); opacity: .9; }}
+            100% {{ transform: scale(9); opacity: 0; }}
+        }}
         .unlock-confetti-piece {{
             position: absolute; top: 50%; left: 50%; border-radius: 3px; z-index: 3;
             transform: translate(-50%,-50%); opacity: 0;
-            animation-name: unlock-confetti-burst; animation-timing-function: cubic-bezier(.2,.7,.3,1);
+            animation-name: unlock-confetti-burst; animation-timing-function: cubic-bezier(.15,.75,.25,1);
             animation-fill-mode: both;
         }}
         @keyframes unlock-confetti-burst {{
-            0%   {{ transform: translate(-50%,-50%) rotate(0deg); opacity: 1; }}
-            70%  {{ opacity: 1; }}
+            0%   {{ transform: translate(-50%,-50%) scale(1) rotate(0deg); opacity: 1; }}
+            60%  {{ opacity: 1; }}
             100% {{
-                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot));
+                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(.6) rotate(var(--rot));
                 opacity: 0;
             }}
         }}
         .unlock-burst-text {{
-            position: relative; z-index: 4; text-align: center; padding: 0 6vw;
+            position: relative; z-index: 4; text-align: center; padding: 0 4vw;
             font-family: 'Jua', sans-serif; font-weight: 900;
-            font-size: clamp(2.2rem, 8.5vw, 4.6rem);
+            font-size: clamp(2.8rem, 11.5vw, 6.4rem);
             background: linear-gradient(90deg,#ff3d97,#ff9f1c,#ffe94d,#4ade80,#38bdf8,#a78bfa,#ff3d97);
             background-size: 300% auto; -webkit-background-clip: text; background-clip: text;
             -webkit-text-fill-color: transparent; color: transparent;
-            -webkit-text-stroke: 3px rgba(255,255,255,.9); paint-order: stroke fill;
-            filter: drop-shadow(0 8px 18px rgba(120,20,70,.35));
+            -webkit-text-stroke: 4px rgba(255,255,255,.95); paint-order: stroke fill;
+            filter: drop-shadow(0 10px 22px rgba(120,20,70,.4));
             opacity: 0;
             animation:
-                unlock-text-pop 1s cubic-bezier(.22,1.4,.36,1) {SHAKE_S}s both,
-                unlock-text-rainbow 1.4s linear {SHAKE_S}s infinite;
+                unlock-text-pop .85s cubic-bezier(.2,1.8,.35,1) {SHAKE_S}s both,
+                unlock-text-wiggle 1.8s ease-in-out {SHAKE_S + 0.85}s infinite,
+                unlock-text-rainbow 1.2s linear {SHAKE_S}s infinite;
         }}
         @keyframes unlock-text-pop {{
-            0%   {{ transform: scale(.2) rotate(-6deg); opacity: 0; }}
-            55%  {{ transform: scale(1.18) rotate(2deg); opacity: 1; }}
-            75%  {{ transform: scale(.95) rotate(-1deg); }}
+            0%   {{ transform: scale(.1) rotate(-10deg); opacity: 0; }}
+            50%  {{ transform: scale(1.35) rotate(4deg); opacity: 1; }}
+            70%  {{ transform: scale(.9) rotate(-3deg); }}
+            85%  {{ transform: scale(1.1) rotate(1.5deg); }}
             100% {{ transform: scale(1) rotate(0deg); opacity: 1; }}
+        }}
+        @keyframes unlock-text-wiggle {{
+            0%, 100% {{ transform: scale(1) rotate(0deg); }}
+            25%      {{ transform: scale(1.05) rotate(-2deg); }}
+            50%      {{ transform: scale(1) rotate(0deg); }}
+            75%      {{ transform: scale(1.05) rotate(2deg); }}
         }}
         @keyframes unlock-text-rainbow {{
             0%   {{ background-position: 0% 50%; }}
             100% {{ background-position: 300% 50%; }}
         }}
         @media (prefers-reduced-motion: reduce) {{
-            .locked-stage, .unlock-whiteout, .unlock-lock-icon,
+            .locked-stage, .unlock-whiteout, .unlock-lock-icon, .unlock-shockwave,
             .unlock-confetti-piece, .unlock-burst-text {{ animation: none !important; opacity: 1; }}
         }}
         </style>
         <div class="locked-stage">
             <div class="unlock-whiteout"></div>
             <div class="unlock-lock-icon">🔒</div>
+            <div class="unlock-shockwave"></div>
             {"".join(pieces)}
             <div class="unlock-burst-text">오픈되었습니다!!</div>
         </div>
@@ -4933,14 +4967,20 @@ def render_diagnosis():
         st.rerun()
         return
     stage = st.session_state.diagnosis_stage
-    if stage == "analyzing":
-        _render_diagnosis_analyzing()
-    elif stage == "brewing":
-        _render_diagnosis_brewing()
-    elif stage == "result":
-        _render_diagnosis_result()
-    else:
-        _render_diagnosis_scan()
+    # scan 단계의 camera_input(iframe 기반 커스텀 컴포넌트)이 다음 단계로 넘어갈 때
+    # 완전히 지워지지 않고 옅게 남아 보이는 문제가 있어(Streamlit이 재실행 사이에
+    # "안 쓰는 만큼 지우기"를 완전히 못 하는 것으로 보임 -- 최상단 VIEWS 라우팅에서도
+    # 같은 이유로 st.empty()를 씀), 단계 전환마다 st.empty()로 통째로 새로 그린다.
+    stage_slot = st.empty()
+    with stage_slot.container():
+        if stage == "analyzing":
+            _render_diagnosis_analyzing()
+        elif stage == "brewing":
+            _render_diagnosis_brewing()
+        elif stage == "result":
+            _render_diagnosis_result()
+        else:
+            _render_diagnosis_scan()
 
 
 def _render_diagnosis_scan():
