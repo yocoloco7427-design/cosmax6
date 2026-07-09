@@ -701,6 +701,8 @@ if "skin_scan_photos" not in st.session_state:
     st.session_state.skin_scan_photos = {}
 if "skin_scan_widget_key" not in st.session_state:
     st.session_state.skin_scan_widget_key = 0  # camera_input 리마운트(재촬영)용 카운터
+if "diagnosis_scan_cam_open" not in st.session_state:
+    st.session_state.diagnosis_scan_cam_open = False  # 궁합 진단 얼굴 스캔 단계에서 카메라 위젯 노출 여부
 if "coins" not in st.session_state:
     st.session_state.coins = 9999  # 베타 단계 임시 초기값 — 추후 실제 0부터 시작하도록 변경 필요
 if "coin_history" not in st.session_state:
@@ -4215,111 +4217,117 @@ def _bottom_sheet_css():
         div[data-testid="stDialog"] [slot="title"] { display: none !important; }
         div[data-testid="stDialog"] div { background: transparent !important; box-shadow: none !important; }
         /* 하단에 딱 붙어서 눈에 잘 안 띈다는 피드백 — 화면 정중앙에 뜨도록 바꾸고,
-           바닥에서 슬라이드업하던 애니메이션도 살짝 튕기며 커지는 팝인으로 교체 */
+           바닥에서 슬라이드업하던 애니메이션도 살짝 튕기며 커지는 팝인으로 교체.
+           카드도 훨씬 크게, 글자도 전체적으로 키워서 가독성을 올렸다. */
         div[data-testid="stDialog"] > div {
             position: fixed !important; left: 50% !important; top: 50% !important; bottom: auto !important;
             transform: translate(-50%, -50%) !important; margin: 0 !important;
-            max-width: min(92vw, 620px) !important; width: min(92vw, 620px) !important;
-            max-height: 86vh !important; overflow-y: auto !important;
-            border-radius: 26px !important;
+            max-width: min(95vw, 760px) !important; width: min(95vw, 760px) !important;
+            max-height: 90vh !important; overflow-y: auto !important;
+            border-radius: 18px !important;
             animation: sheet-pop-in .32s cubic-bezier(.2,.9,.3,1.25) both;
         }
         @keyframes sheet-pop-in {
             from { opacity: 0; transform: translate(-50%, -50%) scale(.88); }
             to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
         }
-        /* 위 "div[data-testid='stDialog'] div"가 태그 2개짜리라 명시도가
-           (0,1,2)라서 클래스 하나뿐인 규칙(0,1,0)로는 못 이긴다 — 뷰티 패스포트의
-           .page 규칙과 동일하게 dialog 속성 선택자를 앞에 한 번 더 붙여 명시도를
-           (0,2,1)로 올려야 실제로 크림색이 보인다. */
+        /* 첨부 이미지처럼 낡은 양피지 두루마리 느낌 — 세계지도 다이얼로그에서 쓴
+           것과 같은 세피아 팔레트 + 위아래 말린 종이 롤을 그대로 가져와 톤을
+           통일한다. 위 "div[data-testid='stDialog'] div"가 태그 2개짜리라 명시도가
+           (0,1,2)라서 클래스 하나뿐인 규칙(0,1,0)로는 못 이긴다 — dialog 속성
+           선택자를 앞에 한 번 더 붙여 명시도를 (0,2,1)로 올려야 실제로 색이 보인다. */
         div[data-testid="stDialog"] .st-key-country_sheet_card {
-            background: #fffaf3 !important; border-radius: 26px !important;
+            position: relative;
+            background:
+                radial-gradient(ellipse at 28% 12%, rgba(255,248,222,.55) 0%, rgba(255,248,222,0) 46%),
+                linear-gradient(160deg, #f3e3bd 0%, #dcb876 45%, #c69a5c 100%) !important;
+            border: 5px solid #7a4a23 !important; border-radius: 18px !important;
             padding: 0 !important;
             box-shadow:
-                0 0 0 1px rgba(255,255,255,.7) inset,
-                0 24px 60px rgba(70,20,60,.38) !important;
-            min-height: 240px; overflow: hidden;
+                inset 0 0 0 3px rgba(255,244,214,.5),
+                inset 0 0 60px rgba(93,58,20,.28),
+                0 24px 60px rgba(40,20,5,.45) !important;
+            min-height: 240px; overflow: visible;
+            margin: 16px 4px 22px;
         }
-        /* 여행 컨셉에 맞춰 항공권(보딩패스) 느낌으로 — 색상 헤더(칩 아이콘 + 제목 +
-           나라 스탬프) 아래 점선 절취선을 두고, 본문은 그 밑에 붙는 티켓 하단부처럼.
-           그라데이션은 아이콘마다 달라서 인라인 style로 못 박을 수 없어 CSS 변수로
-           건네받는데, 그 값을 실제로 칠하는 background 선언은 위 카드와 같은 이유로
-           dialog 속성 선택자를 붙여 명시도를 올려야 인라인이 아니라 진짜로 먹는다. */
-        div[data-testid="stDialog"] .sheet-ticket-header {
-            position: relative; padding: 26px 28px 20px; color: #fff;
-            border-radius: 26px 26px 0 0;
-            display: flex; align-items: center; gap: 16px;
-            background: var(--ticket-accent) !important;
+        div[data-testid="stDialog"] .st-key-country_sheet_card::before,
+        div[data-testid="stDialog"] .st-key-country_sheet_card::after {
+            content: ''; position: absolute; left: -14px; right: -14px; height: 22px;
+            background: linear-gradient(180deg, #8a5a2e, #4d3018);
+            border-radius: 11px; box-shadow: 0 3px 8px rgba(0,0,0,.4);
         }
-        .sheet-ticket-header::after {
-            content: ''; position: absolute; inset: 0; border-radius: 26px 26px 0 0;
-            background: linear-gradient(180deg, rgba(255,255,255,.16) 0%, rgba(255,255,255,0) 60%);
-            pointer-events: none;
+        div[data-testid="stDialog"] .st-key-country_sheet_card::before { top: -11px; }
+        div[data-testid="stDialog"] .st-key-country_sheet_card::after { bottom: -11px; }
+        .sheet-ticket-header {
+            position: relative; padding: 30px 32px 6px;
+            display: flex; align-items: center; gap: 18px;
         }
         .sheet-ticket-icon {
-            font-size: 2.6rem; line-height: 1; flex-shrink: 0;
-            filter: drop-shadow(0 3px 4px rgba(0,0,0,.28));
+            font-size: 2.6rem; line-height: 1; flex-shrink: 0; width: 68px; height: 68px;
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            background: var(--ticket-accent);
+            box-shadow: 0 6px 14px rgba(60,30,10,.4), inset 0 0 0 3px rgba(255,255,255,.5);
         }
         .sheet-ticket-title {
-            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.55rem;
-            text-shadow: 0 1px 3px rgba(0,0,0,.15);
+            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.85rem;
+            color: #4a2f12; text-shadow: 0 1px 0 rgba(255,255,255,.4);
         }
         .sheet-ticket-sub {
-            font-family: 'Jua', sans-serif; font-size: .8rem; opacity: .92;
-            letter-spacing: .6px; margin-top: 4px;
+            font-family: 'Jua', sans-serif; font-size: .92rem; color: #6e4c26;
+            letter-spacing: .4px; margin-top: 4px; opacity: .9;
         }
         .sheet-ticket-stamp {
-            position: absolute; right: 24px; top: 18px; font-size: 2rem;
-            opacity: .5; transform: rotate(10deg);
-            filter: drop-shadow(0 2px 2px rgba(0,0,0,.25));
+            position: absolute; right: 30px; top: 22px; font-size: 2.2rem;
+            opacity: .55; transform: rotate(10deg);
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,.3));
         }
-        .sheet-perf {
-            position: relative; height: 0; margin: 0 24px;
-            border-top: 3px dashed rgba(255,255,255,.65);
+        .sheet-divider {
+            text-align: center; color: #a5713b; font-size: .95rem; letter-spacing: 10px;
+            margin: 14px 0 4px; opacity: .6;
         }
-        .sheet-perf::before, .sheet-perf::after {
-            content: ''; position: absolute; top: -12px; width: 24px; height: 24px;
-            border-radius: 50%; background: #fffaf3;
+        .st-key-sheet_body { padding: 10px 32px 32px; }
+        /* 본문에 쓰는 st.write/st.markdown 텍스트도 전체적으로 키워서 가독성 개선 */
+        .st-key-sheet_body p, .st-key-sheet_body li,
+        .st-key-sheet_body div[data-testid="stMarkdownContainer"] {
+            font-size: 1.15rem !important; line-height: 1.65 !important; color: #4a2f12 !important;
         }
-        .sheet-perf::before { left: -36px; }
-        .sheet-perf::after { right: -36px; }
-        .sheet-body { padding: 22px 28px 28px; }
-        .sheet-title {
-            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.4rem;
-            color: #9c2f5c; margin-bottom: 10px;
-        }
+        .st-key-sheet_body div[data-testid="stMarkdownContainer"] strong { font-size: 1.2rem !important; }
+        .st-key-sheet_body div[data-testid="stCaptionContainer"] p { font-size: 1rem !important; }
         /* 기존 st.metric 스택은 라벨/숫자만 덜렁 나열돼 밋밋했다 — 아이콘 달린
            작은 통계 타일 그리드로 바꿔서 한눈에 훑어볼 수 있게 함 */
         .stat-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-            margin: 4px 0 14px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            margin: 4px 0 16px;
         }
         .stat-grid.stat-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
         .stat-tile {
-            background: linear-gradient(160deg, #fff6e8 0%, #ffeef6 100%);
-            border: 1.5px solid rgba(255,143,192,.35); border-radius: 14px;
-            padding: 12px 14px;
+            background: linear-gradient(160deg, #fffaf0 0%, #fbeecb 100%);
+            border: 1.5px solid rgba(122,74,35,.35); border-radius: 14px;
+            padding: 14px 16px;
         }
-        .stat-tile-icon { font-size: 1.1rem; margin-bottom: 2px; }
+        .stat-tile-icon { font-size: 1.3rem; margin-bottom: 3px; }
         .stat-tile-label {
-            font-family: 'Jua', sans-serif; font-size: .74rem; color: #b23a6e;
-            letter-spacing: .3px; text-transform: uppercase; opacity: .85;
+            font-family: 'Jua', sans-serif; font-size: .85rem; color: #8a5a10;
+            letter-spacing: .3px; text-transform: uppercase; opacity: .9;
         }
         .stat-tile-value {
-            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.08rem;
-            color: #4a2035; margin-top: 2px; line-height: 1.3;
+            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.3rem;
+            color: #4a2f12; margin-top: 3px; line-height: 1.35;
         }
         .stat-tile-value.stat-tile-alert { color: #c0392b; }
         .sheet-note {
-            font-family: 'Jua', sans-serif; font-size: .85rem; color: #8a5a72;
-            margin: 2px 2px 14px; line-height: 1.45;
+            font-family: 'Jua', sans-serif; font-size: 1rem; color: #6e4c26;
+            margin: 4px 2px 16px; line-height: 1.55;
         }
         .st-key-close_country_sheet button {
             border-radius: 999px !important; font-family: 'Jua', sans-serif !important;
-            font-weight: 700 !important; border: none !important;
-            background: #f3e4d8 !important; color: #6b4423 !important;
+            font-weight: 700 !important; font-size: 1.05rem !important; border: none !important;
+            background: linear-gradient(180deg,#4d3320,#241407) !important; color: #f1dfb8 !important;
+            padding: 10px 0 !important;
         }
-        .st-key-close_country_sheet button:hover { background: #e9d5c3 !important; }
+        .st-key-close_country_sheet button:hover {
+            background: linear-gradient(180deg,#5c3f28,#2c1a0c) !important;
+        }
         </style>
         """
     )
@@ -4350,15 +4358,15 @@ def _country_action_sheet(country, char, code):
     with st.container(key="country_sheet_card"):
         html_block(
             f"""
-            <div class="sheet-ticket-header" style="--ticket-accent:{theme['accent']};">
-                <div class="sheet-ticket-icon">{icons.get(kind, "✈️")}</div>
+            <div class="sheet-ticket-header">
+                <div class="sheet-ticket-icon" style="--ticket-accent:{theme['accent']};">{icons.get(kind, "✈️")}</div>
                 <div>
                     <div class="sheet-ticket-title">{titles.get(kind, "")}</div>
                     <div class="sheet-ticket-sub">{theme['label']} · {html.escape(country['name'])}</div>
                 </div>
                 <div class="sheet-ticket-stamp">{country['flag']}</div>
             </div>
-            <div class="sheet-perf"></div>
+            <div class="sheet-divider">❖ ❖ ❖</div>
             """
         )
         with st.container(key="sheet_body"):
@@ -4556,9 +4564,10 @@ def _render_diagnosis_scan():
             text-align: center; font-family: 'Jua', sans-serif; font-size: 1.2rem;
             color: #5a3d7a; margin: 4px 0 22px;
         }}
+        .st-key-diag_scan_btn {{ align-self: center !important; }}
         .st-key-diag_scan_btn.st-key-diag_scan_btn button {{
             position: relative !important;
-            width: 160px !important; height: 160px !important; margin: 6px auto 10px !important;
+            width: 160px !important; height: 160px !important; margin: 6px 0 10px !important;
             display: block !important; border-radius: 50% !important;
             background: linear-gradient(160deg,#ffe9f3,#ffd2ea) !important;
             border: 4px solid #ff9fd8 !important;
@@ -4576,14 +4585,43 @@ def _render_diagnosis_scan():
         .diag-scan-hint {{
             text-align: center; font-family: 'Jua', sans-serif; color: #8a5a10; margin-top: 2px;
         }}
+        .st-key-diag_scan_cam {{
+            align-self: center !important; width: min(380px, 92vw) !important;
+        }}
+        .st-key-diag_scan_cancel {{ align-self: center !important; width: min(380px, 92vw) !important; }}
         </style>
         <div class="diag-scan-copy">포션이 완성됐어요! 얼굴을 스캔해서<br>이 여행지와의 궁합을 확인해볼까요?</div>
         """
     )
-    if st.button("📷", key="diag_scan_btn", help="얼굴 스캔하기"):
-        st.session_state.diagnosis_stage = "brewing"
+    if not st.session_state.diagnosis_scan_cam_open:
+        if st.button("📷", key="diag_scan_btn", help="얼굴 스캔하기"):
+            st.session_state.diagnosis_scan_cam_open = True
+            st.rerun()
+        html_block('<div class="diag-scan-hint">👆 얼굴 스캔하기</div>')
+        return
+
+    with st.container(key="diag_scan_cam"):
+        photo = st.camera_input(
+            "얼굴 스캔",
+            key=f"diag_scan_cam_input_{st.session_state.skin_scan_widget_key}",
+            label_visibility="collapsed",
+        )
+    if photo is not None:
+        img = Image.open(photo).convert("RGB")
+        ok, msg = _scan_quality_check(img)
+        if not ok:
+            st.warning(msg)
+            if st.button("다시 찍기", key="diag_scan_retry"):
+                st.session_state.skin_scan_widget_key += 1
+                st.rerun()
+        else:
+            st.session_state.skin_scan = analyze_skin_scan({"front": img})
+            st.session_state.diagnosis_scan_cam_open = False
+            st.session_state.diagnosis_stage = "brewing"
+            st.rerun()
+    if st.button("취소", key="diag_scan_cancel"):
+        st.session_state.diagnosis_scan_cam_open = False
         st.rerun()
-    html_block('<div class="diag-scan-hint">👆 얼굴 스캔하기</div>')
 
 
 def _render_diagnosis_brewing():
