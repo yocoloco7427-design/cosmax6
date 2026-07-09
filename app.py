@@ -718,6 +718,8 @@ if "confirming_unlock" not in st.session_state:
     st.session_state.confirming_unlock = None  # 언락 확인 문구를 보여줄 국가 코드 (없으면 None)
 if "coin_celebration_amount" not in st.session_state:
     st.session_state.coin_celebration_amount = None  # 코인 획득 폭죽 애니메이션에 표시할 금액
+if "unlock_burst_info" not in st.session_state:
+    st.session_state.unlock_burst_info = None  # 여행지 잠금 해제 애니메이션에 표시할 {"flag","name"}
 
 
 def get_character():
@@ -760,6 +762,16 @@ SCAN_ANGLES = [
     {"key": "left", "label": "왼쪽 얼굴", "guide": "고개를 살짝 왼쪽으로 돌려 옆모습을 찍어주세요"},
     {"key": "right", "label": "오른쪽 얼굴", "guide": "고개를 살짝 오른쪽으로 돌려 옆모습을 찍어주세요"},
 ]
+
+# 셀피처럼 보이도록 카메라 미리보기/촬영 결과를 좌우반전(거울 모드)한다.
+# 분석에 쓰는 실제 픽셀 데이터는 그대로 두고(밝기/대비 통계에 영향 없음) 화면
+# 표시만 CSS로 반전한다.
+_CAMERA_MIRROR_CSS = """
+<style>
+[data-testid="stCameraInput"] video,
+[data-testid="stCameraInput"] img { transform: scaleX(-1) !important; }
+</style>
+"""
 
 
 def _scan_quality_check(image):
@@ -1167,6 +1179,137 @@ def render_coin_celebration():
         <div class="coin-celebration-layer">
             {"".join(pieces)}
             <div class="coin-celebration-text">🎉 {amount}코인을 획득하셨습니다!!! 🎉</div>
+        </div>
+        """
+    )
+
+
+def render_unlock_burst():
+    """여행지 잠금 해제 바로 다음 rerun에 한 번만 재생되는 연출 — 잠긴 화면의
+    핑크 박스가 점점 하얗게 변하면서 부르르 떨리다가, 다 하얘지는 순간 자물쇠가
+    쪼그라들며 사라지고 폭죽과 큼직한 무지개색 문구가 터진다. coin_celebration과
+    같은 1회성 플래그 패턴 — 곧바로 None으로 되돌려 다음 상호작용부턴 안 뜬다."""
+    info = st.session_state.unlock_burst_info
+    if not info:
+        return
+    st.session_state.unlock_burst_info = None
+
+    SHAKE_S = 1.1  # 흔들림+화이트아웃이 끝나는 시점 — 폭죽/문구가 이 시점에 맞춰 터진다
+    pieces = []
+    n = 24
+    for i in range(n):
+        angle = math.radians((360 / n) * i + random.uniform(-10, 10))
+        dist = random.uniform(180, 320)
+        dx = round(math.cos(angle) * dist, 1)
+        dy = round(math.sin(angle) * dist, 1)
+        size = round(random.uniform(9, 17), 1)
+        color = random.choice(COIN_CELEBRATION_COLORS)
+        delay = SHAKE_S + round(random.uniform(0, 0.12), 2)
+        dur = round(random.uniform(0.85, 1.2), 2)
+        rot = round(random.uniform(180, 640))
+        pieces.append(
+            f'<span class="unlock-confetti-piece" style="--dx:{dx}px; --dy:{dy}px; --rot:{rot}deg; '
+            f'width:{size}px; height:{size}px; background:{color}; '
+            f'animation-delay:{delay}s; animation-duration:{dur}s;"></span>'
+        )
+
+    html_block(
+        f"""
+        <style>
+        .unlock-burst-layer {{
+            position: fixed; inset: 0; z-index: 999997; pointer-events: none;
+            display: flex; align-items: center; justify-content: center;
+        }}
+        .unlock-burst-box {{
+            position: relative; width: min(92vw, 820px); height: clamp(320px, 58vh, 540px);
+            border-radius: 22px; overflow: hidden;
+            background: linear-gradient(160deg, #ffe9f3 0%, #ffd3e7 55%, #ffbadc 100%);
+            box-shadow: inset 0 0 0 4px rgba(255,255,255,.55), 0 20px 40px rgba(150,50,100,.35);
+            display: flex; align-items: center; justify-content: center;
+            animation:
+                unlock-box-shake {SHAKE_S}s ease-in-out both,
+                unlock-box-fadeout .6s ease-in {SHAKE_S + 2.0}s forwards;
+        }}
+        @keyframes unlock-box-fadeout {{ from {{ opacity: 1; }} to {{ opacity: 0; }} }}
+        @keyframes unlock-box-shake {{
+            0%   {{ transform: translate(0,0) rotate(0deg); }}
+            8%   {{ transform: translate(-3px,2px) rotate(-1deg); }}
+            16%  {{ transform: translate(3px,-2px) rotate(1deg); }}
+            24%  {{ transform: translate(-5px,3px) rotate(-2deg); }}
+            32%  {{ transform: translate(5px,-3px) rotate(2deg); }}
+            40%  {{ transform: translate(-8px,5px) rotate(-3deg); }}
+            48%  {{ transform: translate(8px,-5px) rotate(3deg); }}
+            56%  {{ transform: translate(-11px,7px) rotate(-4deg); }}
+            64%  {{ transform: translate(11px,-7px) rotate(4deg); }}
+            72%  {{ transform: translate(-15px,9px) rotate(-5deg); }}
+            80%  {{ transform: translate(15px,-9px) rotate(5deg); }}
+            88%  {{ transform: translate(-18px,11px) rotate(-6deg); }}
+            100% {{ transform: translate(0,0) rotate(0deg); }}
+        }}
+        .unlock-whiteout {{
+            position: absolute; inset: 0; background: #fff; opacity: 0; z-index: 1;
+            animation: unlock-whiteout-in {SHAKE_S}s ease-in forwards;
+        }}
+        @keyframes unlock-whiteout-in {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+        .unlock-lock-icon {{
+            position: relative; z-index: 2; font-size: min(26vw, 160px); line-height: 1;
+            filter: drop-shadow(0 12px 20px rgba(150,50,100,.35));
+            animation: unlock-icon-vanish .3s ease-in {SHAKE_S - 0.15}s both;
+        }}
+        @keyframes unlock-icon-vanish {{
+            0%   {{ transform: scale(1) rotate(0deg); opacity: 1; }}
+            100% {{ transform: scale(0) rotate(35deg); opacity: 0; }}
+        }}
+        .unlock-confetti-piece {{
+            position: absolute; top: 50%; left: 50%; border-radius: 3px; z-index: 3;
+            transform: translate(-50%,-50%); opacity: 0;
+            animation-name: unlock-confetti-burst; animation-timing-function: cubic-bezier(.2,.7,.3,1);
+            animation-fill-mode: both;
+        }}
+        @keyframes unlock-confetti-burst {{
+            0%   {{ transform: translate(-50%,-50%) rotate(0deg); opacity: 1; }}
+            70%  {{ opacity: 1; }}
+            100% {{
+                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot));
+                opacity: 0;
+            }}
+        }}
+        .unlock-burst-text {{
+            position: relative; z-index: 4; text-align: center; padding: 0 6vw;
+            font-family: 'Jua', sans-serif; font-weight: 900;
+            font-size: clamp(2.2rem, 8.5vw, 4.6rem);
+            background: linear-gradient(90deg,#ff3d97,#ff9f1c,#ffe94d,#4ade80,#38bdf8,#a78bfa,#ff3d97);
+            background-size: 300% auto; -webkit-background-clip: text; background-clip: text;
+            -webkit-text-fill-color: transparent; color: transparent;
+            -webkit-text-stroke: 3px rgba(255,255,255,.9); paint-order: stroke fill;
+            filter: drop-shadow(0 8px 18px rgba(120,20,70,.35));
+            opacity: 0;
+            animation:
+                unlock-text-pop 1s cubic-bezier(.22,1.4,.36,1) {SHAKE_S}s both,
+                unlock-text-rainbow 1.4s linear {SHAKE_S}s infinite;
+        }}
+        @keyframes unlock-text-pop {{
+            0%   {{ transform: scale(.2) rotate(-6deg); opacity: 0; }}
+            55%  {{ transform: scale(1.18) rotate(2deg); opacity: 1; }}
+            75%  {{ transform: scale(.95) rotate(-1deg); }}
+            100% {{ transform: scale(1) rotate(0deg); opacity: 1; }}
+        }}
+        @keyframes unlock-text-rainbow {{
+            0%   {{ background-position: 0% 50%; }}
+            100% {{ background-position: 300% 50%; }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .unlock-burst-box, .unlock-whiteout, .unlock-lock-icon,
+            .unlock-confetti-piece, .unlock-burst-text {{ animation: none !important; opacity: 1; }}
+        }}
+        </style>
+        <div class="unlock-burst-layer">
+            <div class="unlock-burst-box">
+                <div class="unlock-whiteout"></div>
+                <div class="unlock-lock-icon">🔒</div>
+                {"".join(pieces)}
+                <div class="unlock-burst-text">오픈되었습니다!!</div>
+            </div>
         </div>
         """
     )
@@ -3836,6 +3979,7 @@ def _render_skin_scan_section():
     step = st.session_state.skin_scan_step
     angle = SCAN_ANGLES[step]
     st.caption(f"📸 {step + 1}/3 · {angle['label']} — {angle['guide']}")
+    html_block(_CAMERA_MIRROR_CSS)
     photo = st.camera_input(
         angle["label"],
         key=f"skin_scan_cam_{angle['key']}_{st.session_state.skin_scan_widget_key}",
@@ -3911,7 +4055,7 @@ def _render_country_locked(country, code):
                     "when": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 })
                 st.session_state.confirming_unlock = None
-                st.toast("🔓 오픈되었습니다!", icon="🔓")
+                st.session_state.unlock_burst_info = {"flag": country["flag"], "name": country["name"]}
                 st.rerun()
         with c2:
             if st.button("아니오", key="confirm_unlock_no", use_container_width=True):
@@ -4222,10 +4366,10 @@ def _render_country_scene_stage(country, char, code):
            font-size(14px)가 박혀 있어서 button에 준 font-size가 상속되지 않고
            씹혀버린다 — 실제 이모지를 담은 p 태그까지 직접 짚어서 키운다. */
         div[class*="st-key-icn_"] button p {{
-            font-size: 4.4rem !important; line-height: 1 !important;
+            font-size: 7.8rem !important; line-height: 1 !important;
         }}
         div[class*="st-key-icn_"] button {{
-            width: 96px !important; height: 96px !important; min-width: 0 !important;
+            width: 160px !important; height: 160px !important; min-width: 0 !important;
             padding: 0 !important;
             background: transparent !important; border: none !important; box-shadow: none !important;
             filter: drop-shadow(0 6px 10px rgba(60,30,60,.35));
@@ -4661,7 +4805,9 @@ def render_diagnosis():
         st.rerun()
         return
     stage = st.session_state.diagnosis_stage
-    if stage == "brewing":
+    if stage == "analyzing":
+        _render_diagnosis_analyzing()
+    elif stage == "brewing":
         _render_diagnosis_brewing()
     elif stage == "result":
         _render_diagnosis_result()
@@ -4670,6 +4816,8 @@ def render_diagnosis():
 
 
 def _render_diagnosis_scan():
+    """정면->왼쪽->오른쪽 3장을 한 장씩 촬영받는다. 세 장이 다 모이면 analyze_skin_scan()
+    으로 분석해 공용 skin_scan baseline에 저장하고 analyzing 단계로 넘어간다."""
     code = st.session_state.diagnosis_country
     country = COUNTRIES.get(code) or {}
     st.title(f"{country.get('flag','')} {country.get('name','')} 피부 궁합 진단")
@@ -4701,6 +4849,9 @@ def _render_diagnosis_scan():
         .diag-scan-hint {{
             text-align: center; font-family: 'Jua', sans-serif; color: #8a5a10; margin-top: 2px;
         }}
+        .diag-scan-step-label {{
+            text-align: center; font-family: 'Jua', sans-serif; color: #5a3d7a; margin-bottom: 6px;
+        }}
         .st-key-diag_scan_cam {{
             align-self: center !important; width: min(380px, 92vw) !important;
         }}
@@ -4712,14 +4863,22 @@ def _render_diagnosis_scan():
     if not st.session_state.diagnosis_scan_cam_open:
         if st.button("📷", key="diag_scan_btn", help="얼굴 스캔하기"):
             st.session_state.diagnosis_scan_cam_open = True
+            st.session_state.skin_scan_step = 0
+            st.session_state.skin_scan_photos = {}
             st.rerun()
         html_block('<div class="diag-scan-hint">👆 얼굴 스캔하기</div>')
         return
 
+    step = st.session_state.skin_scan_step
+    angle = SCAN_ANGLES[step]
+    html_block(
+        _CAMERA_MIRROR_CSS
+        + f'<div class="diag-scan-step-label">📸 {step + 1}/3 · {angle["label"]} — {angle["guide"]}</div>'
+    )
     with st.container(key="diag_scan_cam"):
         photo = st.camera_input(
-            "얼굴 스캔",
-            key=f"diag_scan_cam_input_{st.session_state.skin_scan_widget_key}",
+            angle["label"],
+            key=f"diag_scan_cam_input_{angle['key']}_{st.session_state.skin_scan_widget_key}",
             label_visibility="collapsed",
         )
     if photo is not None:
@@ -4731,13 +4890,49 @@ def _render_diagnosis_scan():
                 st.session_state.skin_scan_widget_key += 1
                 st.rerun()
         else:
-            st.session_state.skin_scan = analyze_skin_scan({"front": img})
-            st.session_state.diagnosis_scan_cam_open = False
-            st.session_state.diagnosis_stage = "brewing"
+            st.session_state.skin_scan_photos[angle["key"]] = img
+            if step + 1 < len(SCAN_ANGLES):
+                st.session_state.skin_scan_step += 1
+                st.session_state.skin_scan_widget_key += 1
+            else:
+                st.session_state.skin_scan = analyze_skin_scan(st.session_state.skin_scan_photos)
+                st.session_state.diagnosis_scan_cam_open = False
+                st.session_state.diagnosis_stage = "analyzing"
             st.rerun()
     if st.button("취소", key="diag_scan_cancel"):
         st.session_state.diagnosis_scan_cam_open = False
+        st.session_state.skin_scan_step = 0
+        st.session_state.skin_scan_photos = {}
         st.rerun()
+
+
+def _render_diagnosis_analyzing():
+    """3장 촬영이 끝난 뒤 브루잉으로 넘어가기 전에 잠깐 보여주는 스캔 완료 단계.
+    게이지가 가득 차고 완료 문구 1초, 분석 시작 문구 2초를 보여준 뒤 기존
+    brewing 단계로 그대로 넘어간다(brewing/result 로직은 손대지 않음)."""
+    code = st.session_state.diagnosis_country
+    country = COUNTRIES.get(code) or {}
+    st.title(f"{country.get('flag','')} {country.get('name','')} 피부 궁합 진단")
+    bar = st.progress(0)
+    msg_slot = st.empty()
+    steps = 20
+    for i in range(steps + 1):
+        bar.progress(i / steps)
+        time.sleep(0.04)
+    msg_slot.markdown(
+        "<div style=\"text-align:center;font-family:'Jua',sans-serif;font-size:1.4rem;"
+        "color:#3cb872;margin-top:16px;\">✅ 스캔이 완료되었습니다</div>",
+        unsafe_allow_html=True,
+    )
+    time.sleep(1)
+    msg_slot.markdown(
+        "<div style=\"text-align:center;font-family:'Jua',sans-serif;font-size:1.4rem;"
+        "color:#5a3d7a;margin-top:16px;\">🔍 분석을 시작합니다</div>",
+        unsafe_allow_html=True,
+    )
+    time.sleep(2)
+    st.session_state.diagnosis_stage = "brewing"
+    st.rerun()
 
 
 def _render_diagnosis_brewing():
@@ -4859,7 +5054,7 @@ def _render_diagnosis_result():
     with b1:
         if st.button("그래도 갈래요 → 준비물 보기", key="diag_go_country", type="primary", use_container_width=True):
             st.session_state.selected_country = code
-            st.session_state.country_stage = "map"
+            st.session_state.country_stage = "scene"  # 확대 지도 단계를 건너뛰고 6개 아이콘 화면으로 바로 이동
             st.session_state.active_country_sheet = None
             goto("country")
             st.rerun()
@@ -4914,6 +5109,7 @@ render_back_button()
 render_top_icons()
 render_ad_reward_button()
 render_coin_celebration()
+render_unlock_burst()
 
 # 화면(view)을 st.empty() 슬롯 하나에 넣어서 그린다. 예전에는 VIEWS[...]()를
 # 바로 호출했는데, 캐릭터 만들기(탭+위젯이 아주 많음)에서 지도(위젯이 훨씬
