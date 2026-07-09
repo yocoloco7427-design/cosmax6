@@ -14,6 +14,8 @@ from pathlib import Path
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
+from io import BytesIO
+from PIL import Image
 
 try:
     import anthropic
@@ -3174,19 +3176,44 @@ def render_country():
         _country_action_sheet(country, char, code)
 
 
-COUNTRY_ZOOM_SCALE = 5.5  # 확대 지도의 배경 확대 배율 (background-size 550%와 항상 맞춰 쓴다)
+COUNTRY_ZOOM_SCALE = 5.5  # 확대 지도의 세로 기준 확대 배율
+COUNTRY_CROP_ASPECT = 2.15  # 확대 지도 크롭의 가로:세로 비율 (버튼이 옆으로 넓은 배너 모양이라)
 
 
-def _bg_zoom_position(target_pct, scale):
-    """background-size로 scale배 확대한 배경을 target_pct(0~100, 이미지 기준 좌표) 지점이
-    컨테이너 정중앙에 오도록 만드는 background-position 값을 계산한다.
+@st.cache_data(show_spinner=False)
+def _load_world_map_png():
+    """미리 렌더링해 둔 세계지도 PNG(assets/world_map_render.png)를 불러온다.
 
-    CSS background-position의 백분율은 '이미지의 X%점 = 컨테이너의 X%점'을 맞추는
-    것이라, 확대된 이미지에서 그대로 쓰면 중앙이 아니라 원본 배율 기준 위치에
-    정렬돼버린다(축소되지 않은 지도 위 좌표를 그대로 쓰면 목표 지점이 화면 중앙에서
-    한참 벗어남). 컨테이너 중앙에 오도록 역산한 공식.
-    """
-    return (target_pct * scale - 50) / (scale - 1)
+    브라우저 CSS(background-size로 500%+ 확대한 SVG 배경)로 나라별 확대 지도를
+    직접 만들어봤는데, 이 SVG가 너무 크고 복잡해서 그렇게 확대해 그리면 크로미움이
+    일부 영역을 빈 배경색으로 잘라먹는 렌더링 버그가 실측으로 확인됐다(작은 나라뿐
+    아니라 지도 좌표 산출에 쓰인 미국조차 중앙에서 크게 벗어나 보였음). 그래서 확대는
+    브라우저가 아니라 서버(PIL)에서 미리 렌더링된 큰 PNG를 잘라 하는 방식으로 바꿨다 —
+    이 PNG는 _load_world_map_svg()의 결과를 그대로(현재 COUNTRIES 강조 상태 기준)
+    스크린샷 렌더링해 만든 것이라, COUNTRIES 강조국이 바뀌면 이 파일도 다시 만들어야
+    강조색이 최신 상태로 반영된다(핀 클릭/전체 지도 다이얼로그는 여전히 실시간 SVG를
+    쓰므로 그쪽은 항상 최신이다)."""
+    return Image.open(ASSETS / "world_map_render.png").convert("RGB")
+
+
+@st.cache_data(show_spinner=False)
+def _country_zoom_crop_uri(country_code):
+    """해당 나라의 위경도를 중심으로 미리 렌더링된 세계지도 PNG를 잘라 data URI로 반환."""
+    country = COUNTRIES[country_code]
+    img = _load_world_map_png()
+    img_w, img_h = img.size
+    x_pct, y_pct = _country_pin_percent(country["geo"])
+    cx, cy = x_pct / 100 * img_w, y_pct / 100 * img_h
+
+    crop_h = img_h / COUNTRY_ZOOM_SCALE
+    crop_w = crop_h * COUNTRY_CROP_ASPECT
+    left = min(max(cx - crop_w / 2, 0), img_w - crop_w)
+    top = min(max(cy - crop_h / 2, 0), img_h - crop_h)
+    crop = img.crop((int(left), int(top), int(left + crop_w), int(top + crop_h)))
+
+    buf = BytesIO()
+    crop.save(buf, format="PNG")
+    return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
 def _render_country_map_stage(country, char, code):
@@ -3194,11 +3221,7 @@ def _render_country_map_stage(country, char, code):
     지도 자체가 곧 버튼(다른 화면에서 이미 검증된 '그림=버튼' 방식) — 탭하면 2단계로."""
     st.title(f"{country['flag']} {country['name']}")
 
-    svg = _load_world_map_svg()
-    svg_uri = "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode()
-    pin_x_pct, pin_y_pct = _country_pin_percent(country["geo"])
-    x_pct = _bg_zoom_position(pin_x_pct, COUNTRY_ZOOM_SCALE)
-    y_pct = _bg_zoom_position(pin_y_pct, COUNTRY_ZOOM_SCALE)
+    zoom_uri = _country_zoom_crop_uri(code)
     tips = _quick_skin_tip(char, country)
 
     html_block(
@@ -3208,14 +3231,13 @@ def _render_country_map_stage(country, char, code):
         .st-key-enter_country_scene {{ width: 100% !important; }}
         .st-key-enter_country_scene button {{
             position: relative !important; width: 100% !important;
-            aspect-ratio: {WORLD_MAP_VIEWBOX_W} / {WORLD_MAP_VIEWBOX_H} !important;
-            max-height: 580px !important; min-height: 300px !important;
+            height: clamp(340px, 64vh, 580px) !important;
             border-radius: 18px !important; border: 4px solid #6b4423 !important;
             overflow: hidden !important; padding: 0 !important;
             background-color: #dccb98 !important;
-            background-image: url('{svg_uri}') !important;
-            background-size: {COUNTRY_ZOOM_SCALE * 100:.0f}% {COUNTRY_ZOOM_SCALE * 100:.0f}% !important;
-            background-position: {x_pct:.2f}% {y_pct:.2f}% !important;
+            background-image: url('{zoom_uri}') !important;
+            background-size: cover !important;
+            background-position: center !important;
             background-repeat: no-repeat !important;
             box-shadow: inset 0 0 40px rgba(60,36,10,.5), 0 14px 30px rgba(60,30,10,.35) !important;
             transition: transform .15s ease;
