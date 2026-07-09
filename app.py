@@ -451,7 +451,7 @@ def render_home():
         .stage {{
             position: relative;
             width: 100%;
-            height: min(84vh, 800px);
+            height: min(58vh, 560px);
             margin: 0 auto;
             perspective: 1400px;
             overflow: hidden;
@@ -460,7 +460,7 @@ def render_home():
         /* ---- 대기광(atmosphere) — 파란 프레넬 림 ---- */
         .atmos {{
             position: absolute; left: 50%; top: 36%;
-            width: clamp(360px,52vw,560px); height: clamp(360px,52vw,560px);
+            width: clamp(300px,42vw,440px); height: clamp(300px,42vw,440px);
             transform: translate(-50%,-50%);
             border-radius: 50%; z-index: 2;
             background: radial-gradient(circle,
@@ -479,7 +479,7 @@ def render_home():
         /* ---- 3D 렌더링 느낌의 지구 (자전) ---- */
         .earth {{
             position: absolute; left: 50%; top: 36%;
-            width: clamp(300px,44vw,480px); height: clamp(300px,44vw,480px);
+            width: clamp(250px,36vw,380px); height: clamp(250px,36vw,380px);
             transform: translate(-50%,-50%);
             border-radius: 50%; z-index: 3; overflow: hidden;
             box-shadow:
@@ -580,8 +580,8 @@ def render_home():
                 0 10px 22px rgba(30,5,30,.45);
             animation: slam 2.2s cubic-bezier(.16,1.55,.3,1) both;
         }}
-        .hero-title .six .brand {{ font-size: clamp(2.6rem,7vw,5rem); margin: 0 .02em; }}
-        .hero-title .tm  .brand {{ font-size: clamp(4rem,12.5vw,9rem); margin: 0 .015em; }}
+        .hero-title .six .brand {{ font-size: clamp(2.2rem,5.6vw,4rem); margin: 0 .02em; }}
+        .hero-title .tm  .brand {{ font-size: clamp(3.2rem,10vw,7.2rem); margin: 0 .015em; }}
         @keyframes slam {{
             0%   {{ opacity:0; transform: scale(3.6) translateY(-90px); filter: blur(6px); }}
             22%  {{ opacity:1; }}
@@ -592,20 +592,23 @@ def render_home():
             90%  {{ transform: scale(.99); }}
             100% {{ transform: scale(1); }}
         }}
-        .hero-sub {{
-            position: absolute; left: 50%; top: 71%;
-            transform: translateX(-50%);
-            width: auto; max-width: 94%;
-            text-align: center;
-            font-family: 'Gamja Flower', 'Jua', cursive;
-            font-size: clamp(3.2rem,8vw,6.2rem);
-            font-weight: 700; line-height: 1.3;
-            color: #ffffff; z-index: 6;
-            padding: .25em 1em;
-            background: linear-gradient(180deg, rgba(130,55,150,.62), rgba(95,30,115,.5));
-            border-radius: 26px;
-            box-shadow: 0 10px 24px rgba(40,10,60,.4), inset 0 0 0 3px rgba(255,255,255,.45);
-            text-shadow: 0 3px 0 rgba(0,0,0,.32);
+        /* Streamlit의 기본 마크다운 <p> 타이포그래피 규칙(.stMarkdown p 등)이
+           클래스 하나짜리 선택자보다 명시도가 높아 font-size를 계속 눌러 이겨서
+           안 커 보였다. div 태그로 바꾸고 핵심 속성에 !important를 걸어 확실히 이기게 함 */
+        div.hero-sub {{
+            position: absolute !important; left: 50% !important; top: 68% !important;
+            transform: translateX(-50%) !important;
+            width: auto !important; max-width: 94% !important;
+            text-align: center !important;
+            font-family: 'Gamja Flower', 'Jua', cursive !important;
+            font-size: clamp(3.2rem,8vw,6.2rem) !important;
+            font-weight: 700 !important; line-height: 1.3 !important;
+            color: #ffffff !important; z-index: 6 !important;
+            padding: .25em 1em !important;
+            background: linear-gradient(180deg, rgba(130,55,150,.62), rgba(95,30,115,.5)) !important;
+            border-radius: 26px !important;
+            box-shadow: 0 10px 24px rgba(40,10,60,.4), inset 0 0 0 3px rgba(255,255,255,.45) !important;
+            text-shadow: 0 3px 0 rgba(0,0,0,.32) !important;
             animation: rise .9s ease 2.6s both;
         }}
         @keyframes rise {{ from{{ opacity:0; transform: translateX(-50%) translateY(18px);}} to{{ opacity:1; transform: translateX(-50%) translateY(0);}} }}
@@ -671,7 +674,7 @@ def render_home():
                 <span class="trail"></span>
             </div>
             <h1 class="hero-title">{title}</h1>
-            <p class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰<br/>알려주는 여행 뷰티 케어 ✈️</p>
+            <div class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰<br/>알려주는 여행 뷰티 케어 ✈️</div>
         </div>
         """
     )
@@ -684,7 +687,7 @@ def render_home():
             f"""
             <style>
             .st-key-start_dialog {{
-                max-width: 360px !important; margin: -.5rem auto 1.5rem !important;
+                max-width: 340px !important; margin: -2.5rem auto .8rem !important;
                 font-family: 'Press Start 2P', 'Jua', cursive;
                 border: 4px solid #b23a6e !important; border-radius: 10px !important;
                 overflow: hidden !important; background: #ffe6f0 !important;
@@ -705,7 +708,7 @@ def render_home():
                 background-size: 9px 9px; background-position: 0 0, 4.5px 4.5px;
             }}
             .st-key-start_dialog .body {{
-                padding: 26px 12px 10px; text-align: center;
+                padding: 14px 12px 6px; text-align: center;
                 color: #9c2f5c; font-size: clamp(1.05rem,2.6vw,1.6rem);
                 text-shadow: 2px 2px 0 #fff; letter-spacing: 2px;
             }}
@@ -726,7 +729,7 @@ def render_home():
                 align-items: center !important;
             }}
             .st-key-start_dialog .stButton {{
-                padding: 4px 0 20px !important; margin: 0 !important;
+                padding: 4px 0 14px !important; margin: 0 !important;
             }}
             .st-key-start_dialog .stButton button {{
                 width: 150px !important; height: 50px !important;
