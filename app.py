@@ -2867,25 +2867,54 @@ mouth.position.copy(headSurfacePoint(0, -0.14, 0.93));
 mouth.rotation.z = Math.PI * 1.25;
 doll.add(mouth);
 
-// --- 머리카락: 정면에 얼굴이 드러나는 구멍을 남기고 옆/뒤만 덮는 돔 하나로
-//     단순하게. 길이별로 따로 붙였던 다발/컬 조각이 카메라 각도에 따라
-//     한쪽만 거대하게 튀어나와 보이는 문제가 있어서 없앴다.
+// --- 머리카락: 정면에 얼굴이 드러나는 구멍을 남기고 옆/뒤만 덮는 형태를 기본으로
+//     하되, 4개 헤어스타일이 뚜렷이 구분되도록 스타일별로 다른 모양을 쓴다.
+//     예전엔 길이별로 따로 붙인 다발/컬 조각이 카메라 각도에 따라 한쪽만
+//     거대하게 튀어나와 보이는 문제가 있었는데, 그건 다발이 "비대칭"이라
+//     생긴 문제였다 — 아래는 전부 좌우 대칭으로만 만들어서 그 문제를 피한다.
 const hairMat = makeMat(CHAR.hair, { roughness: 0.55, clearcoat: 0.15 });
 const faceHalf = 0.75;
-const domeThetaLen = (CHAR.hairType === '숏컷') ? Math.PI * 0.55
-    : (CHAR.hairType === '컬리') ? Math.PI * 0.7
-    : Math.PI * 0.92;
-const hairDome = new THREE.Mesh(
-    new THREE.SphereGeometry(
-        HEAD_R * (CHAR.hairType === '컬리' ? 1.12 : 1.05), 28, 20,
-        Math.PI / 2 + faceHalf, Math.PI * 2 - faceHalf * 2,
-        0, domeThetaLen
-    ),
-    hairMat
-);
-hairDome.position.y = headY;
-hairDome.castShadow = true;
-doll.add(hairDome);
+
+if (CHAR.hairType === '컬리') {
+    // 컬리 — 부드러운 돔 하나가 아니라, 머리 위/옆/뒤에 작은 구를 여러 개
+    // 좌우 대칭으로 붙여 뽀글뽀글한 뭉텅이 윤곽을 낸다.
+    const puffs = [
+        [0, 1.12, -0.5, 0.58], [0, 1.22, 0.05, 0.5],
+        [0.68, 0.92, -0.3, 0.48], [-0.68, 0.92, -0.3, 0.48],
+        [0.88, 0.6, 0.05, 0.4], [-0.88, 0.6, 0.05, 0.4],
+        [0.55, 0.35, 0.55, 0.34], [-0.55, 0.35, 0.55, 0.34],
+        [0, 0.62, 0.72, 0.38],
+    ];
+    puffs.forEach(([dx, dy, dz, r]) => {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(HEAD_R * r, 16, 12), hairMat);
+        puff.position.set(dx * HEAD_R, headY + dy * HEAD_R - HEAD_R, dz * HEAD_R);
+        puff.castShadow = true;
+        doll.add(puff);
+    });
+} else {
+    // 숏컷: 짧게 위쪽만 / 스트레이트: 어깨 아래까지 매끈하고 슬림하게 길게 /
+    // 웨이브: 스트레이트보다 더 넓고 볼륨감 있게 (폭을 키워 찰랑거리는 느낌).
+    let thetaLen, radiusScale, widthScale, lengthScale;
+    if (CHAR.hairType === '숏컷') {
+        thetaLen = Math.PI * 0.5; radiusScale = 1.0; widthScale = 1.0; lengthScale = 1.0;
+    } else if (CHAR.hairType === '웨이브') {
+        thetaLen = Math.PI * 0.95; radiusScale = 1.0; widthScale = 1.3; lengthScale = 1.3;
+    } else {
+        thetaLen = Math.PI * 0.92; radiusScale = 1.0; widthScale = 1.0; lengthScale = 1.15;
+    }
+    const hairDome = new THREE.Mesh(
+        new THREE.SphereGeometry(
+            HEAD_R * radiusScale, 28, 20,
+            Math.PI / 2 + faceHalf, Math.PI * 2 - faceHalf * 2,
+            0, thetaLen
+        ),
+        hairMat
+    );
+    hairDome.scale.set(widthScale, lengthScale, widthScale);
+    hairDome.position.y = headY;
+    hairDome.castShadow = true;
+    doll.add(hairDome);
+}
 
 if (CHAR.hat) {
     const hatMat = makeMat(CHAR.hat, { roughness: 0.6, clearcoat: 0.2 });
