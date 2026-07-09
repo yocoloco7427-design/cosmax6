@@ -223,6 +223,29 @@ def _catalog_label(cat_key, item_id):
         return None
     return next((it["label"] for it in catalog["items"] if it["id"] == item_id), None)
 
+
+# 뷰티 패스포트 표지 — 참고 사진(핑크 책 표지 + PASSPORT 문구 + 조개 + 모서리
+# 낙서)을 우리 팔레트로 재현한 SVG. 작은 아이콘 버튼과 확대된 표지에 이
+# 그래픽을 그대로 재사용해서 "아이콘이 그대로 커진다"가 실제로 맞아떨어지게 한다.
+PASSPORT_ICON_SVG = """
+<svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+  <g transform="rotate(-7 100 130)">
+    <path d="M22 30 L152 10 L163 26 L33 46 Z" fill="#ffd9ec"/>
+    <rect x="26" y="32" width="148" height="196" rx="16" fill="#ff6fb8" stroke="#6b1638" stroke-width="3.5"/>
+    <path d="M158 46 q7 3 3 11" stroke="#6b1638" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M40 214 q-5 6 1 11" stroke="#6b1638" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <path d="M48 218 q-5 6 1 11" stroke="#6b1638" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <text x="100" y="108" text-anchor="middle" font-family="Gaegu, sans-serif" font-size="27"
+          font-weight="700" fill="#ffffff" transform="rotate(-2 100 108)">PASSPORT</text>
+    <g transform="translate(100 178)" stroke="#ffffff" stroke-width="2.4" fill="none" stroke-linecap="round">
+      <path d="M-30 10c0-20 13-34 30-34s30 14 30 34c0 7-5 12-12 12H-18c-7 0-12-5-12-12Z"/>
+      <path d="M0-24v46M-10-21c0 14 2 27 10 41M10-21c0 14-2 27-10 41M-20-16c2 11 7 22 20 34M20-16c-2 11-7 22-20 34"/>
+    </g>
+  </g>
+</svg>
+"""
+PASSPORT_ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(PASSPORT_ICON_SVG.strip().encode()).decode()
+
 AFTERCARE_ADVICE = {
     "트러블": {
         "pack": "티트리 진정 팩",
@@ -335,14 +358,14 @@ def render_top_icons():
     if st.session_state.view == "home":
         return
     st.markdown(
-        """
+        f"""
         <style>
-        .st-key-top_icons {
-            position: fixed !important; top: 14px !important; right: 14px !important;
+        .st-key-top_icons {{
+            position: fixed !important; top: 64px !important; right: 16px !important;
             z-index: 99997 !important; display: flex !important; gap: 9px !important;
-        }
-        .st-key-top_icons .stButton { flex: 0 0 auto !important; }
-        .st-key-top_icons .stButton button {
+        }}
+        .st-key-top_icons .stButton {{ flex: 0 0 auto !important; }}
+        .st-key-top_icons .stButton button {{
             width: 46px !important; height: 46px !important;
             min-width: 46px !important; max-width: 46px !important;
             min-height: 46px !important; max-height: 46px !important;
@@ -350,9 +373,16 @@ def render_top_icons():
             background: #ffffff !important; border: 3px solid #ff6fb8 !important;
             font-size: 1.35rem !important; box-shadow: 0 4px 10px rgba(120,40,90,.25);
             transition: transform .12s ease;
-        }
-        .st-key-top_icons .stButton button:hover { transform: translateY(-2px) scale(1.06); }
-        .st-key-top_icons .stButton button:active { transform: translateY(1px) scale(.96); }
+        }}
+        .st-key-top_icons .stButton button:hover {{ transform: translateY(-2px) scale(1.06); }}
+        .st-key-top_icons .stButton button:active {{ transform: translateY(1px) scale(.96); }}
+        /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 */
+        .st-key-passport_icon_btn .stButton button {{
+            background-image: url('{PASSPORT_ICON_URI}') !important;
+            background-size: 155% 155% !important; background-position: center 42% !important;
+            background-repeat: no-repeat !important; background-color: #fff8fb !important;
+            color: transparent !important; font-size: 0 !important; overflow: hidden !important;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -361,14 +391,12 @@ def render_top_icons():
         if st.button("🗺️", key="nav_map_icon", help="여행지 지도"):
             goto("map" if get_character() else "character")
             st.rerun()
-        if st.button("💧", key="nav_aftercare_icon", help="애프터케어"):
-            goto("aftercare" if get_character() else "character")
-            st.rerun()
-        if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
-            st.session_state.show_passport = True
-            st.session_state.just_opened_passport = True
-            st.session_state.passport_page_open = False
-            st.rerun()
+        with st.container(key="passport_icon_btn"):
+            if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
+                st.session_state.show_passport = True
+                st.session_state.just_opened_passport = True
+                st.session_state.passport_page_open = False
+                st.rerun()
 
 
 PASSPORT_FIELD_LABELS = {
@@ -451,14 +479,14 @@ def render_passport_modal():
                     position: fixed !important; inset: 0 !important; z-index: 99998 !important;
                     background: rgba(45,15,50,.58) !important;
                     display: flex !important; align-items: center !important; justify-content: center !important;
-                    padding: 3vh 3vw !important;
+                    padding: 2.5vh 3vw !important; overflow-y: auto !important;
                 }}
                 .st-key-passport_book {{
-                    max-width: 520px !important; width: 100% !important; max-height: 92vh !important;
+                    max-width: 460px !important; width: 100% !important; max-height: 88vh !important;
                     overflow-y: auto !important; background: #fff8fb !important;
-                    border-radius: 24px !important; border: 5px solid #ff6fb8 !important;
+                    border-radius: 22px !important; border: 5px solid #ff6fb8 !important;
                     box-shadow: 0 24px 60px rgba(0,0,0,.4) !important;
-                    padding: 0 !important; {pop_rule}
+                    padding: 0 !important; margin: auto !important; {pop_rule}
                 }}
                 @keyframes passport-pop {{
                     0%   {{ transform: translate(calc(50vw - 40px), calc(40px - 50vh)) scale(.05); opacity: .3; }}
@@ -466,60 +494,49 @@ def render_passport_modal():
                     100% {{ transform: translate(0,0) scale(1); opacity: 1; }}
                 }}
                 .p-cover {{
-                    position: relative; padding: 26px 24px 30px;
-                    background: linear-gradient(160deg,#ff9fd8,#ff6fb8 55%,#e8489a);
-                    border-radius: 19px 19px 0 0; text-align: center; overflow: hidden;
+                    position: relative; padding: 14px 30px 8px;
+                    background: #fff0f6;
+                    border-radius: 17px 17px 0 0; text-align: center; overflow: hidden;
                 }}
-                .p-cover .p-doodle {{
-                    position: absolute; font-size: 1.1rem; color: rgba(255,255,255,.75);
-                }}
-                .p-cover .p-title {{
-                    font-family: 'Gaegu', 'Jua', cursive; font-weight: 700; color: #fff;
-                    font-size: 2rem; letter-spacing: 1px; margin: 6px 0 2px;
-                    text-shadow: 0 2px 0 rgba(180,40,110,.5);
-                }}
-                .p-cover .p-sub {{
-                    font-family: 'Jua', sans-serif; color: rgba(255,255,255,.9); font-size: .95rem;
-                }}
-                .p-cover svg {{ width: 54px; height: 54px; margin-top: 6px; }}
-                .p-body {{ padding: 18px 22px 6px; {reveal_rule} }}
+                .p-cover svg {{ width: 100%; max-width: 190px; height: auto; }}
+                .p-body {{ padding: 10px 20px 4px; {reveal_rule} }}
                 @keyframes passport-reveal {{
                     0%   {{ opacity: 0; transform: translateY(-10px); }}
                     100% {{ opacity: 1; transform: translateY(0); }}
                 }}
-                .p-photo-row {{ display: flex; gap: 14px; align-items: center; margin-bottom: 8px; }}
+                .p-photo-row {{ display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }}
                 .p-photo-box {{
-                    width: 86px; height: 108px; flex: 0 0 auto; border-radius: 10px;
+                    width: 66px; height: 82px; flex: 0 0 auto; border-radius: 8px;
                     background: linear-gradient(160deg,#3b3f7a,#171933);
                     display: flex; align-items: center; justify-content: center; overflow: hidden;
                     border: 2px solid #ff6fb8;
                 }}
                 .p-photo-box svg {{ width: 92%; height: auto; }}
                 .p-name-big {{
-                    font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.5rem; color: #9c2f5c;
+                    font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.3rem; color: #9c2f5c;
                 }}
-                .p-passport-no {{ font-family: 'Jua', sans-serif; font-size: .8rem; color: #b26; letter-spacing: 1px; }}
+                .p-passport-no {{ font-family: 'Jua', sans-serif; font-size: .75rem; color: #b26; letter-spacing: 1px; }}
                 .p-field {{
                     display: flex; justify-content: space-between; gap: 10px;
-                    padding: 7px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
-                    font-family: 'Jua', sans-serif; font-size: .82rem;
+                    padding: 4px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
+                    font-family: 'Jua', sans-serif; font-size: .76rem;
                 }}
                 .p-label {{ color: #b23a6e; flex: 0 0 42%; }}
                 .p-value {{ color: #4a2035; font-weight: 700; text-align: right; flex: 1; }}
                 .p-section-title {{
                     font-family: 'Gaegu', cursive; font-weight: 700; color: #9c2f5c;
-                    font-size: 1.15rem; margin: 16px 0 8px;
+                    font-size: 1.02rem; margin: 10px 0 5px;
                 }}
-                .stamps-grid {{ display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 6px; }}
+                .stamps-grid {{ display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 2px; }}
                 .stamp {{
-                    width: 78px; text-align: center; padding: 8px 4px;
-                    border: 2.5px dashed #ff8fc0; border-radius: 12px;
+                    width: 62px; text-align: center; padding: 5px 3px;
+                    border: 2px dashed #ff8fc0; border-radius: 10px;
                     transform: rotate(-4deg); background: rgba(255,143,192,.06);
                 }}
                 .stamp:nth-child(even) {{ transform: rotate(3deg); }}
-                .stamp-flag {{ font-size: 1.6rem; }}
+                .stamp-flag {{ font-size: 1.3rem; }}
                 .stamp-name {{
-                    font-family: 'Jua', sans-serif; font-size: .68rem; color: #9c2f5c; margin-top: 2px;
+                    font-family: 'Jua', sans-serif; font-size: .62rem; color: #9c2f5c; margin-top: 1px;
                 }}
                 .stamp-empty {{
                     font-family: 'Jua', sans-serif; font-size: .85rem; color: #a06; opacity: .8;
@@ -536,19 +553,7 @@ def render_passport_modal():
                 @keyframes p-nudge {{ 0%,100% {{ transform: translateY(0); }} 50% {{ transform: translateY(3px); }} }}
                 </style>
 
-                <div class="p-cover">
-                    <span class="p-doodle" style="top:8px; left:14px;">)</span>
-                    <span class="p-doodle" style="top:8px; right:14px;">✧</span>
-                    <span class="p-doodle" style="bottom:10px; left:16px;">(</span>
-                    <span class="p-doodle" style="bottom:10px; right:16px;">)</span>
-                    <div class="p-title">BEAUTY PASSPORT</div>
-                    <div class="p-sub">Republic of Cosmax</div>
-                    <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" fill="none"
-                         stroke="rgba(255,255,255,.85)" stroke-width="2" stroke-linecap="round">
-                        <path d="M32 50c-14 0-22-10-22-10s3-24 22-24 22 24 22 24-8 10-22 10Z"/>
-                        <path d="M32 16v34M24 20c0 10 2 20 8 30M40 20c0 10-2 20-8 30M18 26c2 8 6 16 14 24M46 26c-2 8-6 16-14 24"/>
-                    </svg>
-                </div>
+                <div class="p-cover">{PASSPORT_ICON_SVG}</div>
                 """
             )
 
@@ -577,7 +582,7 @@ def render_passport_modal():
                 )
                 st.session_state.passport_notes = st.text_area(
                     "나만의 여행 꿀팁", value=st.session_state.passport_notes,
-                    key="passport_notes_input", height=110, label_visibility="collapsed",
+                    key="passport_notes_input", height=90, label_visibility="collapsed",
                     placeholder="여행하면서 알게 된 나만의 꿀팁을 적어보세요 ...",
                 )
                 if st.button("✕ 닫기", key="close_passport_btn", use_container_width=True):
@@ -588,7 +593,7 @@ def render_passport_modal():
 
 BUBBLE_GRID_COLS = 18
 BUBBLE_GRID_ROWS = 8
-BUBBLE_GRID_SIZE_VH = (26, 37)  # 뷰포트 높이 기준 % — 가로세로 어떤 화면이든 비율 유지
+BUBBLE_GRID_SIZE_VH = (30, 43)  # 뷰포트 높이 기준 % — 가로세로 어떤 화면이든 비율 유지
 
 
 def _organic_radius():
@@ -618,29 +623,29 @@ def _generate_bubble_specs():
     for r in range(-1, BUBBLE_GRID_ROWS + 1):
         row_offset = col_pitch / 2 if r % 2 != 0 else 0
         for c in range(-1, BUBBLE_GRID_COLS + 1):
-            left = c * col_pitch + row_offset + random.uniform(-col_pitch * 0.58, col_pitch * 0.58)
-            top = r * row_pitch + random.uniform(-row_pitch * 0.52, row_pitch * 0.52)
+            left = c * col_pitch + row_offset + random.uniform(-col_pitch * 0.7, col_pitch * 0.7)
+            top = r * row_pitch + random.uniform(-row_pitch * 0.65, row_pitch * 0.65)
             specs.append({
                 "kind": "lg", "unit": "vh",
                 "size": round(random.uniform(*BUBBLE_GRID_SIZE_VH), 1),
                 "left": round(left, 1),
                 "top": round(top, 1),
-                "delay": round(random.uniform(0, 0.4), 2),
-                "dur": round(random.uniform(0.7, 1.1), 2),
+                "delay": round(random.uniform(0, 0.25), 2),
+                "dur": round(random.uniform(0.5, 0.8), 2),
                 "op": round(random.uniform(.92, .99), 2),
                 "br": _organic_radius(),
                 "hlx": round(random.uniform(22, 36), 1),
                 "hly": round(random.uniform(18, 32), 1),
             })
-    # 격자 이음새를 메꾸는 보조 기포 (작고 가벼운 렌더링)
-    for _ in range(220):
+    # 격자 이음새를 메꾸는 보조 기포 (작고 가벼운 렌더링, 개수를 줄여 덜 산만하게)
+    for _ in range(80):
         specs.append({
             "kind": "sm", "unit": "px",
-            "size": round(random.uniform(28, 100)),
+            "size": round(random.uniform(30, 110)),
             "left": round(random.uniform(-2, 100), 1),
             "top": round(random.uniform(-2, 100), 1),
-            "delay": round(random.uniform(0, 0.5), 2),
-            "dur": round(random.uniform(0.6, 1.0), 2),
+            "delay": round(random.uniform(0, 0.3), 2),
+            "dur": round(random.uniform(0.45, 0.75), 2),
             "op": round(random.uniform(.88, .98), 2),
         })
     return specs
@@ -838,6 +843,16 @@ def inject_theme():
         background-attachment: fixed;
     }
     .block-container { padding-top: 2rem; }
+
+    /* Streamlit 기본 헤더/툴바/메뉴는 투명해도 클릭을 그대로 가로챈다.
+       사이드바를 없앤 뒤로가기·우상단 아이콘이 그 영역과 겹쳐 먹통이 되는
+       원인이었음 — 완전히 숨겨서 아래 우리 버튼들이 클릭을 받게 한다. */
+    header[data-testid="stHeader"],
+    div[data-testid="stToolbar"],
+    #MainMenu {
+        visibility: hidden !important;
+        pointer-events: none !important;
+    }
 
     /* 구름 패럴랙스 레이어 (화면 전체를 덮고, 클릭은 통과) */
     .sky-layer { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
