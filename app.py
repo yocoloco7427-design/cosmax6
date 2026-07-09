@@ -322,7 +322,13 @@ def render_back_button():
 
 BUBBLE_GRID_COLS = 18
 BUBBLE_GRID_ROWS = 8
-BUBBLE_GRID_SIZE_VH = (24, 34)  # 뷰포트 높이 기준 % — 가로세로 어떤 화면이든 비율 유지
+BUBBLE_GRID_SIZE_VH = (26, 37)  # 뷰포트 높이 기준 % — 가로세로 어떤 화면이든 비율 유지
+
+
+def _organic_radius():
+    """완전한 원이 아니라 살짝 삐뚠 방울 모양이 되도록 코너별로 다른 반경."""
+    v = [round(random.uniform(46, 54)) for _ in range(8)]
+    return f"{v[0]}% {v[1]}% {v[2]}% {v[3]}% / {v[4]}% {v[5]}% {v[6]}% {v[7]}%"
 
 
 def _generate_bubble_specs():
@@ -346,26 +352,29 @@ def _generate_bubble_specs():
     for r in range(-1, BUBBLE_GRID_ROWS + 1):
         row_offset = col_pitch / 2 if r % 2 != 0 else 0
         for c in range(-1, BUBBLE_GRID_COLS + 1):
-            left = c * col_pitch + row_offset + random.uniform(-col_pitch * 0.42, col_pitch * 0.42)
-            top = r * row_pitch + random.uniform(-row_pitch * 0.38, row_pitch * 0.38)
+            left = c * col_pitch + row_offset + random.uniform(-col_pitch * 0.58, col_pitch * 0.58)
+            top = r * row_pitch + random.uniform(-row_pitch * 0.52, row_pitch * 0.52)
             specs.append({
                 "kind": "lg", "unit": "vh",
                 "size": round(random.uniform(*BUBBLE_GRID_SIZE_VH), 1),
                 "left": round(left, 1),
                 "top": round(top, 1),
-                "delay": round(random.uniform(0, 0.7), 2),
-                "dur": round(random.uniform(1.0, 1.6), 2),
+                "delay": round(random.uniform(0, 0.4), 2),
+                "dur": round(random.uniform(0.7, 1.1), 2),
                 "op": round(random.uniform(.92, .99), 2),
+                "br": _organic_radius(),
+                "hlx": round(random.uniform(22, 36), 1),
+                "hly": round(random.uniform(18, 32), 1),
             })
     # 격자 이음새를 메꾸는 보조 기포 (작고 가벼운 렌더링)
-    for _ in range(200):
+    for _ in range(220):
         specs.append({
             "kind": "sm", "unit": "px",
-            "size": round(random.uniform(26, 95)),
+            "size": round(random.uniform(28, 100)),
             "left": round(random.uniform(-2, 100), 1),
             "top": round(random.uniform(-2, 100), 1),
-            "delay": round(random.uniform(0, 0.9), 2),
-            "dur": round(random.uniform(0.9, 1.5), 2),
+            "delay": round(random.uniform(0, 0.5), 2),
+            "dur": round(random.uniform(0.6, 1.0), 2),
             "op": round(random.uniform(.88, .98), 2),
         })
     return specs
@@ -408,23 +417,30 @@ def _bubble_layer_css():
        알파가 낮아지지 않게(0.85 이하로 안 내려가게) 해 뒤 화면이 안 비친다 */
     .bubble-layer .b-lg {
         background:
-            radial-gradient(circle at 60% 62%, rgba(255,220,232,.10) 0%, rgba(255,220,232,0) 52%),
-            radial-gradient(circle at 36% 68%, rgba(205,255,222,.08) 0%, rgba(205,255,222,0) 50%),
-            radial-gradient(circle at 30% 26%, #eef3f6 0%, rgba(222,235,241,.93) 22%,
-                rgba(194,217,230,.96) 58%, rgba(163,195,218,.98) 100%);
+            /* 1) 또렷하고 작은 정반사 하이라이트 — 기포마다 위치가 조금씩 다름(--hlx/--hly) */
+            radial-gradient(circle at var(--hlx,28%) var(--hly,24%),
+                rgba(255,255,255,.95) 0%, rgba(255,255,255,.5) 7%, rgba(255,255,255,0) 15%),
+            /* 2) 은은한 무지개빛(비눗막 특유의 얇은 막 간섭색) */
+            radial-gradient(circle at 62% 58%, rgba(255,214,230,.09) 0%, rgba(255,214,230,0) 55%),
+            radial-gradient(circle at 38% 66%, rgba(202,255,222,.08) 0%, rgba(202,255,222,0) 50%),
+            /* 3) 본체 — 중앙 밝음 -> 중간톤 -> 그늘진 띠 -> 가장자리 프레넬 반사로 다시 밝아짐 */
+            radial-gradient(circle at 50% 50%,
+                #eef3f6 0%, rgba(214,229,238,.95) 36%, rgba(182,208,226,.96) 60%,
+                rgba(112,150,188,.97) 82%, rgba(205,226,240,.95) 93%, rgba(232,242,248,.88) 100%);
         box-shadow:
-            inset -10px -10px 20px rgba(100,138,178,.48),
-            inset 8px 8px 16px rgba(255,255,255,.5),
-            0 3px 10px rgba(30,40,70,.2);
+            inset -12px -12px 20px rgba(90,128,168,.4),
+            inset 10px 10px 18px rgba(255,255,255,.4),
+            0 4px 10px rgba(20,30,60,.2);
     }
+    /* 부드럽게 번진 2차 유리질 반사광(블러 처리) — 사실적인 스피어 렌더링 기법 */
     .bubble-layer .b-lg::before {
-        content: ''; position: absolute; top: 9%; left: 15%; width: 36%; height: 19%;
-        border-radius: 50%; background: rgba(255,255,255,.85); filter: blur(1.2px);
-        transform: rotate(-22deg);
+        content: ''; position: absolute; inset: 6%; border-radius: 50%;
+        background: radial-gradient(circle at 74% 78%, rgba(255,255,255,.5) 0%, rgba(255,255,255,0) 22%);
+        filter: blur(2.5px);
     }
     .bubble-layer .b-lg::after {
-        content: ''; position: absolute; bottom: 19%; right: 21%; width: 12%; height: 12%;
-        border-radius: 50%; background: rgba(255,255,255,.48);
+        content: ''; position: absolute; top: 13%; left: 19%; width: 9%; height: 6%;
+        border-radius: 50%; background: rgba(255,255,255,.85); filter: blur(.4px);
     }
     /* 작은 기포 — 성능을 위해 단순한 그라데이션만 (격자 이음새를 메꾸는 용도, 역시 불투명) */
     .bubble-layer .b-sm {
@@ -465,9 +481,12 @@ def _bubble_spans(specs, phase):
     for s in specs:
         size_cls = "b-lg" if s["kind"] == "lg" else "b-sm"
         unit = s.get("unit", "px")
+        extra = ""
+        if s["kind"] == "lg":
+            extra = f'border-radius:{s["br"]}; --hlx:{s["hlx"]}%; --hly:{s["hly"]}%; '
         spans.append(
             f'<span class="{size_cls} {motion}" style="top:{s["top"]}%; left:{s["left"]}%; '
-            f'width:{s["size"]}{unit}; height:{s["size"]}{unit}; --maxop:{s["op"]}; '
+            f'width:{s["size"]}{unit}; height:{s["size"]}{unit}; --maxop:{s["op"]}; {extra}'
             f'animation-delay:{s["delay"]}s; animation-duration:{s["dur"]}s;"></span>'
         )
     return "".join(spans)
