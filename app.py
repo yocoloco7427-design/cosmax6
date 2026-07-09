@@ -454,10 +454,15 @@ def _passport_dialog_css():
            크림색으로 덮어써서, 1단계(표지)·2단계(펼친 페이지) 모두 흰 테두리
            없이 이어지게 한다. role="dialog"는 baseweb 모달의 표준 접근성
            속성이라 Streamlit 버전이 바뀌어도 비교적 안정적으로 걸린다. */
+        /* 색을 바꾸는 게 아니라 카드 자체를 완전히 투명하게 — 크림색(#fffaf3)
+           정도로는 원래 흰색과 육안으로 거의 구분이 안 됐다. 이제 카드
+           배경/그림자/테두리를 다 지워서 여권(표지 그림·페이지)만 뜬다. */
         div[data-testid="stDialog"][role="dialog"],
         div[data-testid="stDialog"] [role="dialog"],
         div[role="dialog"] {
-            background-color: #fffaf3 !important;
+            background: transparent !important;
+            box-shadow: none !important;
+            border: none !important;
         }
         .p-body { padding-top: 2px; }
         /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자 */
