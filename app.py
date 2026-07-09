@@ -320,36 +320,82 @@ def render_back_button():
         st.rerun()
 
 
-def _generate_bubble_specs():
-    """화면을 뒤덮을 기포 배치를 한 번 만들어 큰 기포(정교)+작은 기포(가벼움)로 구성.
+BUBBLE_GRID_COLS = 18
+BUBBLE_GRID_ROWS = 8
+BUBBLE_GRID_SIZE_VH = (23, 31)  # 뷰포트 높이 기준 % — 가로세로 어떤 화면이든 비율 유지
 
+
+def _generate_bubble_specs():
+    """화면을 뒤덮을 기포 배치를 만든다. 무작위 배치가 아니라 격자(grid)로
+    깔아서 수학적으로 빈틈이 없도록 하고, 그 위에 작은 기포를 더 얹어
+    이음새를 자연스럽게 메꾼다 (자세한 커버리지 검증은 코드 하단 참고).
+
+    큰 기포는 반지름 대비 격자 간격을 좁게 잡아 이웃과 넉넉히 겹치고,
+    홀수 행은 반 칸씩 어긋나게(벽돌쌓기) 배치해 대각선 틈까지 막는다.
     각 기포는 도착 후 '쉬는' 위치(top/left)를 갖는다. 덮는 단계에서는 그
     위치까지 아래에서 떠올라 멈추고, 걷히는 단계에서는 같은 위치에서
     시작해 계속 위로 사라진다 — 두 렌더 사이(서버 sleep 경계)에도 기포
     배치가 그대로 이어지도록 st.session_state에 저장해 재사용한다.
     """
     specs = []
-    for _ in range(70):
+    col_pitch = 100 / BUBBLE_GRID_COLS
+    row_pitch = 100 / BUBBLE_GRID_ROWS
+    # 격자를 화면 경계 바깥으로 한 칸씩 넉넉히 확장 — 안 그러면 가장자리
+    # 쪽 기포 중심이 항상 화면 안쪽으로 치우쳐서 테두리에 얇은 틈이 남는다
+    # (실측 검증: 확장 전 가장자리 3% 이내에 누락 좌표가 전부 몰려있었음)
+    for r in range(-1, BUBBLE_GRID_ROWS + 1):
+        row_offset = col_pitch / 2 if r % 2 != 0 else 0
+        for c in range(-1, BUBBLE_GRID_COLS + 1):
+            left = c * col_pitch + row_offset + random.uniform(-col_pitch * 0.2, col_pitch * 0.2)
+            top = r * row_pitch + random.uniform(-row_pitch * 0.15, row_pitch * 0.15)
+            specs.append({
+                "kind": "lg", "unit": "vh",
+                "size": round(random.uniform(*BUBBLE_GRID_SIZE_VH), 1),
+                "left": round(left, 1),
+                "top": round(top, 1),
+                "delay": round(random.uniform(0, 0.7), 2),
+                "dur": round(random.uniform(1.0, 1.6), 2),
+                "op": round(random.uniform(.92, .99), 2),
+            })
+    # 격자 이음새를 메꾸는 보조 기포 (작고 가벼운 렌더링)
+    for _ in range(200):
         specs.append({
-            "kind": "lg",
-            "size": round(random.uniform(46, 165)),
-            "left": round(random.uniform(-4, 98), 1),
-            "top": round(random.uniform(-4, 90), 1),
+            "kind": "sm", "unit": "px",
+            "size": round(random.uniform(26, 95)),
+            "left": round(random.uniform(-2, 100), 1),
+            "top": round(random.uniform(-2, 100), 1),
             "delay": round(random.uniform(0, 0.9), 2),
-            "dur": round(random.uniform(1.1, 1.7), 2),
-            "op": round(random.uniform(.7, .95), 2),
-        })
-    for _ in range(280):
-        specs.append({
-            "kind": "sm",
-            "size": round(random.uniform(8, 34), 1),
-            "left": round(random.uniform(-2, 99), 1),
-            "top": round(random.uniform(-2, 96), 1),
-            "delay": round(random.uniform(0, 1.0), 2),
             "dur": round(random.uniform(0.9, 1.5), 2),
-            "op": round(random.uniform(.5, .85), 2),
+            "op": round(random.uniform(.88, .98), 2),
         })
     return specs
+
+
+def _verify_bubble_coverage(specs, viewport_w, viewport_h, grid_n=60):
+    """(자체 점검용) 기포들이 실제로 화면을 몇 % 덮는지 좌표 샘플링으로 계산.
+
+    각 큰/작은 기포를 최종 '쉬는' 위치의 원으로 보고, grid_n x grid_n 개의
+    표본점이 어느 원 안에 하나라도 들어가는지 검사해 커버리지 비율을 낸다.
+    """
+    circles = []
+    for s in specs:
+        diameter_px = s["size"] * (viewport_h / 100) if s["unit"] == "vh" else s["size"]
+        # top/left는 요소의 좌상단 모서리 기준이므로 반지름만큼 더해 중심을 구한다
+        cx = s["left"] / 100 * viewport_w + diameter_px / 2
+        cy = s["top"] / 100 * viewport_h + diameter_px / 2
+        circles.append((cx, cy, diameter_px / 2))
+
+    covered = 0
+    total = grid_n * grid_n
+    for i in range(grid_n):
+        for j in range(grid_n):
+            px = (i + 0.5) / grid_n * viewport_w
+            py = (j + 0.5) / grid_n * viewport_h
+            for cx, cy, radius in circles:
+                if (px - cx) ** 2 + (py - cy) ** 2 <= radius ** 2:
+                    covered += 1
+                    break
+    return covered / total
 
 
 def _bubble_layer_css():
@@ -357,36 +403,33 @@ def _bubble_layer_css():
     <style>
     .bubble-layer { position: fixed; inset: 0; z-index: 999999; pointer-events: none; overflow: hidden; }
     .bubble-layer span { position: absolute; border-radius: 50%; }
-    /* 큰 기포 — 사진 속 비눗방울처럼 속은 거의 투명, 좌상단 밝은 하이라이트,
-       가장자리는 얇고 은은한 무지개빛, 반대편은 살짝 그늘져 구(球) 느낌 */
+    /* 큰 기포 — 속이 비치지 않는 불투명한 진주/거품 느낌. 좌상단 밝은
+       하이라이트 + 반대편 그늘로 입체감만 살리고, 바탕 자체는 어디서도
+       알파가 낮아지지 않게(0.85 이하로 안 내려가게) 해 뒤 화면이 안 비친다 */
     .bubble-layer .b-lg {
         background:
-            radial-gradient(circle at 30% 26%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.18) 13%, rgba(255,255,255,0) 30%),
-            radial-gradient(circle at 66% 40%, rgba(255,225,235,.10) 0%, rgba(255,225,235,0) 42%),
-            radial-gradient(circle at 40% 65%, rgba(200,255,225,.08) 0%, rgba(200,255,225,0) 46%),
-            radial-gradient(circle at 55% 70%, rgba(120,150,190,.16) 0%, rgba(120,150,190,0) 55%),
-            radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 55%, rgba(210,235,255,.08) 78%, rgba(255,255,255,.18) 92%, rgba(255,255,255,.04) 100%);
+            radial-gradient(circle at 30% 26%, #ffffff 0%, rgba(255,255,255,.9) 20%,
+                rgba(233,244,255,.97) 55%, rgba(206,229,250,.98) 100%);
         box-shadow:
-            inset 0 0 0 1px rgba(255,255,255,.4),
-            inset -8px -8px 14px rgba(110,140,180,.22),
-            inset 6px 6px 10px rgba(255,255,255,.35),
-            0 3px 8px rgba(30,40,70,.12);
+            inset -10px -10px 20px rgba(130,165,205,.4),
+            inset 8px 8px 16px rgba(255,255,255,.65),
+            0 3px 10px rgba(30,40,70,.18);
     }
     .bubble-layer .b-lg::before {
         content: ''; position: absolute; top: 9%; left: 15%; width: 36%; height: 19%;
-        border-radius: 50%; background: rgba(255,255,255,.85); filter: blur(1.2px);
+        border-radius: 50%; background: rgba(255,255,255,.95); filter: blur(1.2px);
         transform: rotate(-22deg);
     }
     .bubble-layer .b-lg::after {
         content: ''; position: absolute; bottom: 19%; right: 21%; width: 12%; height: 12%;
-        border-radius: 50%; background: rgba(255,255,255,.45);
+        border-radius: 50%; background: rgba(255,255,255,.6);
     }
-    /* 작은 기포 — 성능을 위해 단순한 그라데이션만 (밀도를 채우는 용도) */
+    /* 작은 기포 — 성능을 위해 단순한 그라데이션만 (격자 이음새를 메꾸는 용도, 역시 불투명) */
     .bubble-layer .b-sm {
         background: radial-gradient(circle at 32% 28%,
-            rgba(255,255,255,.9) 0%, rgba(255,255,255,.28) 32%,
-            rgba(210,230,255,.12) 70%, rgba(255,255,255,.05) 100%);
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,.3);
+            #ffffff 0%, rgba(255,255,255,.88) 30%,
+            rgba(221,238,255,.94) 70%, rgba(201,226,250,.97) 100%);
+        box-shadow: inset -4px -4px 8px rgba(130,165,205,.3), inset 3px 3px 6px rgba(255,255,255,.5);
     }
     .bubble-layer .rise-in {
         animation-name: bubble-rise-in;
@@ -419,9 +462,10 @@ def _bubble_spans(specs, phase):
     spans = []
     for s in specs:
         size_cls = "b-lg" if s["kind"] == "lg" else "b-sm"
+        unit = s.get("unit", "px")
         spans.append(
             f'<span class="{size_cls} {motion}" style="top:{s["top"]}%; left:{s["left"]}%; '
-            f'width:{s["size"]}px; height:{s["size"]}px; --maxop:{s["op"]}; '
+            f'width:{s["size"]}{unit}; height:{s["size"]}{unit}; --maxop:{s["op"]}; '
             f'animation-delay:{s["delay"]}s; animation-duration:{s["dur"]}s;"></span>'
         )
     return "".join(spans)
