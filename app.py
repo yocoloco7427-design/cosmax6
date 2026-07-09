@@ -809,6 +809,7 @@ PARENT_VIEW = {
     "map": "character",
     "country": "map",
     "aftercare": "map",
+    "diagnosis": "map",
 }
 
 
@@ -855,7 +856,7 @@ def render_top_icons():
     html_block(
         f"""
         <style>
-        .st-key-nav_map_icon button, .st-key-open_passport_icon button {{
+        .st-key-nav_map_icon button, .st-key-open_passport_icon button, .st-key-open_diagnosis_icon button {{
             position: fixed !important; top: 60px !important;
             z-index: 99997 !important;
             width: 62px !important; height: 62px !important;
@@ -868,16 +869,26 @@ def render_top_icons():
         }}
         .st-key-nav_map_icon button {{ right: 92px !important; }}
         .st-key-open_passport_icon button {{ right: 16px !important; }}
-        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover {{
+        .st-key-open_diagnosis_icon button {{ right: 168px !important; }}
+        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover,
+        .st-key-open_diagnosis_icon button:hover {{
             transform: translateY(-2px) scale(1.06);
         }}
-        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active {{
+        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active,
+        .st-key-open_diagnosis_icon button:active {{
             transform: translateY(1px) scale(.96);
         }}
         /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 */
         .st-key-open_passport_icon button {{
             background-image: url('{PASSPORT_ICON_URI}') !important;
             background-size: 155% 155% !important; background-position: center 42% !important;
+            background-repeat: no-repeat !important; background-color: #fff8fb !important;
+            color: transparent !important; font-size: 0 !important; overflow: hidden !important;
+        }}
+        /* 피부 궁합 진단 아이콘도 포션 그래픽으로 교체 */
+        .st-key-open_diagnosis_icon button {{
+            background-image: url('{POTION_ICON_URI}') !important;
+            background-size: 105% 105% !important; background-position: center 60% !important;
             background-repeat: no-repeat !important; background-color: #fff8fb !important;
             color: transparent !important; font-size: 0 !important; overflow: hidden !important;
         }}
@@ -891,6 +902,13 @@ def render_top_icons():
     if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
         st.session_state.show_passport = True
         st.session_state.passport_page_open = False
+        st.rerun()
+    if st.button("🧪", key="open_diagnosis_icon", help="피부 궁합 진단"):
+        if get_character():
+            st.session_state.diagnosis_stage = "select"
+            goto("diagnosis")
+        else:
+            goto("character")
         st.rerun()
 
 
@@ -3625,12 +3643,16 @@ def _render_country_scene_stage(country, char, code):
         .st-key-country_scene_stage div[class*="st-key-icn_"] {{
             position: absolute !important; z-index: 6 !important;
         }}
-        .st-key-icn_water {{ top: 4%; left: 10%; }}
-        .st-key-icn_lipstick {{ top: 4%; left: 74%; }}
-        .st-key-icn_shop {{ top: 43%; left: 0%; }}
-        .st-key-icn_hair {{ top: 43%; left: 84%; }}
-        .st-key-icn_carrier {{ top: 84%; left: 10%; }}
-        .st-key-icn_star {{ top: 84%; left: 74%; }}
+        /* left는 캐릭터가 있는 중앙(50%) 기준 아이콘 "중심" 좌표 -- translateX(-50%)로
+           아이콘 자기 폭(84px)만큼의 오프셋을 상쇄해야 좌우가 실제로 대칭이 된다.
+           (예전엔 left가 아이콘의 왼쪽 모서리 기준이라 84px만큼 오른쪽으로 치우쳐
+           보였음 -- 오른쪽 아이콘이 캐릭터에 더 가깝게 보이던 원인) */
+        .st-key-icn_water {{ top: 4%; left: 15%; transform: translateX(-50%); }}
+        .st-key-icn_lipstick {{ top: 4%; left: 85%; transform: translateX(-50%); }}
+        .st-key-icn_shop {{ top: 43%; left: 5%; transform: translateX(-50%); }}
+        .st-key-icn_hair {{ top: 43%; left: 95%; transform: translateX(-50%); }}
+        .st-key-icn_carrier {{ top: 84%; left: 15%; transform: translateX(-50%); }}
+        .st-key-icn_star {{ top: 84%; left: 85%; transform: translateX(-50%); }}
         div[class*="st-key-icn_"] button {{
             width: 84px !important; height: 84px !important; min-width: 0 !important;
             border-radius: 50% !important; padding: 0 !important; font-size: 2.3rem !important;
@@ -3951,6 +3973,228 @@ def render_aftercare():
 
 
 # ----------------------------------------------------------------------
+# 피부 궁합 진단 — 국가를 최종 선택하기 전에 들어가는 진단 단계.
+# select(도시 고르기) -> brewing(포션 진행 애니메이션) -> result(궁합 스코어)
+# 3단계를 diagnosis_stage로 관리한다. MVP는 서울/상하이/시드니 3개 도시만.
+# ----------------------------------------------------------------------
+DIAGNOSIS_MVP_CODES = ["kr", "cn", "au"]
+
+
+def render_diagnosis():
+    if not get_character():
+        goto("character")
+        st.rerun()
+        return
+    stage = st.session_state.diagnosis_stage
+    if stage == "brewing":
+        _render_diagnosis_brewing()
+    elif stage == "result":
+        _render_diagnosis_result()
+    else:
+        _render_diagnosis_select()
+
+
+def _render_diagnosis_select():
+    st.title("🧪 피부 궁합 진단")
+    html_block(
+        """
+        <style>
+        .diag-copy {
+            text-align: center; font-family: 'Jua', sans-serif; font-size: 1.35rem;
+            color: #5a3d7a; margin: 4px 0 20px;
+        }
+        .diag-city-card {
+            aspect-ratio: 1; border-radius: 16px; background: #ffffff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.6rem; box-shadow: 0 3px 8px rgba(0,0,0,.1);
+        }
+        .diag-brew-hint {
+            text-align: center; font-family: 'Jua', sans-serif; color: #8a5a10; margin-top: -2px;
+        }
+        </style>
+        <div class="diag-copy">내 피부, 어디랑 잘 맞을까? 🔮</div>
+        """
+    )
+
+    selected = st.session_state.diagnosis_country
+    cols = st.columns(len(DIAGNOSIS_MVP_CODES))
+    for col, code in zip(cols, DIAGNOSIS_MVP_CODES):
+        country = COUNTRIES[code]
+        with col:
+            is_sel = selected == code
+            border = "4px solid #ff6fb8" if is_sel else "3px solid rgba(0,0,0,.08)"
+            html_block(f'<div class="diag-city-card" style="border:{border};">{country["flag"]}</div>')
+            if st.button(country["name"], key=f"diag_pick_{code}", use_container_width=True):
+                st.session_state.diagnosis_country = None if is_sel else code
+                st.rerun()
+
+    if selected:
+        html_block(
+            f"""
+            <style>
+            .st-key-diag_brew_btn.st-key-diag_brew_btn button {{
+                position: relative !important;
+                width: 140px !important; height: 182px !important; margin: 18px auto 4px !important;
+                display: block !important; background: transparent !important; border: none !important;
+                background-image: url('{POTION_ICON_URI}') !important;
+                background-size: contain !important; background-repeat: no-repeat !important;
+                background-position: center !important;
+                color: transparent !important; font-size: 0 !important;
+                transition: transform .15s ease;
+            }}
+            .st-key-diag_brew_btn.st-key-diag_brew_btn button:hover {{ transform: scale(1.06) translateY(-3px); }}
+            .st-key-diag_brew_btn.st-key-diag_brew_btn button:active {{ transform: scale(.93); }}
+            </style>
+            """
+        )
+        if st.button(" ", key="diag_brew_btn"):
+            st.session_state.diagnosis_stage = "brewing"
+            st.rerun()
+        html_block('<div class="diag-brew-hint">🧪 포션을 눌러 궁합을 확인해보세요</div>')
+
+
+def _render_diagnosis_brewing():
+    code = st.session_state.diagnosis_country
+    country = COUNTRIES.get(code) or {}
+    st.title("🧪 피부 궁합 진단")
+    html_block(
+        f"""
+        <style>
+        @keyframes potion-shake {{
+            0%,100% {{ transform: rotate(0deg); }}
+            25%     {{ transform: rotate(-6deg); }}
+            75%     {{ transform: rotate(6deg); }}
+        }}
+        .diag-potion-shake {{ display: inline-block; width: 140px; animation: potion-shake .5s ease-in-out infinite; }}
+        .diag-brewing {{ text-align: center; padding: 20px 0 6px; }}
+        .diag-brewing-label {{
+            font-family: 'Jua', sans-serif; font-size: 1.1rem; color: #5a3d7a; margin-top: 10px;
+        }}
+        </style>
+        <div class="diag-brewing">
+            <div class="diag-potion-shake">{POTION_ICON_SVG}</div>
+            <div class="diag-brewing-label">{country.get("flag","")} {country.get("name","")}와의 궁합을 확인하는 중...</div>
+        </div>
+        """
+    )
+
+    bar = st.progress(0)
+    pct_slot = st.empty()
+    steps = 25
+    for i in range(steps + 1):
+        pct = int(i / steps * 100)
+        bar.progress(pct / 100)
+        pct_slot.markdown(
+            f'<div style="text-align:center;font-family:\'Jua\',sans-serif;font-size:1.7rem;'
+            f'color:#ff6fb8;">{pct}%</div>',
+            unsafe_allow_html=True,
+        )
+        time.sleep(0.1)  # steps=25 x 0.1s = 총 2.5초
+
+    st.session_state.diagnosis_stage = "result"
+    st.rerun()
+
+
+def _render_diagnosis_result():
+    code = st.session_state.diagnosis_country
+    country = COUNTRIES.get(code)
+    char = get_character()
+    if not country:
+        st.session_state.diagnosis_stage = "select"
+        st.rerun()
+        return
+
+    env = get_destination_environment_data(code)
+    profile = get_skin_profile(char)
+    cached = st.session_state.diagnosis_result
+    if not cached or cached.get("code") != code:
+        scores = calculate_skin_compatibility(profile, env)
+        st.session_state.diagnosis_result = {"code": code, **scores}
+    result = st.session_state.diagnosis_result
+    overall = result["overall"]
+    band = _compatibility_band(overall)
+
+    st.title(f"{country['flag']} {country['name']}")
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=overall,
+        number={"suffix": "%", "font": {"size": 42}},
+        gauge={
+            "axis": {"range": [0, 100], "tickwidth": 1},
+            "bar": {"color": band["color"], "thickness": 0.28},
+            "bgcolor": "white",
+            "borderwidth": 0,
+            "steps": [
+                {"range": [0, 50], "color": "#fdeaea"},
+                {"range": [50, 80], "color": "#fff6e0"},
+                {"range": [80, 100], "color": "#e6f8ee"},
+            ],
+        },
+    ))
+    fig.update_layout(
+        height=240, margin=dict(l=20, r=20, t=30, b=10),
+        paper_bgcolor="rgba(0,0,0,0)", font={"family": "sans-serif"},
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+    html_block(
+        f'<div style="text-align:center;font-family:\'Jua\',sans-serif;font-size:1.4rem;'
+        f'color:{band["color"]};margin:-6px 0 18px;">{html.escape(band["text"])}</div>'
+    )
+
+    cards = [
+        ("🌡️", "기후 궁합", result["climate"], "climate"),
+        ("☀️", "자외선 궁합", result["uv"], "uv"),
+        ("💧", "물 궁합", result["water"], "water"),
+    ]
+    cols = st.columns(3)
+    for col, (emoji, label, score, kind) in zip(cols, cards):
+        with col:
+            line = _compat_card_line(kind, score, env, profile)
+            html_block(
+                f"""
+                <div style="background:#fff;border-radius:16px;padding:16px 12px;
+                     text-align:center;box-shadow:0 4px 10px rgba(0,0,0,.08);height:100%;
+                     box-sizing:border-box;">
+                    <div style="font-size:1.8rem;">{emoji}</div>
+                    <div style="font-family:'Jua',sans-serif;font-weight:700;margin:6px 0;">{label}</div>
+                    <div style="font-family:'Jua',sans-serif;font-size:1.3rem;color:{band["color"]};">{score}%</div>
+                    <div style="font-size:.82rem;color:#666;margin-top:6px;line-height:1.4;">{html.escape(line)}</div>
+                </div>
+                """
+            )
+
+    st.write("")
+    b1, b2 = st.columns(2)
+    with b1:
+        if st.button("그래도 갈래요 → 준비물 보기", key="diag_go_country", type="primary", use_container_width=True):
+            st.session_state.selected_country = code
+            st.session_state.country_stage = "map"
+            st.session_state.active_country_sheet = None
+            goto("country")
+            st.rerun()
+    with b2:
+        if st.button("다른 나라 볼래요", key="diag_pick_other", use_container_width=True):
+            st.session_state.diagnosis_country = None
+            st.session_state.diagnosis_result = None
+            st.session_state.diagnosis_stage = "select"
+            st.rerun()
+
+    already_saved = code in [p["code"] for p in get_passport()]
+    if st.button("⭐ 궁합 결과 저장", key="diag_save_passport", use_container_width=True):
+        if already_saved:
+            st.toast("📘 이미 패스포트에 저장되어 있어요", icon="📘")
+        else:
+            st.session_state.passport.append({
+                "code": code, "name": country["name"], "flag": country["flag"],
+                "tip": country["essentials"][0], "compat_score": overall,
+            })
+            st.toast("⭐ 패스포트에 저장됨!", icon="⭐")
+        st.rerun()
+
+
+# ----------------------------------------------------------------------
 # 사이드바는 어떤 화면에서도 쓰지 않는다 — 대신 우상단 아이콘(지도/애프터케어/
 # 뷰티 패스포트)과 뒤로가기 버튼으로 내비게이션한다.
 # ----------------------------------------------------------------------
@@ -3972,6 +4216,7 @@ VIEWS = {
     "map": render_map,
     "country": render_country,
     "aftercare": render_aftercare,
+    "diagnosis": render_diagnosis,
 }
 render_bubble_clear()
 render_passport_modal()
