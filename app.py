@@ -8,6 +8,7 @@ import html
 import json
 import random
 import re
+import time
 from pathlib import Path
 
 import requests
@@ -988,6 +989,20 @@ def _bubble_spans(specs, phase):
     return "".join(spans)
 
 
+def bubble_cover_seconds(specs):
+    """덮는 애니메이션이 완전히 끝나는 시점(초) — 이 시간만큼 서버를 sleep해서
+    '화면이 기포로 완전히 덮인 뒤에' 다음 화면으로 넘어가도록 맞춘다."""
+    return max(s["delay"] + s["dur"] for s in specs) + 0.15
+
+
+def render_bubble_cover(specs):
+    """1단계: 지금 화면 위로 기포가 떠올라 화면을 가득 채우고 그 자리에 멈춘다.
+    (예전엔 이 단계를 없애고 걷히는 애니메이션만 남겨뒀었는데, 그 이유였던
+    '이전 화면 요소가 안 지워지고 새 화면과 섞이는' 버그는 아래 메인 라우팅의
+    st.empty() 슬롯으로 이미 고쳐졌다 — 그래서 원래대로 덮는 단계를 되살린다.)"""
+    html_block(_bubble_layer_css() + '<div class="bubble-layer">' + _bubble_spans(specs, "cover") + "</div>")
+
+
 def render_bubble_clear():
     """2단계: (다음 화면이 막 렌더된 시점) 같은 배치의 기포가 이미 화면을 덮은
     채로 시작해서 위로 빠져나가며 걷힌다 — 그래야 전환 순간 새 화면이
@@ -1584,16 +1599,11 @@ def render_home():
         )
         start_clicked = st.button("하트를 눌러 여행 시작", key="start_heart_btn")
 
-    # 예전엔 여기서 기포로 화면을 덮는 애니메이션을 render_bubble_cover로 직접 그리고
-    # time.sleep()으로 그 시간만큼 서버를 블로킹한 뒤에 다음 화면으로 넘어갔었다.
-    # 그런데 이 블로킹이 Streamlit의 재실행/화면 갱신 타이밍과 겹치면, 이전 화면의
-    # 요소가 다 지워지지 않고 새 화면과 섞여서 남는 버그가 있었다(특히 아무것도
-    # 선택하지 않고 빠르게 다음으로 넘어갈 때 — 페이지 로드와 재실행이 겹치기 쉬워짐).
-    # render_bubble_clear()의 "걷히는" 애니메이션은 "덮인" 상태에서 시작하도록 이미
-    # 만들어져 있어서, 블로킹 없이 바로 다음 화면으로 넘어가도 시각적으로는 매끄럽게
-    # 이어진다 — 그래서 sleep을 없애고 바로 rerun한다.
     if start_clicked:
-        st.session_state.bubble_specs = _generate_bubble_specs()
+        specs = _generate_bubble_specs()
+        st.session_state.bubble_specs = specs
+        render_bubble_cover(specs)
+        time.sleep(bubble_cover_seconds(specs))
         st.session_state.show_page_transition = True
         goto("character")
         st.rerun()
@@ -2275,7 +2285,10 @@ def _render_character_body():
                 "travel_style": draft.get("travel_style"),
                 "cosmetic_prefs": list(draft.get("cosmetic_prefs") or []),
             }
-            st.session_state.bubble_specs = _generate_bubble_specs()
+            specs = _generate_bubble_specs()
+            st.session_state.bubble_specs = specs
+            render_bubble_cover(specs)
+            time.sleep(bubble_cover_seconds(specs))
             st.session_state.show_page_transition = True
             goto("map")
             st.rerun()
