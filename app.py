@@ -2926,6 +2926,19 @@ def _world_map_dialog():
                 inset 0 0 0 3px rgba(255,244,214,.55),
                 inset 0 0 70px rgba(93,58,20,.32),
                 0 26px 50px rgba(35,18,5,.5);
+            /* 지구를 누르는 순간 지도가 뿅 켜지는 느낌이 너무 갑작스럽다는 피드백 —
+               두루마리 지도가 펼쳐지듯 위에서 살짝 튕기며 커지는 등장 애니메이션을 준다 */
+            transform-origin: top center;
+            animation: map-scroll-unroll .6s cubic-bezier(.22,.85,.32,1.15) both;
+        }
+        @keyframes map-scroll-unroll {
+            0%   { opacity: 0; transform: scale(.22) translateY(-40px); }
+            55%  { opacity: 1; transform: scale(1.04) translateY(6px); }
+            78%  { transform: scale(.98) translateY(-2px); }
+            100% { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .st-key-map_scroll_card { animation: none !important; }
         }
         .st-key-map_scroll_card::before,
         .st-key-map_scroll_card::after {
