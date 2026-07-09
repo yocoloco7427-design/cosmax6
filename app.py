@@ -2681,7 +2681,4 @@ render_bubble_clear()
 render_passport_modal()
 render_back_button()
 render_top_icons()
-st.markdown(f'<div id="debug-view-marker" style="position:fixed;bottom:0;left:0;background:red;color:white;'
-            f'font-size:20px;z-index:9999999;padding:4px;">DEBUG view={st.session_state.view}</div>',
-            unsafe_allow_html=True)
 VIEWS.get(st.session_state.view, render_home)()
