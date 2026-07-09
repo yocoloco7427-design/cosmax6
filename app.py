@@ -4,6 +4,7 @@
 게임풍 여행 뷰티 케어 웹앱 MVP
 """
 import base64
+import random
 from pathlib import Path
 
 import streamlit as st
@@ -259,6 +260,8 @@ if "selected_country" not in st.session_state:
     st.session_state.selected_country = None
 if "closet_category" not in st.session_state:
     st.session_state.closet_category = None
+if "show_page_transition" not in st.session_state:
+    st.session_state.show_page_transition = False
 
 
 def get_character():
@@ -312,6 +315,69 @@ def render_back_button():
     if st.button("←", key="back_btn", help="뒤로 가기"):
         goto(parent)
         st.rerun()
+
+
+def render_page_transition():
+    """네모바지 스펀지밥풍 기포 화면전환 — 다음 화면이 뜨자마자 한 번만 재생.
+
+    Streamlit은 클릭 즉시 새 화면을 통째로 다시 그리기 때문에, 실제로 두
+    화면 사이를 애니메이션으로 잇는 대신 새 화면 위에 기포로 뒤덮인
+    오버레이를 잠깐 덮었다가 걷어내는 방식으로 "전환되는 느낌"을 낸다.
+    """
+    if not st.session_state.show_page_transition:
+        return
+    st.session_state.show_page_transition = False
+
+    bubbles = []
+    for _ in range(24):
+        left = random.uniform(1, 97)
+        size = random.uniform(16, 70)
+        delay = random.uniform(0, 0.5)
+        duration = random.uniform(0.85, 1.5)
+        drift = random.uniform(-36, 36)
+        bubbles.append(
+            f'<span class="bubble" style="left:{left:.1f}%; width:{size:.0f}px; height:{size:.0f}px; '
+            f'--drift:{drift:.0f}px; animation-delay:{delay:.2f}s; animation-duration:{duration:.2f}s;"></span>'
+        )
+
+    html_block(
+        """
+        <style>
+        .bubble-overlay {
+            position: fixed; inset: 0; z-index: 999999;
+            pointer-events: none; overflow: hidden;
+            background: linear-gradient(180deg, rgba(160,225,255,.92), rgba(70,175,240,.92));
+            animation: overlay-fade 1.5s ease forwards;
+        }
+        @keyframes overlay-fade {
+            0%, 52% { opacity: 1; }
+            100%    { opacity: 0; }
+        }
+        .bubble-overlay .bubble {
+            position: absolute; bottom: -12%;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 26%,
+                rgba(255,255,255,.98) 0%, rgba(255,255,255,.35) 32%,
+                rgba(200,235,255,.4) 62%, rgba(150,210,255,.2) 100%);
+            box-shadow: inset -5px -5px 9px rgba(70,150,215,.4), 0 0 8px rgba(255,255,255,.55);
+            animation-name: bubble-rise;
+            animation-timing-function: cubic-bezier(.22,.7,.4,1);
+            animation-fill-mode: forwards;
+        }
+        @keyframes bubble-rise {
+            0%   { transform: translateY(0) translateX(0) scale(.55); opacity: .9; }
+            65%  { opacity: 1; }
+            100% { transform: translateY(-125vh) translateX(var(--drift,0px)) scale(1.15); opacity: 0; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .bubble-overlay, .bubble-overlay .bubble { animation: none !important; display: none !important; }
+        }
+        </style>
+        <div class="bubble-overlay">
+        """
+        + "".join(bubbles)
+        + "</div>"
+    )
 
 
 # ----------------------------------------------------------------------
@@ -855,6 +921,7 @@ def render_home():
             """
         )
         if st.button("하트를 눌러 여행 시작", key="start_heart_btn"):
+            st.session_state.show_page_transition = True
             goto("character")
             st.rerun()
 
@@ -1379,3 +1446,4 @@ VIEWS = {
 }
 render_back_button()
 VIEWS.get(st.session_state.view, render_home)()
+render_page_transition()
