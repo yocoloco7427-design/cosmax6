@@ -8,7 +8,6 @@ import html
 import json
 import random
 import re
-import time
 from pathlib import Path
 
 import requests
@@ -159,7 +158,10 @@ COUNTRIES = {
 _MAP_X_SCALE, _MAP_X_OFFSET = 7.9148, 1245.8989
 _MAP_Y_SCALE, _MAP_Y_OFFSET = -7.5120, 738.0763
 WORLD_MAP_VIEWBOX_W = 2752.766
-WORLD_MAP_VIEWBOX_H = 980  # 남극 아래 여백은 잘라내고 씀 (원본은 1537.631)
+# 예전엔 980으로 잘라 남극 여백을 지웠는데, 그 높이에서는 호주·뉴질랜드·남미
+# 남부까지 프레임 밖으로 잘려나가 버렸다. 원본 전체 높이를 그대로 써서 지도에
+# 안 보이는 땅이 없게 한다.
+WORLD_MAP_VIEWBOX_H = 1537.631
 
 
 def _country_pin_percent(geo_str):
@@ -173,8 +175,8 @@ def _country_pin_percent(geo_str):
 
 @st.cache_data(show_spinner=False)
 def _load_world_map_svg():
-    """실제 세계지도 SVG(퍼블릭 도메인)를 앱 팔레트로 재색칠해서 불러온다.
-    국경선/대륙 모양 데이터는 그대로 두고, 색상만 바꾸고 남극 아래 여백을 자른다.
+    """실제 세계지도 SVG(퍼블릭 도메인)를 낡은 가죽지도(트레저맵) 팔레트로 재색칠해서
+    불러온다. 국경선/대륙 모양 데이터는 원본 그대로 두고 색상만 세피아 톤으로 바꾼다.
     우리 6개 여행지 국가만 포인트 컬러로 강조."""
     raw = (ASSETS / "world_map.svg").read_text(encoding="utf-8")
     raw = raw.replace(
@@ -190,9 +192,11 @@ def _load_world_map_svg():
         # id만 있고 자기 style에 회색을 박아둔 나라가 섞여 있어서(수단 등) .land
         # 클래스만 override하면 그런 나라만 회색으로 튀어 보인다. path 전체에
         # 기본색을 먼저 깔고, 바다/호수/강조국만 그 위에 다시 덮는다.
-        "<style>svg path{fill:#dbe7fb !important;stroke:#ffffff !important;}"
-        ".ocean,.lake{fill:none !important;stroke:none !important;}"
-        f"{highlight}{{fill:#ff6fb8 !important;}}</style></svg>",
+        # 낡은 가죽지도(트레저맵) 느낌 — 세피아 톤의 육지/바다 + 짙은 갈색 국경선.
+        # 강조 국가만 원래 쓰던 핑크로 남겨서 핀 색상과 톤이 이어지게 한다.
+        "<style>svg path{fill:#dccb98 !important;stroke:#6b4423 !important;stroke-width:1.1 !important;}"
+        ".ocean,.lake{fill:#b9a06d !important;stroke:none !important;}"
+        f"{highlight}{{fill:#ff6fb8 !important;stroke:#a53d78 !important;}}</style></svg>",
     )
     return " ".join(raw.split())
 
@@ -720,6 +724,9 @@ def _dismiss_passport():
 def _beauty_passport_dialog():
     _passport_dialog_css()
     char = get_character() or {}
+    draft_name = (st.session_state.get("char_draft") or {}).get("name", "").strip()
+    if draft_name:
+        char = {**char, "name": draft_name}
 
     if not st.session_state.passport_page_open:
         # 닫힌 표지 — 그림 자체를 누르면 펼쳐진다 (별도 안내 문구/버튼 없음)
@@ -981,17 +988,6 @@ def _bubble_spans(specs, phase):
     return "".join(spans)
 
 
-def bubble_cover_seconds(specs):
-    """덮는 애니메이션이 완전히 끝나는 시점(초) — 이 시간만큼 서버를 sleep해서
-    '화면이 기포로 완전히 덮인 뒤에' 다음 화면으로 넘어가도록 맞춘다."""
-    return max(s["delay"] + s["dur"] for s in specs) + 0.15
-
-
-def render_bubble_cover(specs):
-    """1단계: 지금 화면 위로 기포가 떠올라 화면을 가득 채우고 그 자리에 멈춘다."""
-    html_block(_bubble_layer_css() + '<div class="bubble-layer">' + _bubble_spans(specs, "cover") + "</div>")
-
-
 def render_bubble_clear():
     """2단계: (다음 화면이 막 렌더된 시점) 같은 배치의 기포가 이미 화면을 덮은
     채로 시작해서 위로 빠져나가며 걷힌다 — 그래야 전환 순간 새 화면이
@@ -1133,12 +1129,14 @@ def inject_theme():
     .st-key-character_page {
         margin-top: -2.2rem !important;
     }
-    .st-key-character_page .stTabs [data-baseweb="tab"] p {
-        font-size: 1.2rem !important;
-        font-weight: 700 !important;
+    .st-key-character_page .stTabs [data-testid="stTab"],
+    .st-key-character_page .stTabs [data-testid="stTab"] * {
+        font-size: 1.6rem !important;
+        font-weight: 800 !important;
+        line-height: 1.4 !important;
     }
-    .st-key-character_page .stTabs [data-baseweb="tab"] {
-        padding: 0.6rem 1rem !important;
+    .st-key-character_page .stTabs [data-testid="stTab"] {
+        padding: 0.8rem 1.2rem !important;
     }
     </style>
     """
@@ -1586,15 +1584,16 @@ def render_home():
         )
         start_clicked = st.button("하트를 눌러 여행 시작", key="start_heart_btn")
 
-    # 기포 오버레이는 반드시 start_dialog 컨테이너 '밖'에서 그려야 한다 —
-    # 그 컨테이너에는 transform을 쓰는 CSS 애니메이션이 걸려 있어서, 안에서
-    # position:fixed로 그리면 뷰포트가 아니라 그 박스가 기준점이 되어버려
-    # 기포가 다이얼로그 안에만 갇혀버린다.
+    # 예전엔 여기서 기포로 화면을 덮는 애니메이션을 render_bubble_cover로 직접 그리고
+    # time.sleep()으로 그 시간만큼 서버를 블로킹한 뒤에 다음 화면으로 넘어갔었다.
+    # 그런데 이 블로킹이 Streamlit의 재실행/화면 갱신 타이밍과 겹치면, 이전 화면의
+    # 요소가 다 지워지지 않고 새 화면과 섞여서 남는 버그가 있었다(특히 아무것도
+    # 선택하지 않고 빠르게 다음으로 넘어갈 때 — 페이지 로드와 재실행이 겹치기 쉬워짐).
+    # render_bubble_clear()의 "걷히는" 애니메이션은 "덮인" 상태에서 시작하도록 이미
+    # 만들어져 있어서, 블로킹 없이 바로 다음 화면으로 넘어가도 시각적으로는 매끄럽게
+    # 이어진다 — 그래서 sleep을 없애고 바로 rerun한다.
     if start_clicked:
-        specs = _generate_bubble_specs()
-        st.session_state.bubble_specs = specs
-        render_bubble_cover(specs)
-        time.sleep(bubble_cover_seconds(specs))
+        st.session_state.bubble_specs = _generate_bubble_specs()
         st.session_state.show_page_transition = True
         goto("character")
         st.rerun()
@@ -2276,10 +2275,7 @@ def _render_character_body():
                 "travel_style": draft.get("travel_style"),
                 "cosmetic_prefs": list(draft.get("cosmetic_prefs") or []),
             }
-            specs = _generate_bubble_specs()
-            st.session_state.bubble_specs = specs
-            render_bubble_cover(specs)
-            time.sleep(bubble_cover_seconds(specs))
+            st.session_state.bubble_specs = _generate_bubble_specs()
             st.session_state.show_page_transition = True
             goto("map")
             st.rerun()
@@ -2369,8 +2365,14 @@ def _map_globe_gate():
             border-radius: 50% !important; border: none !important; padding: 0 !important;
             margin: 14px 0 6px !important;
             background: transparent !important; overflow: hidden !important;
+            /* 구 입체감: 좌상단 프레넬 하이라이트(밝게) + 우하단 코어 섀도우(어둡게)로
+               텍스처 위에 실제 조명을 얹어 구체처럼 보이게 함 (아래 ::after의 평평한
+               라디얼 그라데이션만으로는 입체감이 약했던 문제 보완) */
             box-shadow:
-                inset 0 0 32px 7px rgba(170,220,255,.55),
+                inset 10px 10px 30px rgba(215,240,255,.65),
+                inset -8px -10px 26px rgba(10,20,55,.6),
+                inset 0 0 46px rgba(255,255,255,.12),
+                inset 0 0 30px 6px rgba(170,220,255,.3),
                 0 0 24px 5px rgba(255,255,255,.4),
                 0 0 64px 16px rgba(120,190,255,.72),
                 0 40px 68px rgba(20,40,90,.62);
@@ -2385,15 +2387,19 @@ def _map_globe_gate():
             background-image: url('{earth}');
             background-size: {tex_w}px {tex_h}px; background-repeat: repeat-x;
             background-position: 0 center;
-            filter: brightness(1.3) contrast(1.16) saturate(1.26);
+            filter: brightness(1.22) contrast(1.22) saturate(1.28);
             animation: spin-earth-map 30s linear infinite;
         }}
+        /* mix-blend-mode: multiply를 쓰면 흰색 하이라이트가 곱연산으로 사라져버려
+           그림자만 남고 평평해 보였다 — 일반(normal) 합성으로 밝기/어둠을 함께 얹고,
+           가장자리 앰비언트 오클루전 + 테두리 프레넬 림 라이트를 추가해 구체감을 강화 */
         .st-key-open_world_map.st-key-open_world_map button::after {{
             content: ''; position: absolute; inset: 0; border-radius: 50%;
             background:
-                radial-gradient(circle at 28% 24%, rgba(255,255,255,.8) 0%, rgba(255,255,255,.28) 11%, rgba(255,255,255,0) 27%),
-                radial-gradient(circle at 70% 76%, rgba(2,6,24,0) 18%, rgba(2,6,24,.55) 54%, rgba(1,3,16,.98) 100%);
-            mix-blend-mode: multiply;
+                radial-gradient(ellipse 30% 17% at 30% 22%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.4) 38%, rgba(255,255,255,0) 68%),
+                radial-gradient(circle at 70% 76%, rgba(2,6,24,0) 15%, rgba(2,6,24,.58) 52%, rgba(1,3,16,.97) 100%),
+                radial-gradient(circle at 50% 50%, rgba(3,8,28,0) 42%, rgba(3,8,28,.3) 80%, rgba(1,3,14,.72) 100%),
+                radial-gradient(circle at 50% 50%, rgba(150,210,255,0) 86%, rgba(150,210,255,.4) 96%, rgba(120,190,255,.18) 100%);
         }}
         @keyframes spin-earth-map {{ from{{background-position:0 center;}} to{{background-position:-{tex_w}px center;}} }}
         @keyframes map-earth-float {{ 0%,100%{{transform:translateY(0);}} 50%{{transform:translateY(-14px);}} }}
@@ -2420,8 +2426,11 @@ def _dismiss_world_map():
 def _world_map_dialog():
     """지구를 누르면 배경이 어두워지며 이 위에 세계지도가 뜬다 (페이지 이동이 아니라
     지구 '위에 뜨는' 느낌을 위해 st.dialog 사용 — 뷰티 패스포트와 같은 방식).
-    핀을 누르면 예전 카드의 '자세히 보기'와 동일하게 국가 상세 화면으로 이동."""
-    st.caption("핀을 눌러 여행지 상세 정보를 확인하세요")
+    핀을 누르면 예전 카드의 '자세히 보기'와 동일하게 국가 상세 화면으로 이동.
+
+    카드 자체는 실제 낡은 가죽/양피지 지도(트레저맵)처럼 보이도록 스타일링한다 —
+    다이얼로그 기본 흰 배경/제목을 지우고, 세피아 톤 배경 + 두꺼운 갈색 테두리 +
+    말려있는 종이 느낌의 위아래 롤러 + 나침반 장식을 얹은 우리만의 카드로 대체."""
     svg = _load_world_map_svg()
     pin_rules = []
     for code, c in COUNTRIES.items():
@@ -2430,46 +2439,116 @@ def _world_map_dialog():
         x_pct, y_pct = _country_pin_percent(c["geo"])
         pin_rules.append(f'.st-key-pin_{code} {{ left:{x_pct:.2f}%; top:{y_pct:.2f}%; }}')
 
-    with st.container(key="world_map_area"):
+    html_block(
+        """
+        <style>
+        /* 다이얼로그 기본 흰 카드를 훨씬 크게, 그리고 우리 스타일로 뒤집어 씌운다 */
+        div[data-testid="stDialog"] [slot="title"] { display: none !important; }
+        div[data-testid="stDialog"] > div {
+            max-width: min(94vw, 1520px) !important;
+            width: min(94vw, 1520px) !important;
+            max-height: 92vh !important; overflow-y: auto !important;
+            background: transparent !important; box-shadow: none !important;
+        }
+        .st-key-map_scroll_card {
+            position: relative;
+            margin: 10px 6px 26px;
+            padding: 30px 34px 22px;
+            border-radius: 16px;
+            background:
+                radial-gradient(ellipse at 28% 18%, rgba(255,248,222,.55) 0%, rgba(255,248,222,0) 46%),
+                linear-gradient(160deg, #ecd9a8 0%, #d8b876 45%, #bf9457 100%);
+            border: 5px solid #7a4a23;
+            box-shadow:
+                inset 0 0 0 3px rgba(255,244,214,.55),
+                inset 0 0 70px rgba(93,58,20,.32),
+                0 26px 50px rgba(35,18,5,.5);
+        }
+        .st-key-map_scroll_card::before,
+        .st-key-map_scroll_card::after {
+            content: ''; position: absolute; left: -16px; right: -16px; height: 24px;
+            background: linear-gradient(180deg, #92622f, #4d3018);
+            border-radius: 12px;
+            box-shadow: 0 3px 8px rgba(0,0,0,.45), inset 0 2px 3px rgba(255,255,255,.2);
+        }
+        .st-key-map_scroll_card::before { top: -12px; }
+        .st-key-map_scroll_card::after { bottom: -12px; }
+        .scroll-compass {
+            position: absolute; right: 18px; bottom: 16px; font-size: 2.4rem;
+            opacity: .45; transform: rotate(8deg); pointer-events: none;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,.35));
+        }
+        .scroll-title {
+            text-align: center; font-family: Georgia, 'Times New Roman', serif;
+            font-weight: 800; font-size: 1.9rem; color: #5c3612;
+            text-shadow: 0 1px 0 rgba(255,255,255,.4); letter-spacing: .5px;
+            margin: 0 0 2px;
+        }
+        .scroll-subtitle {
+            text-align: center; font-family: 'Jua', sans-serif; font-size: 1.02rem;
+            color: #6e4c26; margin: 0 0 16px;
+        }
+        .st-key-world_map_area { position: relative !important; width: 100% !important; }
+        .world-map-frame {
+            position: relative; width: 100%;
+            aspect-ratio: 2752.766 / 1537.631;
+            border-radius: 10px; overflow: hidden;
+            border: 3px solid #6b4423;
+            box-shadow: inset 0 0 24px rgba(60,36,10,.45);
+        }
+        .world-map-frame svg { display: block; width: 100%; height: 100%; }
+        .st-key-world_map_area div[class*="st-key-pin_"] {
+            position: absolute !important; transform: translate(-50%,-100%) !important;
+            z-index: 6 !important;
+        }
+        """
+        + " ".join(pin_rules) +
+        """
+        div[class*="st-key-pin_"] button {
+            width: 38px !important; height: 38px !important; min-width: 0 !important;
+            border-radius: 50% !important; padding: 0 !important;
+            background: #fff8e6 !important; border: 3px solid #ff6fb8 !important;
+            box-shadow: 0 4px 8px rgba(60,30,10,.5) !important;
+            font-size: 1.15rem !important;
+            transition: transform .15s ease;
+        }
+        div[class*="st-key-pin_"] button:hover { transform: scale(1.15) !important; }
+        .st-key-close_world_map button {
+            background: linear-gradient(180deg,#4d3320,#241407) !important;
+            color: #f1dfb8 !important; border: 2px solid #8a5a2e !important;
+            font-family: 'Jua', sans-serif !important; font-weight: 700 !important;
+            letter-spacing: 1px;
+        }
+        .st-key-close_world_map button:hover {
+            background: linear-gradient(180deg,#5c3f28,#2c1a0c) !important;
+        }
+        </style>
+        """
+    )
+
+    with st.container(key="map_scroll_card"):
         html_block(
-            f"""
-            <style>
-            .st-key-world_map_area {{ position: relative !important; width: 100% !important; }}
-            .world-map-frame {{
-                position: relative; width: 100%;
-                aspect-ratio: {WORLD_MAP_VIEWBOX_W} / {WORLD_MAP_VIEWBOX_H};
-                border-radius: 18px; overflow: hidden;
-            }}
-            .world-map-frame svg {{ display: block; width: 100%; height: 100%; }}
-            .st-key-world_map_area div[class*="st-key-pin_"] {{
-                position: absolute !important; transform: translate(-50%,-100%) !important;
-                z-index: 6 !important;
-            }}
-            {" ".join(pin_rules)}
-            div[class*="st-key-pin_"] button {{
-                width: 38px !important; height: 38px !important; min-width: 0 !important;
-                border-radius: 50% !important; padding: 0 !important;
-                background: #ffffff !important; border: 3px solid #ff6fb8 !important;
-                box-shadow: 0 4px 8px rgba(120,40,90,.35) !important;
-                font-size: 1.15rem !important;
-                transition: transform .15s ease;
-            }}
-            div[class*="st-key-pin_"] button:hover {{ transform: scale(1.15) !important; }}
-            </style>
-            <div class="world-map-frame">{svg}</div>
+            """
+            <div class="scroll-title">🗺️ 여행지 지도</div>
+            <div class="scroll-subtitle">핀을 눌러 여행지 상세 정보를 확인하세요</div>
             """
         )
-        for code, c in COUNTRIES.items():
-            if not c.get("geo"):
-                continue
-            if st.button(c["flag"], key=f"pin_{code}", help=c["name"]):
-                st.session_state.selected_country = code
-                goto("country")
-                st.rerun()
+        with st.container(key="world_map_area"):
+            html_block(
+                f'<div class="world-map-frame">{svg}'
+                '<div class="scroll-compass">🧭</div></div>'
+            )
+            for code, c in COUNTRIES.items():
+                if not c.get("geo"):
+                    continue
+                if st.button(c["flag"], key=f"pin_{code}", help=c["name"]):
+                    st.session_state.selected_country = code
+                    goto("country")
+                    st.rerun()
 
-    if st.button("나가기", key="close_world_map", use_container_width=True):
-        st.session_state.map_globe_opened = False
-        st.rerun()
+        if st.button("나가기", key="close_world_map", use_container_width=True):
+            st.session_state.map_globe_opened = False
+            st.rerun()
 
 
 def render_map():
@@ -2602,4 +2681,7 @@ render_bubble_clear()
 render_passport_modal()
 render_back_button()
 render_top_icons()
+st.markdown(f'<div id="debug-view-marker" style="position:fixed;bottom:0;left:0;background:red;color:white;'
+            f'font-size:20px;z-index:9999999;padding:4px;">DEBUG view={st.session_state.view}</div>',
+            unsafe_allow_html=True)
 VIEWS.get(st.session_state.view, render_home)()
