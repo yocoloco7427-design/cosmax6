@@ -711,6 +711,8 @@ if "current_ad_video" not in st.session_state:
     st.session_state.current_ad_video = None
 if "unlocked_countries" not in st.session_state:
     st.session_state.unlocked_countries = set()  # 코인으로 잠금 해제한 여행지 코드
+if "confirming_unlock" not in st.session_state:
+    st.session_state.confirming_unlock = None  # 언락 확인 문구를 보여줄 국가 코드 (없으면 None)
 
 
 def get_character():
@@ -765,6 +767,7 @@ def _scan_quality_check(image):
     if brightness > 215:
         return False, "💡 빛이 너무 강해요. 조명을 조절하고 다시 찍어주세요"
     edges = gray.filter(ImageFilter.FIND_EDGES)
+    edges = edges.crop((1, 1, edges.width - 1, edges.height - 1))  # 컨볼루션 경계 아티팩트 제외
     sharpness = ImageStat.Stat(edges).stddev[0] ** 2
     if sharpness < 60:
         return False, "📷 사진이 흔들렸어요. 흔들리지 않게 다시 찍어주세요"
@@ -1070,7 +1073,7 @@ def _ad_reward_dialog():
         st.session_state.coins += AD_REWARD_COINS
         st.session_state.coin_history.append({
             "amount": AD_REWARD_COINS,
-            "label": Path(video_path).stem,
+            "label": "🎬 광고 시청",
             "when": datetime.now().strftime("%Y-%m-%d %H:%M"),
         })
         st.session_state.show_ad_reward = False
@@ -1080,20 +1083,24 @@ def _ad_reward_dialog():
 
 
 def render_ad_reward_button():
-    """화면 좌하단에 항상 떠 있는 '광고보고 코인 받기' 버튼. 누르면 assets/ads/ 폴더의
-    영상 중 하나를 무작위로 골라 다이얼로그로 재생하고, 다 보면 코인을 지급한다.
+    """우상단 아이콘 바로 아래에 떠 있는 '광고보고 코인 받기' 버튼 (홈 화면은 제외,
+    render_top_icons와 같은 기준). 누르면 assets/ads/ 폴더의 영상 중 하나를
+    무작위로 골라 다이얼로그로 재생하고, 다 보면 코인을 지급한다.
     적립 내역은 뷰티 패스포트(_passport_bio_fields)에서 함께 확인할 수 있다."""
+    if st.session_state.view == "home":
+        return
     html_block(
         """
         <style>
+        .st-key-watch_ad_btn { position: fixed !important; top: 128px !important; right: 16px !important; z-index: 99997 !important; width: auto !important; }
         .st-key-watch_ad_btn button {
-            position: fixed !important; top: 132px !important; right: 16px !important;
-            z-index: 99997 !important; border-radius: 999px !important;
-            padding: 0.7rem 1.3rem !important; font-family: 'Jua', sans-serif !important;
-            font-size: 1.05rem !important; font-weight: 700 !important;
-            border: 3px solid #fff !important;
+            width: auto !important; min-width: 0 !important; max-width: none !important;
+            border-radius: 999px !important;
+            padding: 0.3rem 0.7rem !important; font-family: 'Jua', sans-serif !important;
+            font-size: 0.68rem !important; font-weight: 700 !important;
+            border: 2px solid #fff !important; white-space: nowrap !important;
             background: linear-gradient(90deg,#FFD86F,#FFA63D) !important; color: #5a3410 !important;
-            box-shadow: 0 6px 14px rgba(180,110,20,.4) !important;
+            box-shadow: 0 3px 8px rgba(180,110,20,.4) !important;
             transition: transform .12s ease;
         }
         .st-key-watch_ad_btn button:hover { transform: translateY(-2px) scale(1.03); }
@@ -1425,8 +1432,10 @@ def _beauty_passport_dialog():
                 )
             else:
                 for entry in reversed(history[-10:]):
+                    amount = entry["amount"]
+                    sign = "+" if amount >= 0 else ""
                     html_block(
-                        f'<div class="tip-entry">🎬 광고 시청 +{entry["amount"]}코인 '
+                        f'<div class="tip-entry">{html.escape(entry["label"])} {sign}{amount}코인 '
                         f'<span style="opacity:.6;font-size:.85em;">· {html.escape(entry["when"])}</span></div>'
                     )
 
@@ -3593,18 +3602,32 @@ def render_map():
 
 def _quick_skin_tip(char, country):
     """규칙 기반(즉시 응답) 피부타입×현지 기후 추천 — 포스트잇과 쇼핑 시트에서 재사용.
-    get_skin_profile()이 반환하는 정규화된 프로필을 입력값으로 쓴다."""
-    profile = get_skin_profile(char)
-    base = {
-        "건성": "고보습 크림·오일로 수분 방어막을 단단히 챙기세요",
-        "지성": "가벼운 젤·워터 타입으로 유분 밸런스를 잡아주세요",
-        "복합성": "부위별로 보습과 유분 조절 제품을 나눠 쓰는 게 좋아요",
-    }
-    tips = [base.get(profile["skin_type"], base["복합성"])]
-    if "민감성" in profile["extras"]:
-        tips.append("저자극·무향 성분 위주로 챙기세요")
-    if "트러블" in profile["extras"]:
-        tips.append("살리실릭·티트리 등 트러블 케어 성분을 곁들이면 좋아요")
+    get_skin_baseline()이 반환하는 baseline을 입력값으로 쓴다 — 카메라 스캔
+    결과가 있으면 자가응답 피부타입 대신 스캔 5개 지표를 우선한다."""
+    baseline = get_skin_baseline(char)
+    tips = []
+    if baseline["baseline_source"] == "camera_scan":
+        if baseline["hydration"] <= 40:
+            tips.append("고보습 크림·오일로 수분 방어막을 단단히 챙기세요")
+        if baseline["oiliness"] >= 60:
+            tips.append("가벼운 젤·워터 타입으로 유분 밸런스를 잡아주세요")
+        if baseline["redness"] >= 60:
+            tips.append("저자극·무향 성분 위주로 챙기세요")
+        if baseline["pore_visibility"] >= 60 or baseline["texture_evenness"] <= 40:
+            tips.append("살리실릭·티트리 등 모공·결 케어 성분을 곁들이면 좋아요")
+        if not tips:
+            tips.append("전반적으로 균형 잡힌 피부예요, 기본 보습만 챙기면 충분해요")
+    else:
+        base = {
+            "건성": "고보습 크림·오일로 수분 방어막을 단단히 챙기세요",
+            "지성": "가벼운 젤·워터 타입으로 유분 밸런스를 잡아주세요",
+            "복합성": "부위별로 보습과 유분 조절 제품을 나눠 쓰는 게 좋아요",
+        }
+        tips.append(base.get(baseline["skin_type"], base["복합성"]))
+        if "민감성" in baseline["extras"]:
+            tips.append("저자극·무향 성분 위주로 챙기세요")
+        if "트러블" in baseline["extras"]:
+            tips.append("살리실릭·티트리 등 트러블 케어 성분을 곁들이면 좋아요")
     if country.get("essentials"):
         tips.append(f"현지 추천템: {country['essentials'][0]}")
     return tips
@@ -3633,23 +3656,188 @@ def _cached_ai_cosmetic_recommendation(skin_type, extras_key, prefs_key, country
     return "".join(block.text for block in resp.content if block.type == "text").strip()
 
 
+@st.cache_data(show_spinner=False, ttl=86400)
+def _cached_ai_cosmetic_recommendation_scan(
+    hydration, redness, pore_visibility, texture_evenness, oiliness, prefs_key, country_code
+):
+    country = COUNTRIES[country_code]
+    prompt = (
+        "너는 여행 뷰티 코디네이터야. 아래 여행자의 얼굴 스캔(정면+좌우) 분석 결과와 "
+        "목적지 기후를 보고 챙기면 좋은 화장품을 한국어로 짧게 추천해줘.\n\n"
+        f"[여행자 피부 스캔 결과 (0~100)] 수분감: {hydration} / 붉은기: {redness} / "
+        f"모공 가시성: {pore_visibility} / 결 균일도: {texture_evenness} / 유분감: {oiliness} / "
+        f"선호 화장품 특성: {', '.join(prefs_key) or '없음'}\n"
+        f"[목적지] {country['name']} — 기후: {country['climate']} / 습도: {country['humidity']} / "
+        f"자외선: {country['uv']} / 수질: {country['water']} ({country['water_note']}) / "
+        f"주의할 트러블: {country['trouble']}\n\n"
+        "형식: 제품 카테고리 3~4개를 각각 한 줄로, 필요한 이유를 짧게 붙여서 "
+        "'- '로 시작하는 불릿 리스트로만 답해. 다른 설명은 붙이지 마."
+    )
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "".join(block.text for block in resp.content if block.type == "text").strip()
+
+
 def get_ai_cosmetic_recommendation(char, country_code):
     """AI 추천에 성공하면 텍스트를, 키가 없거나 호출이 실패하면 None을 반환한다
     (호출부는 None이면 규칙 기반 _quick_skin_tip으로 대체 표시).
-    get_skin_profile()의 정규화된 프로필을 입력값으로 써서 다른 추천 로직과
-    같은 피부타입/특이사항 판단 기준을 공유한다."""
+    get_skin_baseline()의 baseline_source에 따라 카메라 스캔 5개 지표 또는
+    자가응답 피부타입/특이사항 중 하나를 입력값으로 써서 다른 추천 로직과
+    같은 판단 기준을 공유한다."""
     if not ANTHROPIC_API_KEY or anthropic is None:
         return None
-    profile = get_skin_profile(char)
+    baseline = get_skin_baseline(char)
+    prefs_key = tuple(sorted(char.get("cosmetic_prefs") or []))
     try:
+        if baseline["baseline_source"] == "camera_scan":
+            return _cached_ai_cosmetic_recommendation_scan(
+                baseline["hydration"],
+                baseline["redness"],
+                baseline["pore_visibility"],
+                baseline["texture_evenness"],
+                baseline["oiliness"],
+                prefs_key,
+                country_code,
+            )
         return _cached_ai_cosmetic_recommendation(
-            profile["skin_type"],
-            tuple(sorted(profile["extras"])),
-            tuple(sorted(char.get("cosmetic_prefs") or [])),
+            baseline["skin_type"],
+            tuple(sorted(baseline["extras"])),
+            prefs_key,
             country_code,
         )
     except Exception:
         return None
+
+
+def _render_skin_scan_section():
+    """피부 맞춤 추천 시트 상단에 붙는 얼굴 스캔 UI. 정면→왼쪽→오른쪽 순서로
+    한 장씩 st.camera_input()으로 촬영을 받는다(실시간 프레임 분석/자동 캡처는
+    Streamlit이 지원하지 않아 매 각도마다 촬영 버튼을 누르는 방식). 스캔은
+    선택 사항이라 하지 않아도 온보딩 자가응답 기반 추천은 항상 그대로 동작한다."""
+    if st.session_state.skin_scan:
+        st.success("📸 카메라 스캔(정면·좌우) 기반으로 추천을 갱신했어요")
+        if st.button("다시 스캔하기", key="skin_scan_retake_all"):
+            st.session_state.skin_scan = None
+            st.session_state.skin_scan_photos = {}
+            st.session_state.skin_scan_step = 0
+            st.session_state.skin_scan_ui_open = True
+            st.session_state.skin_scan_widget_key += 1
+            st.rerun()
+        st.divider()
+        return
+
+    if not st.session_state.skin_scan_ui_open:
+        if st.button(
+            "🤳 내 피부 스캔하고 더 정확한 추천 받기",
+            key="skin_scan_open_btn",
+            use_container_width=True,
+        ):
+            st.session_state.skin_scan_ui_open = True
+            st.session_state.skin_scan_step = 0
+            st.session_state.skin_scan_photos = {}
+            st.rerun()
+        st.divider()
+        return
+
+    step = st.session_state.skin_scan_step
+    angle = SCAN_ANGLES[step]
+    st.caption(f"📸 {step + 1}/3 · {angle['label']} — {angle['guide']}")
+    photo = st.camera_input(
+        angle["label"],
+        key=f"skin_scan_cam_{angle['key']}_{st.session_state.skin_scan_widget_key}",
+        label_visibility="collapsed",
+    )
+    if photo is not None:
+        img = Image.open(photo).convert("RGB")
+        ok, msg = _scan_quality_check(img)
+        if not ok:
+            st.warning(msg)
+            if st.button("다시 찍기", key=f"skin_scan_retry_{angle['key']}"):
+                st.session_state.skin_scan_widget_key += 1
+                st.rerun()
+        else:
+            st.session_state.skin_scan_photos[angle["key"]] = img
+            if step + 1 < len(SCAN_ANGLES):
+                st.session_state.skin_scan_step += 1
+                st.session_state.skin_scan_widget_key += 1
+            else:
+                st.session_state.skin_scan = analyze_skin_scan(st.session_state.skin_scan_photos)
+                st.session_state.skin_scan_ui_open = False
+                st.toast("✅ 3장 스캔 완료! 더 정확한 추천으로 갱신했어요")
+            st.rerun()
+    if st.button("취소", key="skin_scan_cancel_btn"):
+        st.session_state.skin_scan_ui_open = False
+        st.session_state.skin_scan_photos = {}
+        st.session_state.skin_scan_step = 0
+        st.rerun()
+    st.divider()
+
+
+def _render_country_locked(country, code):
+    """잠긴 여행지 화면 — 파스텔 핑크 배경에 자물쇠만 크게 보이고, 포스트잇/지도/
+    포션 같은 다른 정보는 전부 가린다. '50코인 사용하여 오픈하기' -> 예/아니오 확인
+    -> 예를 누르면 코인을 차감하고 st.session_state.unlocked_countries에 코드를
+    남겨 이후로는 계속 잠금 없이 볼 수 있다."""
+    st.title(f"{country['flag']} {country['name']}")
+    html_block(
+        """
+        <style>
+        .locked-stage {
+            position: relative; width: 100%; height: clamp(420px, 74vh, 680px);
+            border-radius: 22px; margin-bottom: 14px;
+            background: linear-gradient(160deg, #ffe9f3 0%, #ffd3e7 55%, #ffbadc 100%);
+            box-shadow: inset 0 0 0 4px rgba(255,255,255,.55), 0 16px 32px rgba(150,50,100,.25);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .locked-icon {
+            font-size: min(32vw, 190px); line-height: 1;
+            filter: drop-shadow(0 12px 20px rgba(150,50,100,.35));
+        }
+        .unlock-confirm-text {
+            text-align: center; font-family: 'Jua', sans-serif; font-size: 1.25rem;
+            color: #9c2f5c; margin: 4px 0 14px;
+        }
+        </style>
+        <div class="locked-stage"><div class="locked-icon">🔒</div></div>
+        """
+    )
+
+    if st.session_state.confirming_unlock == code:
+        html_block(
+            f'<div class="unlock-confirm-text">{UNLOCK_COST_COINS}코인을 사용하여 오픈하시겠습니까?</div>'
+        )
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("예", key="confirm_unlock_yes", type="primary", use_container_width=True):
+                st.session_state.coins -= UNLOCK_COST_COINS
+                st.session_state.unlocked_countries.add(code)
+                st.session_state.coin_history.append({
+                    "amount": -UNLOCK_COST_COINS,
+                    "label": f"{country['flag']} {country['name']} 잠금 해제",
+                    "when": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                })
+                st.session_state.confirming_unlock = None
+                st.toast("🔓 오픈되었습니다!", icon="🔓")
+                st.rerun()
+        with c2:
+            if st.button("아니오", key="confirm_unlock_no", use_container_width=True):
+                st.session_state.confirming_unlock = None
+                st.rerun()
+    else:
+        can_afford = st.session_state.coins >= UNLOCK_COST_COINS
+        if st.button(f"{UNLOCK_COST_COINS}코인 사용하여 오픈하기", key="unlock_country_btn",
+                     type="primary", use_container_width=True, disabled=not can_afford):
+            st.session_state.confirming_unlock = code
+            st.rerun()
+        if not can_afford:
+            st.caption("코인이 부족해요 — 광고를 보고 코인을 모아보세요 🎬")
+        if st.button("⬅ 지도로 돌아가기", key="back_from_locked", use_container_width=True):
+            goto("map")
+            st.rerun()
 
 
 def render_country():
@@ -3662,6 +3850,10 @@ def render_country():
     if not country:
         goto("map")
         st.rerun()
+        return
+
+    if not is_country_unlocked(code):
+        _render_country_locked(country, code)
         return
 
     char = get_character()
@@ -3803,17 +3995,30 @@ def _render_country_map_stage(country, char, code):
                 transform: scale(1.06);
             }}
         }}
-        .country-potion-sparkle {{
-            position: absolute; font-size: 1.5rem; pointer-events: none; z-index: 29;
+        /* 반짝이는 별을 독립된 <span>으로 절대좌표(top/left %)를 줘서 배치했었는데,
+           그 span의 위치 기준(가장 가까운 relative 조상)이 실제로는 포션 버튼과
+           달라서 퍼센트가 서로 다른 박스를 기준으로 계산돼 포션에서 한참 떨어져
+           보이는 버그가 있었다. 포션 버튼 자신의 ::before/::after로 붙이면 그
+           버튼 자체가 기준 박스가 되어 항상 포션과 겹치게 붙어있는게 보장된다. */
+        .st-key-open_country_potion.st-key-open_country_potion button::before,
+        .st-key-open_country_potion.st-key-open_country_potion button::after {{
+            content: '✨'; position: absolute; font-size: 1.6rem; pointer-events: none; z-index: 29;
             animation: sparkle-twinkle 1.5s ease-in-out infinite;
+        }}
+        .st-key-open_country_potion.st-key-open_country_potion button::before {{
+            top: -6px; left: -10px; animation-delay: 0s;
+        }}
+        .st-key-open_country_potion.st-key-open_country_potion button::after {{
+            top: 62%; left: 82%; animation-delay: .6s;
         }}
         @keyframes sparkle-twinkle {{
             0%, 100% {{ opacity: .15; transform: scale(.7) rotate(0deg); }}
             50%      {{ opacity: 1;   transform: scale(1.2) rotate(20deg); }}
         }}
         @media (prefers-reduced-motion: reduce) {{
-            .st-key-open_country_potion.st-key-open_country_potion button,
-            .country-potion-sparkle {{ animation: none !important; }}
+            .st-key-open_country_potion.st-key-open_country_potion button {{ animation: none !important; }}
+            .st-key-open_country_potion.st-key-open_country_potion button::before,
+            .st-key-open_country_potion.st-key-open_country_potion button::after {{ animation: none !important; }}
         }}
         </style>
         """
@@ -3836,9 +4041,6 @@ def _render_country_map_stage(country, char, code):
                 <div class="note-section">⚠ 유의사항</div>
                 <div class="{risk_class}">{html.escape(risk_text)}</div>
             </div>
-            <span class="country-potion-sparkle" style="top:28%; left:2%; animation-delay:0s;">✨</span>
-            <span class="country-potion-sparkle" style="top:52%; left:16%; animation-delay:.5s;">✨</span>
-            <span class="country-potion-sparkle" style="top:38%; left:13%; animation-delay:1s;">✨</span>
             """
         )
         if st.button(" ", key="open_country_potion", help="포션을 눌러 피부 궁합 확인하기"):
@@ -4233,15 +4435,19 @@ def _render_country_sheet_body(kind, country, char, code):
                 pass
 
     elif kind == "lipstick":
+        _render_skin_scan_section()
+        baseline = get_skin_baseline(char)
         with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
             rec = get_ai_cosmetic_recommendation(char, code)
         if rec:
             st.markdown(rec)
-            st.caption("✨ AI가 피부타입과 현지 기후를 분석해 추천했어요")
+            st.caption("✨ AI가 피부 baseline과 현지 기후를 분석해 추천했어요")
         else:
             st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
             for t in _quick_skin_tip(char, country):
                 st.write(f"- {t}")
+        if baseline["baseline_source"] == "self_reported":
+            st.caption("📝 자가 응답 기반 추천이라 스캔보다 정확도가 낮을 수 있어요")
 
     elif kind == "shop":
         st.markdown("**🧳 필수 아이템**")
