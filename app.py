@@ -687,7 +687,8 @@ def render_home():
             f"""
             <style>
             .st-key-start_dialog {{
-                max-width: 360px !important; margin: -3rem auto 1rem !important;
+                max-width: 360px !important; margin: 0 auto 1rem !important;
+                position: relative !important; top: -90px !important;
                 font-family: 'Press Start 2P', 'Jua', cursive;
                 border: 4px solid #b23a6e !important; border-radius: 10px !important;
                 overflow: hidden !important; background: #ffe6f0 !important;
