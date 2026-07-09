@@ -450,63 +450,62 @@ def _passport_dialog_css():
     html_block(
         """
         <style>
-        /* Streamlit 다이얼로그 카드 자체의 기본 흰 배경을 여권 페이지와 같은
-           크림색으로 덮어써서, 1단계(표지)·2단계(펼친 페이지) 모두 흰 테두리
-           없이 이어지게 한다. role="dialog"는 baseweb 모달의 표준 접근성
-           속성이라 Streamlit 버전이 바뀌어도 비교적 안정적으로 걸린다. */
-        /* 색을 바꾸는 게 아니라 카드 자체를 완전히 투명하게 — 크림색(#fffaf3)
-           정도로는 원래 흰색과 육안으로 거의 구분이 안 됐다. 이제 카드
-           배경/그림자/테두리를 다 지워서 여권(표지 그림·페이지)만 뜬다. */
-        div[data-testid="stDialog"][role="dialog"],
-        div[data-testid="stDialog"] [role="dialog"],
-        div[role="dialog"] {
+        /* role="dialog" 추정이 틀렸음 — 실제 프론트엔드 빌드를 뒤져보니 그
+           속성은 팝오버/컬러피커에만 쓰이고 st.dialog 카드에는 안 붙어있었다.
+           정확한 클래스명을 모를 때 가장 확실한 방법: data-testid="stDialog"
+           안의 모든 div 배경을 통째로 투명화하고, 우리가 정말 원하는 부분
+           (.page 등)만 아래에서 다시 명시적으로 색을 되살린다. */
+        div[data-testid="stDialog"] div {
             background: transparent !important;
             box-shadow: none !important;
-            border: none !important;
         }
         .p-body { padding-top: 2px; }
         /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자 */
-        .page {
-            background: #fffaf3; border-radius: 4px; padding: 18px 18px 12px;
-            min-height: 380px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        div[data-testid="stDialog"] .page {
+            background: #fffaf3 !important; border-radius: 4px; padding: 18px 18px 12px;
+            min-height: 380px; box-shadow: 0 1px 4px rgba(0,0,0,.06) !important;
         }
-        .page-left { border-right: 1px solid rgba(178,58,110,.15); box-shadow: inset -8px 0 12px -8px rgba(0,0,0,.12); }
-        .page-right { border-left: 1px solid rgba(178,58,110,.15); box-shadow: inset 8px 0 12px -8px rgba(0,0,0,.12); }
+        div[data-testid="stDialog"] .page-left {
+            border-right: 1px solid rgba(178,58,110,.15); box-shadow: inset -8px 0 12px -8px rgba(0,0,0,.12) !important;
+        }
+        div[data-testid="stDialog"] .page-right {
+            border-left: 1px solid rgba(178,58,110,.15); box-shadow: inset 8px 0 12px -8px rgba(0,0,0,.12) !important;
+        }
         @keyframes passport-reveal {
             0%   { opacity: 0; transform: translateY(-10px); }
             100% { opacity: 1; transform: translateY(0); }
         }
         .p-photo-row { display: flex; gap: 14px; align-items: center; margin-bottom: 8px; }
-        .p-photo-box {
+        div[data-testid="stDialog"] .p-photo-box {
             width: 86px; height: 108px; flex: 0 0 auto; border-radius: 10px;
-            background: linear-gradient(160deg,#3b3f7a,#171933);
+            background: linear-gradient(160deg,#3b3f7a,#171933) !important;
             display: flex; align-items: center; justify-content: center; overflow: hidden;
             border: 2px solid #ff6fb8;
         }
         .p-photo-box svg { width: 92%; height: auto; }
-        .p-name-big { font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.5rem; color: #9c2f5c; }
-        .p-passport-no { font-family: 'Jua', sans-serif; font-size: .8rem; color: #b26; letter-spacing: 1px; }
+        .p-name-big { font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.9rem; color: #9c2f5c; }
+        .p-passport-no { font-family: 'Jua', sans-serif; font-size: 1rem; color: #b26; letter-spacing: 1px; }
         .p-field {
             display: flex; justify-content: space-between; gap: 10px;
-            padding: 7px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
-            font-family: 'Jua', sans-serif; font-size: .82rem;
+            padding: 9px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
+            font-family: 'Jua', sans-serif; font-size: 1.05rem;
         }
         .p-label { color: #b23a6e; flex: 0 0 46%; white-space: nowrap; }
         .p-value { color: #4a2035; font-weight: 700; text-align: right; flex: 1; }
         .p-section-title {
             font-family: 'Gaegu', cursive; font-weight: 700; color: #9c2f5c;
-            font-size: 1.15rem; margin: 16px 0 8px;
+            font-size: 1.45rem; margin: 16px 0 8px;
         }
         .stamps-grid { display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 6px; }
-        .stamp {
+        div[data-testid="stDialog"] .stamp {
             width: 76px; text-align: center; padding: 8px 4px;
             border: 2.5px dashed #ff8fc0; border-radius: 12px;
-            transform: rotate(-4deg); background: rgba(255,143,192,.06);
+            transform: rotate(-4deg); background: rgba(255,143,192,.06) !important;
         }
         .stamp:nth-child(even) { transform: rotate(3deg); }
         .stamp-flag { font-size: 1.6rem; }
-        .stamp-name { font-family: 'Jua', sans-serif; font-size: .68rem; color: #9c2f5c; margin-top: 2px; }
-        .stamp-empty { font-family: 'Jua', sans-serif; font-size: .85rem; color: #a06; opacity: .8; }
+        .stamp-name { font-family: 'Jua', sans-serif; font-size: .8rem; color: #9c2f5c; margin-top: 2px; }
+        .stamp-empty { font-family: 'Jua', sans-serif; font-size: 1.05rem; color: #a06; opacity: .8; }
         /* 나만의 여행 꿀팁 — 줄노트 종이 느낌 */
         .st-key-passport_notes_input textarea {
             background-color: #fffdf6 !important;
