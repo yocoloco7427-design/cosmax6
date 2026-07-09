@@ -1143,17 +1143,22 @@ def render_coin_celebration():
         .coin-celebration-text {{
             position: relative; z-index: 2; text-align: center; padding: 0 6vw;
             font-family: 'Jua', sans-serif; font-weight: 900; color: #ff3d97;
-            font-size: clamp(1.5rem, 5.5vw, 3rem);
-            text-shadow: 3px 3px 0 #fff, -2px -2px 0 #fff, 3px -2px 0 #fff, -2px 3px 0 #fff,
-                         0 8px 24px rgba(255,111,184,.6);
+            font-size: clamp(2.1rem, 8vw, 4.4rem);
+            -webkit-text-stroke: 4px #fff; paint-order: stroke fill;
+            text-shadow:
+                0 3px 0 #fff0f7,
+                0 7px 0 #ffb3d9,
+                0 11px 0 #ff85c2,
+                0 15px 0 #e0559f,
+                0 22px 34px rgba(120,20,70,.55);
             animation: coin-text-pop 2s cubic-bezier(.22,1.4,.36,1) both;
         }}
         @keyframes coin-text-pop {{
-            0%   {{ transform: scale(.2); opacity: 0; }}
-            35%  {{ transform: scale(1.15); opacity: 1; }}
-            50%  {{ transform: scale(1); }}
-            82%  {{ transform: scale(1); opacity: 1; }}
-            100% {{ transform: scale(.85); opacity: 0; }}
+            0%   {{ transform: scale(.2) rotate(-4deg); opacity: 0; }}
+            35%  {{ transform: scale(1.15) rotate(-4deg); opacity: 1; }}
+            50%  {{ transform: scale(1) rotate(-4deg); }}
+            82%  {{ transform: scale(1) rotate(-4deg); opacity: 1; }}
+            100% {{ transform: scale(.85) rotate(-4deg); opacity: 0; }}
         }}
         @media (prefers-reduced-motion: reduce) {{
             .confetti-piece, .coin-celebration-text {{ animation: none !important; }}
@@ -4208,17 +4213,42 @@ def _render_country_scene_stage(country, char, code):
         .st-key-icn_hair {{ top: 46%; left: 85%; transform: translateX(-50%); }}
         .st-key-icn_carrier {{ top: 78%; left: 27%; transform: translateX(-50%); }}
         .st-key-icn_star {{ top: 78%; left: 73%; transform: translateX(-50%); }}
-        div[class*="st-key-icn_"] button {{
-            width: 84px !important; height: 84px !important; min-width: 0 !important;
-            border-radius: 50% !important; padding: 0 !important; font-size: 2.3rem !important;
-            background: #ffffff !important; border: 4px solid #ff9fd8 !important;
-            box-shadow: 0 8px 18px rgba(120,40,90,.35) !important;
-            transition: transform .12s ease;
+        /* 흰 원 배경 없이 이모지만 크게 — 자리에서 계속 살짝 흔들리도록 각자
+           다른 딜레이로 같은 float 애니메이션을 건다(딜레이를 다르게 줘야 6개가
+           똑같이 맞춰 움직이지 않고 자연스럽게 제각각 흔들린다). transform은
+           애니메이션이 매 프레임 덮어써서 :hover/:active로는 못 건드리니,
+           눌림 피드백은 filter(밝기)로 대신한다. */
+        /* Streamlit이 버튼 글자를 <p>로 한 번 더 감싸는데, 그 <p>에 자체
+           font-size(14px)가 박혀 있어서 button에 준 font-size가 상속되지 않고
+           씹혀버린다 — 실제 이모지를 담은 p 태그까지 직접 짚어서 키운다. */
+        div[class*="st-key-icn_"] button p {{
+            font-size: 4.4rem !important; line-height: 1 !important;
         }}
-        div[class*="st-key-icn_"] button:hover {{ transform: scale(1.12) translateY(-2px); }}
-        div[class*="st-key-icn_"] button:active {{ transform: scale(.94); }}
+        div[class*="st-key-icn_"] button {{
+            width: 96px !important; height: 96px !important; min-width: 0 !important;
+            padding: 0 !important;
+            background: transparent !important; border: none !important; box-shadow: none !important;
+            filter: drop-shadow(0 6px 10px rgba(60,30,60,.35));
+            transition: filter .12s ease;
+            animation: icon-float 3.2s ease-in-out infinite;
+        }}
+        div[class*="st-key-icn_"] button:hover {{ filter: drop-shadow(0 6px 10px rgba(60,30,60,.35)) brightness(1.15); }}
+        div[class*="st-key-icn_"] button:active {{ filter: drop-shadow(0 6px 10px rgba(60,30,60,.35)) brightness(.85); }}
+        @keyframes icon-float {{
+            0%, 100% {{ transform: translateY(0) rotate(-5deg); }}
+            50%      {{ transform: translateY(-10px) rotate(5deg); }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            div[class*="st-key-icn_"] button {{ animation: none !important; }}
+        }}
+        .st-key-icn_water button {{ animation-delay: 0s; }}
+        .st-key-icn_lipstick button {{ animation-delay: .5s; }}
+        .st-key-icn_shop button {{ animation-delay: 1s; }}
+        .st-key-icn_hair button {{ animation-delay: 1.5s; }}
+        .st-key-icn_carrier button {{ animation-delay: 2s; }}
+        .st-key-icn_star button {{ animation-delay: 2.5s; }}
         .st-key-icn_star button {{
-            {"background: linear-gradient(160deg,#ffe27a,#ffb347) !important; border-color:#ff9a1f !important;" if already_saved else ""}
+            {"filter: drop-shadow(0 0 14px rgba(255,190,60,.95)) !important;" if already_saved else ""}
         }}
         .scene-sparkle {{
             position: absolute; inset: 0; pointer-events: none; z-index: 8;
