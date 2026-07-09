@@ -348,6 +348,19 @@ SKIN_TONES = [
     {"id": "deep", "hex": "#C68858", "label": "딥"},
 ]
 
+# 피부타입/특이사항 -> 상태 뱃지(이모지+문구). 실사 캐릭터 그래픽 변형 대신
+# 텍스트+이모지 뱃지로 피부 상태를 표현한다 — 아래 get_skin_profile()을 통해
+# 패스포트 카드뿐 아니라 빠른 팁/AI 추천 등 다른 로직에서도 공통으로 재사용한다.
+SKIN_TYPE_BADGES = {
+    "건성": {"emoji": "🌾", "text": "푸석 주의 피부"},
+    "지성": {"emoji": "✨", "text": "번들거림 주의 피부"},
+    "복합성": {"emoji": "🌗", "text": "부위별 밸런스 피부"},
+}
+SKIN_EXTRA_BADGES = {
+    "민감성": {"emoji": "🌸", "text": "민감 케어 필요"},
+    "트러블": {"emoji": "🔥", "text": "트러블 케어 필요"},
+}
+
 # 캐릭터 미리보기 인형이 옷 스타일별로 입는 색 배합
 CLOTHING_STYLES = {
     "캐주얼": {"top": "#4a5d7a", "bottom": "#33333d", "shoe": "#f4f4f4", "sole": "#222222", "skirt": False},
@@ -505,10 +518,33 @@ if "active_country_sheet" not in st.session_state:
     st.session_state.active_country_sheet = None  # water/lipstick/shop/hair/carrier 중 열린 바텀시트
 if "just_saved_country_sparkle" not in st.session_state:
     st.session_state.just_saved_country_sparkle = False
+if "just_entered_country_scene" not in st.session_state:
+    st.session_state.just_entered_country_scene = False  # 지도->캐릭터 장면 전환 시 팝인 애니메이션 1회용
 
 
 def get_character():
     return st.session_state.character
+
+
+def get_skin_profile(char):
+    """캐릭터의 피부타입/특이사항을 정규화한 프로필 — 뷰티 패스포트 뱃지 표시와
+    이후의 모든 추천/진단 로직(빠른 팁, AI 코스메틱 추천, 애프터케어 등)이 공통
+    입력값으로 재사용한다. 실사 캐릭터 그래픽 변형 없이 이모지+문구 뱃지로만
+    피부 상태를 표현하는 현재 단계의 대체 표현이기도 하다."""
+    char = char or {}
+    skin_type = char.get("skin_type") or SKIN_TYPES[0]
+    extras = list(char.get("skin_type_extra") or [])
+    type_badge = SKIN_TYPE_BADGES.get(skin_type, SKIN_TYPE_BADGES[SKIN_TYPES[0]])
+    extra_badges = [
+        {"key": extra, **SKIN_EXTRA_BADGES[extra]} for extra in extras if extra in SKIN_EXTRA_BADGES
+    ]
+    return {
+        "skin_type": skin_type,
+        "extras": extras,
+        "badge_emoji": type_badge["emoji"],
+        "badge_text": type_badge["text"],
+        "extra_badges": extra_badges,
+    }
 
 
 def get_passport():
@@ -634,6 +670,13 @@ def _passport_bio_fields(char):
     skin_extra = ", ".join(char.get("skin_type_extra") or []) or "-"
     rows.append(f'<div class="p-field"><span class="p-label">SKIN NOTE · 피부 특이사항</span>'
                 f'<span class="p-value">{skin_extra}</span></div>')
+
+    profile = get_skin_profile(char)
+    badge_chips = [f'<span class="skin-badge">{profile["badge_emoji"]} {html.escape(profile["badge_text"])}</span>']
+    for extra_badge in profile["extra_badges"]:
+        badge_chips.append(f'<span class="skin-badge skin-badge-extra">{extra_badge["emoji"]} {html.escape(extra_badge["text"])}</span>')
+    rows.append(f'<div class="p-field skin-badge-row">{"".join(badge_chips)}</div>')
+
     personality = ", ".join(char.get("personality") or []) or "-"
     cosmetic = ", ".join(char.get("cosmetic_prefs") or []) or "-"
     outfit = char.get("outfit") or {}
@@ -733,6 +776,14 @@ def _passport_dialog_css():
         }
         .p-label { color: #b23a6e; flex: 0 0 46%; white-space: nowrap; }
         .p-value { color: #4a2035; font-weight: 700; text-align: right; flex: 1; }
+        .skin-badge-row { justify-content: flex-start !important; flex-wrap: wrap; gap: 6px; }
+        .skin-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-family: 'Jua', sans-serif; font-size: .92rem; font-weight: 700;
+            color: #9c2f5c; background: #ffe3f0; border: 1.5px solid #ff9fd8;
+            border-radius: 999px; padding: 4px 12px;
+        }
+        .skin-badge-extra { color: #7a3c9c; background: #f2e7ff; border-color: #c79bff; }
         .p-section-title {
             font-family: 'Gaegu', cursive; font-weight: 700; color: #9c2f5c;
             font-size: 1.45rem; margin: 16px 0 8px;
@@ -3041,18 +3092,18 @@ def render_map():
 
 
 def _quick_skin_tip(char, country):
-    """규칙 기반(즉시 응답) 피부타입×현지 기후 추천 — 포스트잇과 쇼핑 시트에서 재사용."""
-    skin_type = char.get("skin_type") or SKIN_TYPES[0]
-    extras = char.get("skin_type_extra") or []
+    """규칙 기반(즉시 응답) 피부타입×현지 기후 추천 — 포스트잇과 쇼핑 시트에서 재사용.
+    get_skin_profile()이 반환하는 정규화된 프로필을 입력값으로 쓴다."""
+    profile = get_skin_profile(char)
     base = {
         "건성": "고보습 크림·오일로 수분 방어막을 단단히 챙기세요",
         "지성": "가벼운 젤·워터 타입으로 유분 밸런스를 잡아주세요",
         "복합성": "부위별로 보습과 유분 조절 제품을 나눠 쓰는 게 좋아요",
     }
-    tips = [base.get(skin_type, base["복합성"])]
-    if "민감성" in extras:
+    tips = [base.get(profile["skin_type"], base["복합성"])]
+    if "민감성" in profile["extras"]:
         tips.append("저자극·무향 성분 위주로 챙기세요")
-    if "트러블" in extras:
+    if "트러블" in profile["extras"]:
         tips.append("살리실릭·티트리 등 트러블 케어 성분을 곁들이면 좋아요")
     if country.get("essentials"):
         tips.append(f"현지 추천템: {country['essentials'][0]}")
@@ -3084,13 +3135,16 @@ def _cached_ai_cosmetic_recommendation(skin_type, extras_key, prefs_key, country
 
 def get_ai_cosmetic_recommendation(char, country_code):
     """AI 추천에 성공하면 텍스트를, 키가 없거나 호출이 실패하면 None을 반환한다
-    (호출부는 None이면 규칙 기반 _quick_skin_tip으로 대체 표시)."""
+    (호출부는 None이면 규칙 기반 _quick_skin_tip으로 대체 표시).
+    get_skin_profile()의 정규화된 프로필을 입력값으로 써서 다른 추천 로직과
+    같은 피부타입/특이사항 판단 기준을 공유한다."""
     if not ANTHROPIC_API_KEY or anthropic is None:
         return None
+    profile = get_skin_profile(char)
     try:
         return _cached_ai_cosmetic_recommendation(
-            char.get("skin_type") or SKIN_TYPES[0],
-            tuple(sorted(char.get("skin_type_extra") or [])),
+            profile["skin_type"],
+            tuple(sorted(profile["extras"])),
             tuple(sorted(char.get("cosmetic_prefs") or [])),
             country_code,
         )
@@ -3167,7 +3221,11 @@ def _render_country_map_stage(country, char, code):
             transition: transform .15s ease;
         }}
         .st-key-enter_country_scene button:hover {{ transform: scale(1.008); }}
-        .st-key-enter_country_scene button:active {{ transform: scale(.99); }}
+        /* 탭하면 살짝 오래 눌린 것처럼 확 쪼그라들었다가(쏙 들어감), 다음 화면이
+           뜨면서 scene-pop-in으로 팝 튀어나오듯 확대돼 나오는(쏙 나옴) 느낌을 낸다 */
+        .st-key-enter_country_scene button:active {{
+            transform: scale(.72) !important; transition: transform .16s cubic-bezier(.4,0,.6,1) !important;
+        }}
         .st-key-enter_country_scene button::after {{
             content: '👆 탭해서 캐릭터 만나기'; position: absolute; left: 50%; bottom: 14px;
             transform: translateX(-50%); font-family: 'Jua', sans-serif; font-size: .95rem;
@@ -3210,6 +3268,7 @@ def _render_country_map_stage(country, char, code):
         )
         if st.button(" ", key="enter_country_scene"):
             st.session_state.country_stage = "scene"
+            st.session_state.just_entered_country_scene = True
             st.rerun()
 
     if st.button("⬅ 지도로 돌아가기", key="back_to_world_map"):
@@ -3227,6 +3286,12 @@ def _render_country_scene_stage(country, char, code):
     just_saved = st.session_state.just_saved_country_sparkle
     sparkle_rule = "animation: country-sparkle-burst 1s ease both;" if just_saved else ""
     st.session_state.just_saved_country_sparkle = False
+    # 지도 단계에서 막 넘어온 경우에만 한 번 "쏙 하고 튀어나오는" 팝인 애니메이션을 준다
+    # (탭 순간 지도 쪼그라드는 느낌은 위 :active 트랜지션이 맡고, 여기서는 그 다음 화면이
+    # 작은 점에서 확 튀어나오는 느낌을 완성한다)
+    just_entered = st.session_state.just_entered_country_scene
+    pop_rule = "animation: scene-pop-in .5s cubic-bezier(.22,1.4,.36,1) both;" if just_entered else ""
+    st.session_state.just_entered_country_scene = False
 
     html_block(
         f"""
@@ -3237,6 +3302,16 @@ def _render_country_scene_stage(country, char, code):
             border-radius: 22px; overflow: hidden; margin-bottom: 10px;
             background: linear-gradient(160deg, #ffd9ec 0%, #cfe8ff 55%, #fff3d6 100%);
             box-shadow: inset 0 0 0 4px rgba(255,255,255,.6), 0 16px 32px rgba(120,60,90,.25);
+            {pop_rule}
+        }}
+        @keyframes scene-pop-in {{
+            0%   {{ transform: scale(.05); opacity: 0; }}
+            55%  {{ transform: scale(1.08); opacity: 1; }}
+            75%  {{ transform: scale(.96); }}
+            100% {{ transform: scale(1); }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .scene-stage {{ animation: none !important; }}
         }}
         .scene-landmark-bg {{
             position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
@@ -3458,7 +3533,16 @@ def _country_action_sheet(country, char, code):
 def render_aftercare():
     st.title("💧 애프터케어")
     st.caption("여행 후 피부 상태에 맞는 케어 루틴을 확인하세요")
-    symptom = st.selectbox("지금 피부 상태는 어떤가요?", list(AFTERCARE_ADVICE.keys()))
+    profile = get_skin_profile(get_character())
+    symptom_options = list(AFTERCARE_ADVICE.keys())
+    if "트러블" in profile["extras"]:
+        default_symptom = "트러블"
+    elif profile["skin_type"] == "건성":
+        default_symptom = "건조"
+    else:
+        default_symptom = symptom_options[0]
+    default_index = symptom_options.index(default_symptom) if default_symptom in symptom_options else 0
+    symptom = st.selectbox("지금 피부 상태는 어떤가요?", symptom_options, index=default_index)
     if st.button("케어 루틴 보기", type="primary"):
         advice = AFTERCARE_ADVICE[symptom]
         st.subheader(f"추천 팩: {advice['pack']}")
