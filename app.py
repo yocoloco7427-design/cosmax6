@@ -4482,8 +4482,8 @@ def _bottom_sheet_css():
         div[data-testid="stDialog"] > div {
             position: fixed !important; left: 50% !important; top: 50% !important; bottom: auto !important;
             transform: translate(-50%, -50%) !important; margin: 0 !important;
-            max-width: min(95vw, 760px) !important; width: min(95vw, 760px) !important;
-            max-height: 90vh !important; overflow-y: auto !important;
+            max-width: min(96vw, 840px) !important; width: min(96vw, 840px) !important;
+            max-height: 92vh !important; overflow-y: auto !important;
             border-radius: 18px !important;
             animation: sheet-pop-in .32s cubic-bezier(.2,.9,.3,1.25) both;
         }
@@ -4529,59 +4529,60 @@ def _bottom_sheet_css():
             box-shadow: 0 6px 14px rgba(60,30,10,.4), inset 0 0 0 3px rgba(255,255,255,.5);
         }
         .sheet-ticket-title {
-            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.85rem;
+            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 2.6rem;
             color: #4a2f12; text-shadow: 0 1px 0 rgba(255,255,255,.4);
         }
         .sheet-ticket-sub {
-            font-family: 'Jua', sans-serif; font-size: .92rem; color: #6e4c26;
+            font-family: 'Jua', sans-serif; font-size: 1.2rem; color: #6e4c26;
             letter-spacing: .4px; margin-top: 4px; opacity: .9;
         }
         .sheet-ticket-stamp {
-            position: absolute; right: 30px; top: 22px; font-size: 2.2rem;
+            position: absolute; right: 30px; top: 22px; font-size: 2.6rem;
             opacity: .55; transform: rotate(10deg);
             filter: drop-shadow(0 2px 2px rgba(0,0,0,.3));
         }
         .sheet-divider {
-            text-align: center; color: #a5713b; font-size: .95rem; letter-spacing: 10px;
+            text-align: center; color: #a5713b; font-size: 1.2rem; letter-spacing: 10px;
             margin: 14px 0 4px; opacity: .6;
         }
         .st-key-sheet_body { padding: 10px 32px 32px; }
-        /* 본문에 쓰는 st.write/st.markdown 텍스트도 전체적으로 키워서 가독성 개선 */
+        /* 본문에 쓰는 st.write/st.markdown 텍스트도 전체적으로 키워서 가독성 개선 —
+           한 차례 더 키워달라는 요청으로 대폭 확대 */
         .st-key-sheet_body p, .st-key-sheet_body li,
         .st-key-sheet_body div[data-testid="stMarkdownContainer"] {
-            font-size: 1.15rem !important; line-height: 1.65 !important; color: #4a2f12 !important;
+            font-size: 1.55rem !important; line-height: 1.7 !important; color: #4a2f12 !important;
         }
-        .st-key-sheet_body div[data-testid="stMarkdownContainer"] strong { font-size: 1.2rem !important; }
-        .st-key-sheet_body div[data-testid="stCaptionContainer"] p { font-size: 1rem !important; }
+        .st-key-sheet_body div[data-testid="stMarkdownContainer"] strong { font-size: 1.6rem !important; }
+        .st-key-sheet_body div[data-testid="stCaptionContainer"] p { font-size: 1.3rem !important; }
         /* 기존 st.metric 스택은 라벨/숫자만 덜렁 나열돼 밋밋했다 — 아이콘 달린
            작은 통계 타일 그리드로 바꿔서 한눈에 훑어볼 수 있게 함 */
         .stat-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
-            margin: 4px 0 16px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+            margin: 6px 0 18px;
         }
         .stat-grid.stat-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
         .stat-tile {
             background: linear-gradient(160deg, #fffaf0 0%, #fbeecb 100%);
             border: 1.5px solid rgba(122,74,35,.35); border-radius: 14px;
-            padding: 14px 16px;
+            padding: 16px 18px;
         }
-        .stat-tile-icon { font-size: 1.3rem; margin-bottom: 3px; }
+        .stat-tile-icon { font-size: 1.8rem; margin-bottom: 4px; }
         .stat-tile-label {
-            font-family: 'Jua', sans-serif; font-size: .85rem; color: #8a5a10;
+            font-family: 'Jua', sans-serif; font-size: 1.15rem; color: #8a5a10;
             letter-spacing: .3px; text-transform: uppercase; opacity: .9;
         }
         .stat-tile-value {
-            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.3rem;
-            color: #4a2f12; margin-top: 3px; line-height: 1.35;
+            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.75rem;
+            color: #4a2f12; margin-top: 4px; line-height: 1.4;
         }
         .stat-tile-value.stat-tile-alert { color: #c0392b; }
         .sheet-note {
-            font-family: 'Jua', sans-serif; font-size: 1rem; color: #6e4c26;
+            font-family: 'Jua', sans-serif; font-size: 1.3rem; color: #6e4c26;
             margin: 4px 2px 16px; line-height: 1.55;
         }
         .st-key-close_country_sheet button {
             border-radius: 999px !important; font-family: 'Jua', sans-serif !important;
-            font-weight: 700 !important; font-size: 1.05rem !important; border: none !important;
+            font-weight: 700 !important; font-size: 1.4rem !important; border: none !important;
             background: linear-gradient(180deg,#4d3320,#241407) !important; color: #f1dfb8 !important;
             padding: 10px 0 !important;
         }
