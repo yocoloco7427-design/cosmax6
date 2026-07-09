@@ -5,6 +5,7 @@
 """
 import base64
 import random
+import time
 from pathlib import Path
 
 import streamlit as st
@@ -262,6 +263,8 @@ if "closet_category" not in st.session_state:
     st.session_state.closet_category = None
 if "show_page_transition" not in st.session_state:
     st.session_state.show_page_transition = False
+if "bubble_specs" not in st.session_state:
+    st.session_state.bubble_specs = None
 
 
 def get_character():
@@ -317,75 +320,136 @@ def render_back_button():
         st.rerun()
 
 
-def render_page_transition():
-    """네모바지 스펀지밥풍 기포 화면전환 — 다음 화면이 뜨자마자 한 번만 재생.
+def _generate_bubble_specs():
+    """화면을 뒤덮을 기포 배치를 한 번 만들어 큰 기포(정교)+작은 기포(가벼움)로 구성.
 
-    Streamlit은 클릭 즉시 새 화면을 통째로 다시 그리기 때문에, 실제로 두
-    화면 사이를 애니메이션으로 잇는 대신 새 화면 위에 기포로 뒤덮인
-    오버레이를 잠깐 덮었다가 걷어내는 방식으로 "전환되는 느낌"을 낸다.
+    각 기포는 도착 후 '쉬는' 위치(top/left)를 갖는다. 덮는 단계에서는 그
+    위치까지 아래에서 떠올라 멈추고, 걷히는 단계에서는 같은 위치에서
+    시작해 계속 위로 사라진다 — 두 렌더 사이(서버 sleep 경계)에도 기포
+    배치가 그대로 이어지도록 st.session_state에 저장해 재사용한다.
     """
+    specs = []
+    for _ in range(70):
+        specs.append({
+            "kind": "lg",
+            "size": round(random.uniform(46, 165)),
+            "left": round(random.uniform(-4, 98), 1),
+            "top": round(random.uniform(-4, 90), 1),
+            "delay": round(random.uniform(0, 0.9), 2),
+            "dur": round(random.uniform(1.1, 1.7), 2),
+            "op": round(random.uniform(.7, .95), 2),
+        })
+    for _ in range(280):
+        specs.append({
+            "kind": "sm",
+            "size": round(random.uniform(8, 34), 1),
+            "left": round(random.uniform(-2, 99), 1),
+            "top": round(random.uniform(-2, 96), 1),
+            "delay": round(random.uniform(0, 1.0), 2),
+            "dur": round(random.uniform(0.9, 1.5), 2),
+            "op": round(random.uniform(.5, .85), 2),
+        })
+    return specs
+
+
+def _bubble_layer_css():
+    return """
+    <style>
+    .bubble-layer { position: fixed; inset: 0; z-index: 999999; pointer-events: none; overflow: hidden; }
+    .bubble-layer span { position: absolute; border-radius: 50%; }
+    /* 큰 기포 — 사진 속 비눗방울처럼 속은 거의 투명, 좌상단 밝은 하이라이트,
+       가장자리는 얇고 은은한 무지개빛, 반대편은 살짝 그늘져 구(球) 느낌 */
+    .bubble-layer .b-lg {
+        background:
+            radial-gradient(circle at 30% 26%, rgba(255,255,255,.85) 0%, rgba(255,255,255,.18) 13%, rgba(255,255,255,0) 30%),
+            radial-gradient(circle at 66% 40%, rgba(255,225,235,.10) 0%, rgba(255,225,235,0) 42%),
+            radial-gradient(circle at 40% 65%, rgba(200,255,225,.08) 0%, rgba(200,255,225,0) 46%),
+            radial-gradient(circle at 55% 70%, rgba(120,150,190,.16) 0%, rgba(120,150,190,0) 55%),
+            radial-gradient(circle at 50% 50%, rgba(255,255,255,0) 55%, rgba(210,235,255,.08) 78%, rgba(255,255,255,.18) 92%, rgba(255,255,255,.04) 100%);
+        box-shadow:
+            inset 0 0 0 1px rgba(255,255,255,.4),
+            inset -8px -8px 14px rgba(110,140,180,.22),
+            inset 6px 6px 10px rgba(255,255,255,.35),
+            0 3px 8px rgba(30,40,70,.12);
+    }
+    .bubble-layer .b-lg::before {
+        content: ''; position: absolute; top: 9%; left: 15%; width: 36%; height: 19%;
+        border-radius: 50%; background: rgba(255,255,255,.85); filter: blur(1.2px);
+        transform: rotate(-22deg);
+    }
+    .bubble-layer .b-lg::after {
+        content: ''; position: absolute; bottom: 19%; right: 21%; width: 12%; height: 12%;
+        border-radius: 50%; background: rgba(255,255,255,.45);
+    }
+    /* 작은 기포 — 성능을 위해 단순한 그라데이션만 (밀도를 채우는 용도) */
+    .bubble-layer .b-sm {
+        background: radial-gradient(circle at 32% 28%,
+            rgba(255,255,255,.9) 0%, rgba(255,255,255,.28) 32%,
+            rgba(210,230,255,.12) 70%, rgba(255,255,255,.05) 100%);
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.3);
+    }
+    .bubble-layer .rise-in {
+        animation-name: bubble-rise-in;
+        animation-timing-function: cubic-bezier(.22,.7,.32,1);
+        animation-fill-mode: both;
+    }
+    @keyframes bubble-rise-in {
+        0%   { transform: translateY(130vh) scale(.35); opacity: 0; }
+        18%  { opacity: var(--maxop,.85); }
+        100% { transform: translateY(0) scale(1); opacity: var(--maxop,.85); }
+    }
+    .bubble-layer .rise-out {
+        animation-name: bubble-rise-out;
+        animation-timing-function: cubic-bezier(.4,0,.2,1);
+        animation-fill-mode: both;
+    }
+    @keyframes bubble-rise-out {
+        0%   { transform: translateY(0) scale(1); opacity: var(--maxop,.85); }
+        100% { transform: translateY(-130vh) scale(1.15); opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+        .bubble-layer { display: none !important; }
+    }
+    </style>
+    """
+
+
+def _bubble_spans(specs, phase):
+    motion = "rise-in" if phase == "cover" else "rise-out"
+    spans = []
+    for s in specs:
+        size_cls = "b-lg" if s["kind"] == "lg" else "b-sm"
+        spans.append(
+            f'<span class="{size_cls} {motion}" style="top:{s["top"]}%; left:{s["left"]}%; '
+            f'width:{s["size"]}px; height:{s["size"]}px; --maxop:{s["op"]}; '
+            f'animation-delay:{s["delay"]}s; animation-duration:{s["dur"]}s;"></span>'
+        )
+    return "".join(spans)
+
+
+def bubble_cover_seconds(specs):
+    """덮는 애니메이션이 완전히 끝나는 시점(초) — 이 시간만큼 서버를 sleep해서
+    '화면이 기포로 완전히 덮인 뒤에' 다음 화면으로 넘어가도록 맞춘다."""
+    return max(s["delay"] + s["dur"] for s in specs) + 0.15
+
+
+def render_bubble_cover(specs):
+    """1단계: 지금 화면 위로 기포가 떠올라 화면을 가득 채우고 그 자리에 멈춘다."""
+    html_block(_bubble_layer_css() + '<div class="bubble-layer">' + _bubble_spans(specs, "cover") + "</div>")
+
+
+def render_bubble_clear():
+    """2단계: (다음 화면이 막 렌더된 시점) 같은 배치의 기포가 이미 화면을 덮은
+    채로 시작해서 위로 빠져나가며 걷힌다 — 그래야 전환 순간 새 화면이
+    비치치 않고, 기포가 걷힌 뒤에야 드러난다."""
     if not st.session_state.show_page_transition:
         return
     st.session_state.show_page_transition = False
-
-    bubbles = []
-    for _ in range(80):
-        left = random.uniform(-3, 100)
-        size = random.uniform(34, 150)
-        delay = random.uniform(0, 0.6)
-        duration = random.uniform(1.3, 2.1)
-        drift = random.uniform(-50, 50)
-        maxop = random.uniform(.6, .95)
-        bubbles.append(
-            f'<span class="bubble" style="left:{left:.1f}%; width:{size:.0f}px; height:{size:.0f}px; '
-            f'--drift:{drift:.0f}px; --maxop:{maxop:.2f}; '
-            f'animation-delay:{delay:.2f}s; animation-duration:{duration:.2f}s;"></span>'
-        )
-
-    html_block(
-        """
-        <style>
-        .bubble-overlay {
-            position: fixed; inset: 0; z-index: 999999;
-            pointer-events: none; overflow: hidden;
-            background: transparent;
-        }
-        .bubble-overlay .bubble {
-            position: absolute; bottom: -15%;
-            border-radius: 50%;
-            /* 가장자리만 무지개빛 얇은 링으로 남기고 중앙은 완전히 투명하게 마스킹 */
-            background: conic-gradient(from 0deg,
-                rgba(255,190,210,.95), rgba(255,235,170,.9), rgba(200,255,190,.9),
-                rgba(170,220,255,.95), rgba(210,180,255,.95), rgba(255,190,210,.95));
-            -webkit-mask-image: radial-gradient(circle, transparent 56%, #000 62%, #000 90%, transparent 96%);
-            mask-image: radial-gradient(circle, transparent 56%, #000 62%, #000 90%, transparent 96%);
-            animation-name: bubble-rise;
-            animation-timing-function: cubic-bezier(.3,.62,.4,1);
-            animation-fill-mode: forwards;
-            opacity: 0;
-        }
-        .bubble-overlay .bubble::before {
-            content: ''; position: absolute; inset: 0; border-radius: 50%;
-            background:
-                radial-gradient(circle at 30% 26%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.5) 10%, rgba(255,255,255,0) 26%),
-                radial-gradient(circle at 68% 74%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 16%),
-                radial-gradient(circle, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 60%);
-        }
-        @keyframes bubble-rise {
-            0%   { transform: translateY(0) translateX(0) scale(.5); opacity: 0; }
-            12%  { opacity: var(--maxop, .85); }
-            80%  { opacity: var(--maxop, .85); }
-            100% { transform: translateY(-130vh) translateX(var(--drift,0px)) scale(1.1); opacity: 0; }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .bubble-overlay, .bubble-overlay .bubble { animation: none !important; display: none !important; }
-        }
-        </style>
-        <div class="bubble-overlay">
-        """
-        + "".join(bubbles)
-        + "</div>"
-    )
+    specs = st.session_state.bubble_specs
+    st.session_state.bubble_specs = None
+    if not specs:
+        return
+    html_block(_bubble_layer_css() + '<div class="bubble-layer">' + _bubble_spans(specs, "clear") + "</div>")
 
 
 # ----------------------------------------------------------------------
@@ -929,6 +993,10 @@ def render_home():
             """
         )
         if st.button("하트를 눌러 여행 시작", key="start_heart_btn"):
+            specs = _generate_bubble_specs()
+            st.session_state.bubble_specs = specs
+            render_bubble_cover(specs)
+            time.sleep(bubble_cover_seconds(specs))
             st.session_state.show_page_transition = True
             goto("character")
             st.rerun()
@@ -1454,4 +1522,4 @@ VIEWS = {
 }
 render_back_button()
 VIEWS.get(st.session_state.view, render_home)()
-render_page_transition()
+render_bubble_clear()
