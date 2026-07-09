@@ -4966,6 +4966,11 @@ def render_diagnosis():
         st.session_state.map_globe_opened = True
         st.rerun()
         return
+    # camera_input의 촬영된 정지 이미지(iframe 내부 img)가 scan 단계를 벗어난
+    # 뒤에도 DOM에 남아 옅게 비쳐 보이는 문제가 있다 -- 이 img를 숨기는 CSS 규칙이
+    # scan 단계 렌더링에만 있으면 단계가 바뀌면서 규칙 자체도 함께 사라져 버려서,
+    # 이 뷰에 있는 동안은 항상 숨겨지도록 여기서 단계와 무관하게 매번 주입한다.
+    html_block(_CAMERA_MIRROR_CSS)
     stage = st.session_state.diagnosis_stage
     # scan 단계의 camera_input(iframe 기반 커스텀 컴포넌트)이 다음 단계로 넘어갈 때
     # 완전히 지워지지 않고 옅게 남아 보이는 문제가 있어(Streamlit이 재실행 사이에
