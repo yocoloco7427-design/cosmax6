@@ -459,8 +459,8 @@ def _passport_dialog_css():
         .p-body { padding-top: 2px; }
         /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자 */
         .page {
-            background: #fffaf3; border-radius: 4px; padding: 14px 14px 10px;
-            min-height: 360px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+            background: #fffaf3; border-radius: 4px; padding: 18px 18px 12px;
+            min-height: 380px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
         }
         .page-left { border-right: 1px solid rgba(178,58,110,.15); box-shadow: inset -8px 0 12px -8px rgba(0,0,0,.12); }
         .page-right { border-left: 1px solid rgba(178,58,110,.15); box-shadow: inset 8px 0 12px -8px rgba(0,0,0,.12); }
@@ -468,51 +468,58 @@ def _passport_dialog_css():
             0%   { opacity: 0; transform: translateY(-10px); }
             100% { opacity: 1; transform: translateY(0); }
         }
-        .p-photo-row { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
+        .p-photo-row { display: flex; gap: 14px; align-items: center; margin-bottom: 8px; }
         .p-photo-box {
-            width: 66px; height: 82px; flex: 0 0 auto; border-radius: 8px;
+            width: 86px; height: 108px; flex: 0 0 auto; border-radius: 10px;
             background: linear-gradient(160deg,#3b3f7a,#171933);
             display: flex; align-items: center; justify-content: center; overflow: hidden;
             border: 2px solid #ff6fb8;
         }
         .p-photo-box svg { width: 92%; height: auto; }
-        .p-name-big { font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.3rem; color: #9c2f5c; }
-        .p-passport-no { font-family: 'Jua', sans-serif; font-size: .75rem; color: #b26; letter-spacing: 1px; }
+        .p-name-big { font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.5rem; color: #9c2f5c; }
+        .p-passport-no { font-family: 'Jua', sans-serif; font-size: .8rem; color: #b26; letter-spacing: 1px; }
         .p-field {
             display: flex; justify-content: space-between; gap: 10px;
-            padding: 4px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
-            font-family: 'Jua', sans-serif; font-size: .8rem;
+            padding: 7px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
+            font-family: 'Jua', sans-serif; font-size: .82rem;
         }
         .p-label { color: #b23a6e; flex: 0 0 42%; }
         .p-value { color: #4a2035; font-weight: 700; text-align: right; flex: 1; }
         .p-section-title {
             font-family: 'Gaegu', cursive; font-weight: 700; color: #9c2f5c;
-            font-size: 1.05rem; margin: 12px 0 6px;
+            font-size: 1.15rem; margin: 16px 0 8px;
         }
-        .stamps-grid { display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 2px; }
+        .stamps-grid { display: flex; flex-wrap: wrap; gap: 10px; padding-bottom: 6px; }
         .stamp {
-            width: 64px; text-align: center; padding: 5px 3px;
-            border: 2px dashed #ff8fc0; border-radius: 10px;
+            width: 76px; text-align: center; padding: 8px 4px;
+            border: 2.5px dashed #ff8fc0; border-radius: 12px;
             transform: rotate(-4deg); background: rgba(255,143,192,.06);
         }
         .stamp:nth-child(even) { transform: rotate(3deg); }
-        .stamp-flag { font-size: 1.3rem; }
-        .stamp-name { font-family: 'Jua', sans-serif; font-size: .64rem; color: #9c2f5c; margin-top: 1px; }
+        .stamp-flag { font-size: 1.6rem; }
+        .stamp-name { font-family: 'Jua', sans-serif; font-size: .68rem; color: #9c2f5c; margin-top: 2px; }
         .stamp-empty { font-family: 'Jua', sans-serif; font-size: .85rem; color: #a06; opacity: .8; }
-        /* 닫힌 표지: 표지 그림 자체가 버튼 — 다른 글씨/버튼 없이 그림만 크게, 누르면 펼쳐짐 */
-        .st-key-open_passport_cover button {
-            width: 100% !important; height: 300px !important; padding: 24px !important;
+        /* 닫힌 표지: 표지 그림 자체가 버튼 — 다른 글씨/버튼 없이 그림만 크게, 누르면 펼쳐짐.
+           이미지는 버튼 자신의 background가 아니라 ::before 가상요소에 얹는다 —
+           하트 버튼에서 이미 검증된 방식으로, 버튼 자체의 background/width에 직접
+           걸면 Streamlit 내부 스타일에 밀려 안 먹히는 경우가 있었다.
+           .st-key-...를 두 번 겹쳐 써서 명시도도 추가로 올려둠. */
+        .st-key-open_passport_cover.st-key-open_passport_cover button {
+            position: relative !important;
+            width: 100% !important; height: 320px !important; padding: 0 !important;
+            min-width: 0 !important; max-width: none !important;
             border: none !important; border-radius: 14px !important; box-sizing: border-box !important;
-            background-color: #fff0f6 !important;
-            background-image: url('__PASSPORT_URI__') !important;
-            background-origin: content-box !important;
-            background-size: contain !important; background-position: center !important;
-            background-repeat: no-repeat !important;
-            color: transparent !important; font-size: 0 !important;
+            background: #fff0f6 !important;
+            color: transparent !important; font-size: 0 !important; overflow: hidden !important;
             transition: transform .15s ease;
         }
-        .st-key-open_passport_cover button:hover { transform: scale(1.02); }
-        .st-key-open_passport_cover button:active { transform: scale(.98); }
+        .st-key-open_passport_cover.st-key-open_passport_cover button::before {
+            content: ''; position: absolute; inset: 22px;
+            background-image: url('__PASSPORT_URI__');
+            background-size: contain; background-position: center; background-repeat: no-repeat;
+        }
+        .st-key-open_passport_cover.st-key-open_passport_cover button:hover { transform: scale(1.02); }
+        .st-key-open_passport_cover.st-key-open_passport_cover button:active { transform: scale(.98); }
         </style>
         """.replace("__PASSPORT_URI__", PASSPORT_ICON_URI)
     )
@@ -525,7 +532,7 @@ def _beauty_passport_dialog():
 
     if not st.session_state.passport_page_open:
         # 닫힌 표지 — 그림 자체를 누르면 펼쳐진다 (별도 안내 문구/버튼 없음)
-        if st.button(" ", key="open_passport_cover"):
+        if st.button(" ", key="open_passport_cover", use_container_width=True):
             st.session_state.passport_page_open = True
             st.session_state.just_opened_passport_page = True
             st.rerun()
