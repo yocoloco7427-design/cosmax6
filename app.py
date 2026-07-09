@@ -49,6 +49,7 @@ COUNTRIES = {
         "flag": "🗾",
         "landmark": "🗼",
         "geo": "35.6895;139.6917",
+        "aqi_station": "japan/shinjuku-ku-/kuni-tokyo--shinjuku-/",
         "climate": "온난 습윤. 여름엔 고온다습, 겨울은 건조",
         "humidity": "평균 65% (한국보다 다소 높음)",
         "temp_diff": "여름 기준 +2°C",
@@ -165,13 +166,17 @@ def _aqi_level_label(aqi):
 
 
 @st.cache_data(show_spinner=False, ttl=1800)
-def get_air_quality(geo):
-    """WAQI(World Air Quality Index) API에서 해당 좌표의 실시간 미세먼지 지수를 가져온다."""
+def get_air_quality(feed_path):
+    """WAQI(World Air Quality Index) API에서 실시간 미세먼지 지수를 가져온다.
+
+    feed_path는 특정 측정소 경로(예: "japan/shinjuku-ku-/kuni-tokyo--shinjuku-/",
+    aqicn.org 도시 페이지 URL과 동일한 형식) 또는 좌표 기반 "geo:lat;lon" 형식.
+    """
     if not WAQI_TOKEN:
         return None
     try:
         resp = requests.get(
-            f"https://api.waqi.info/feed/geo:{geo}/",
+            f"https://api.waqi.info/feed/{feed_path}/",
             params={"token": WAQI_TOKEN},
             timeout=5,
         )
@@ -179,8 +184,11 @@ def get_air_quality(geo):
         if data.get("status") != "ok":
             return None
         d = data["data"]
+        iaqi = d.get("iaqi") or {}
         return {
             "aqi": d.get("aqi"),
+            "pm25": (iaqi.get("pm25") or {}).get("v"),
+            "pm10": (iaqi.get("pm10") or {}).get("v"),
             "station": (d.get("city") or {}).get("name", ""),
         }
     except (requests.RequestException, ValueError, KeyError):
@@ -2246,6 +2254,16 @@ def render_map():
                 st.markdown(f"### {c['flag']} {c['landmark']}")
                 st.markdown(f"**{c['name']}**")
                 st.caption(c["climate"])
+                feed_path = c.get("aqi_station") or (
+                    f"geo:{c['geo']}" if c.get("geo") else None
+                )
+                aq = get_air_quality(feed_path) if feed_path else None
+                if aq and aq.get("aqi") not in (None, "-"):
+                    try:
+                        aqi_val = int(aq["aqi"])
+                        st.caption(f"🌫️ 미세먼지 AQI {aqi_val} · {_aqi_level_label(aqi_val)}")
+                    except (TypeError, ValueError):
+                        pass
                 if st.button("자세히 보기", key=f"detail_{code}", use_container_width=True):
                     st.session_state.selected_country = code
                     goto("country")
@@ -2277,13 +2295,22 @@ def render_country():
     with col1:
         st.metric("기후", country["climate"])
         st.metric("습도", country["humidity"])
-        aq = get_air_quality(country["geo"]) if country.get("geo") else None
+        feed_path = country.get("aqi_station") or (
+            f"geo:{country['geo']}" if country.get("geo") else None
+        )
+        aq = get_air_quality(feed_path) if feed_path else None
         if aq and aq.get("aqi") not in (None, "-"):
             try:
                 aqi_val = int(aq["aqi"])
                 st.metric("미세먼지 (AQI)", f"{aqi_val} · {_aqi_level_label(aqi_val)}")
-                if aq.get("station"):
-                    st.caption(f"측정소: {aq['station']}")
+                pm_parts = []
+                if aq.get("pm25") is not None:
+                    pm_parts.append(f"PM2.5 {aq['pm25']}㎍/㎥")
+                if aq.get("pm10") is not None:
+                    pm_parts.append(f"PM10 {aq['pm10']}㎍/㎥")
+                caption_bits = pm_parts + ([f"측정소: {aq['station']}"] if aq.get("station") else [])
+                if caption_bits:
+                    st.caption(" · ".join(caption_bits))
             except (TypeError, ValueError):
                 st.metric("미세먼지 (AQI)", "정보 없음")
         else:
