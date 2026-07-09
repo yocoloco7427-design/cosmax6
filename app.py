@@ -413,32 +413,26 @@ PASSPORT_FIELD_LABELS = {
 
 
 def _passport_bio_fields(char):
-    """왼쪽 페이지 — 신원 정보 (여권 기본 페이지 느낌)."""
+    """왼쪽 페이지 — 선택한 정보 전부 (여권 기본 페이지처럼 한 곳에 모아서)."""
     rows = ['<div class="p-field"><span class="p-label">NATIONALITY · 국적</span>'
             '<span class="p-value">Republic of Cosmax</span></div>']
     for key, label in PASSPORT_FIELD_LABELS.items():
         value = char.get(key) or "-"
         rows.append(f'<div class="p-field"><span class="p-label">{label}</span>'
                     f'<span class="p-value">{value}</span></div>')
-    return "".join(rows)
 
-
-def _passport_extra_fields(char):
-    """오른쪽 페이지 상단 — 성격/취향/착용 아이템."""
     personality = ", ".join(char.get("personality") or []) or "-"
     cosmetic = ", ".join(char.get("cosmetic_prefs") or []) or "-"
     outfit = char.get("outfit") or {}
     acc = char.get("accessories") or {}
     equipped = [_catalog_label(k, v) for k, v in {**outfit, **acc}.items() if v]
     equipped_str = ", ".join(equipped) if equipped else "-"
-    rows = [
-        f'<div class="p-field"><span class="p-label">PERSONALITY · 성격 특성</span>'
-        f'<span class="p-value">{personality}</span></div>',
-        f'<div class="p-field"><span class="p-label">COSMETIC PREFS · 화장품 취향</span>'
-        f'<span class="p-value">{cosmetic}</span></div>',
-        f'<div class="p-field"><span class="p-label">EQUIPPED · 착용 중</span>'
-        f'<span class="p-value">{equipped_str}</span></div>',
-    ]
+    rows.append(f'<div class="p-field"><span class="p-label">PERSONALITY · 성격 특성</span>'
+                f'<span class="p-value">{personality}</span></div>')
+    rows.append(f'<div class="p-field"><span class="p-label">COSMETIC PREFS · 화장품 취향</span>'
+                f'<span class="p-value">{cosmetic}</span></div>')
+    rows.append(f'<div class="p-field"><span class="p-label">EQUIPPED · 착용 중</span>'
+                f'<span class="p-value">{equipped_str}</span></div>')
     return "".join(rows)
 
 
@@ -499,22 +493,34 @@ def _passport_dialog_css():
         .stamp-flag { font-size: 1.6rem; }
         .stamp-name { font-family: 'Jua', sans-serif; font-size: .68rem; color: #9c2f5c; margin-top: 2px; }
         .stamp-empty { font-family: 'Jua', sans-serif; font-size: .85rem; color: #a06; opacity: .8; }
+        /* 나만의 여행 꿀팁 — 줄노트 종이 느낌 */
+        .st-key-passport_notes_input textarea {
+            background-color: #fffdf6 !important;
+            background-image: repeating-linear-gradient(
+                to bottom, transparent 0, transparent 27px, rgba(178,58,110,.18) 28px
+            ) !important;
+            background-position: 0 6px !important;
+            font-family: 'Gaegu', cursive !important; font-size: .95rem !important;
+            line-height: 28px !important; color: #6a3d55 !important;
+            border: 1.5px dashed rgba(178,58,110,.35) !important; border-radius: 8px !important;
+        }
         /* 닫힌 표지: 표지 그림 자체가 버튼 — 다른 글씨/버튼 없이 그림만 크게, 누르면 펼쳐짐.
            이미지는 버튼 자신의 background가 아니라 ::before 가상요소에 얹는다 —
            하트 버튼에서 이미 검증된 방식으로, 버튼 자체의 background/width에 직접
            걸면 Streamlit 내부 스타일에 밀려 안 먹히는 경우가 있었다.
            .st-key-...를 두 번 겹쳐 써서 명시도도 추가로 올려둠. */
+        /* 카드/배경 없이 여권 그림 자체만 떠 있게 — 배경은 완전히 투명 */
         .st-key-open_passport_cover.st-key-open_passport_cover button {
             position: relative !important;
             width: 100% !important; height: 320px !important; padding: 0 !important;
             min-width: 0 !important; max-width: none !important;
-            border: none !important; border-radius: 14px !important; box-sizing: border-box !important;
-            background: #fff0f6 !important;
+            border: none !important; border-radius: 0 !important; box-sizing: border-box !important;
+            background: transparent !important; box-shadow: none !important;
             color: transparent !important; font-size: 0 !important; overflow: hidden !important;
             transition: transform .15s ease;
         }
         .st-key-open_passport_cover.st-key-open_passport_cover button::before {
-            content: ''; position: absolute; inset: 22px;
+            content: ''; position: absolute; inset: 4px;
             background-image: url('__PASSPORT_URI__');
             background-size: contain; background-position: center; background-repeat: no-repeat;
         }
@@ -568,7 +574,6 @@ def _beauty_passport_dialog():
         html_block(
             f"""
             <div class="page page-right" style="{reveal_rule}">
-                {_passport_extra_fields(char)}
                 <div class="p-section-title">✈ VISA STAMPS</div>
                 <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
                 <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
@@ -577,8 +582,8 @@ def _beauty_passport_dialog():
         )
         st.session_state.passport_notes = st.text_area(
             "나만의 여행 꿀팁", value=st.session_state.passport_notes,
-            key="passport_notes_input", height=90, label_visibility="collapsed",
-            placeholder="여행하면서 알게 된 나만의 꿀팁을 적어보세요 ...",
+            key="passport_notes_input", height=220, label_visibility="collapsed",
+            placeholder="여행하면서 알게 된 나만의 꿀팁, 다음 여행 계획, 기억하고\n싶은 것들을 자유롭게 적어보세요 ✎ ...",
         )
 
     if st.button("✕ 닫기", key="close_passport_btn", use_container_width=True):
