@@ -4,6 +4,7 @@
 게임풍 여행 뷰티 케어 웹앱 MVP
 """
 import base64
+import html
 import random
 import time
 from pathlib import Path
@@ -295,7 +296,9 @@ if "passport_page_open" not in st.session_state:
 if "just_opened_passport_page" not in st.session_state:
     st.session_state.just_opened_passport_page = False
 if "passport_notes" not in st.session_state:
-    st.session_state.passport_notes = ""
+    st.session_state.passport_notes = []  # 적립된 "나만의 여행 꿀팁" 목록 (각 항목 = 한 줄)
+if "tip_input_counter" not in st.session_state:
+    st.session_state.tip_input_counter = 0  # 입력창을 매번 새 위젯으로 만들어 제출 후 비우기 위한 값
 
 
 def get_character():
@@ -446,6 +449,12 @@ def _passport_stamps_html(saved):
     )
 
 
+def _passport_tips_html(notes):
+    if not notes:
+        return '<div class="tip-empty">아직 적은 꿀팁이 없어요 — 맨 아래 칸에 적어보세요 ✎</div>'
+    return "".join(f'<div class="tip-entry">🩷 {html.escape(n)}</div>' for n in notes)
+
+
 def _passport_dialog_css():
     html_block(
         """
@@ -467,21 +476,29 @@ def _passport_dialog_css():
         /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자 */
         div[data-testid="stDialog"] .page {
             background: #fffaf3 !important; padding: 20px 20px 14px;
-            min-height: 380px; box-sizing: border-box;
-            border-top: 4px solid #ff6fb8 !important; border-bottom: 4px solid #ff6fb8 !important;
-            box-shadow: 0 10px 24px rgba(120,40,90,.25) !important;
+            min-height: 380px; box-sizing: border-box; border-style: solid !important;
+            box-shadow: 0 18px 36px rgba(120,40,90,.34), inset 0 0 0 2px rgba(255,255,255,.55) !important;
         }
-        /* 왼/오른 페이지 바깥쪽에만 분홍 테두리를 둘러 하나의 책처럼 보이게 하고,
-           안쪽(제본선)에는 그림자로 명암을 줘서 접힌 느낌을 낸다 */
+        /* 위/왼쪽은 밝은 핑크(빛을 받는 쪽), 아래/바깥쪽은 진한 로즈(그늘)로
+           둘러 가죽 장정처럼 도드라진 느낌을 주고, 제본선 쪽엔 진한 안쪽
+           그림자로 접힌 명암을 표현한다 */
         div[data-testid="stDialog"] .page-left {
-            border-left: 4px solid #ff6fb8 !important; border-right: none !important;
-            border-radius: 14px 0 0 14px;
-            box-shadow: inset -14px 0 22px -12px rgba(40,10,40,.3), 0 10px 24px rgba(120,40,90,.25) !important;
+            border-width: 6px !important;
+            border-color: #ffcfe8 #b81862 #b81862 #ffcfe8 !important; /* top right bottom left */
+            border-right: none !important; border-radius: 18px 0 0 18px;
+            box-shadow:
+                inset -18px 0 28px -12px rgba(30,5,30,.45),
+                inset 0 3px 0 rgba(255,255,255,.6),
+                0 18px 36px rgba(120,40,90,.34) !important;
         }
         div[data-testid="stDialog"] .page-right {
-            border-right: 4px solid #ff6fb8 !important; border-left: none !important;
-            border-radius: 0 14px 14px 0;
-            box-shadow: inset 14px 0 22px -12px rgba(40,10,40,.3), 0 10px 24px rgba(120,40,90,.25) !important;
+            border-width: 6px !important;
+            border-color: #ffcfe8 #b81862 #b81862 #ffcfe8 !important; /* top right bottom left */
+            border-left: none !important; border-radius: 0 18px 18px 0;
+            box-shadow:
+                inset 18px 0 28px -12px rgba(30,5,30,.45),
+                inset 0 3px 0 rgba(255,255,255,.6),
+                0 18px 36px rgba(120,40,90,.34) !important;
         }
         @keyframes passport-reveal {
             0%   { opacity: 0; transform: translateY(-10px); }
@@ -518,16 +535,24 @@ def _passport_dialog_css():
         .stamp-flag { font-size: 1.6rem; }
         .stamp-name { font-family: 'Jua', sans-serif; font-size: .8rem; color: #9c2f5c; margin-top: 2px; }
         .stamp-empty { font-family: 'Jua', sans-serif; font-size: 1.05rem; color: #a06; opacity: .8; }
-        /* 나만의 여행 꿀팁 — 줄노트 종이 느낌 */
-        .st-key-passport_notes_input textarea {
+        /* 나만의 여행 꿀팁 — 적립된 항목들을 목록으로 */
+        .tips-list { display: flex; flex-direction: column; gap: 6px; }
+        .tip-entry {
+            font-family: 'Gaegu', cursive; font-size: 1rem; color: #6a3d55;
+            background: rgba(255,143,192,.08); border-radius: 8px; padding: 6px 10px;
+        }
+        .tip-empty { font-family: 'Jua', sans-serif; font-size: .95rem; color: #a06; opacity: .8; }
+        /* 여권 맨 아래에 붙는 한 줄 입력창 — 책의 일부처럼 핑크 테두리로 마감 */
+        .st-key-tip_input_row { margin-top: -4px !important; margin-bottom: 10px !important; }
+        .st-key-tip_input_row input {
             background-color: #fffdf6 !important;
-            background-image: repeating-linear-gradient(
-                to bottom, transparent 0, transparent 27px, rgba(178,58,110,.18) 28px
-            ) !important;
-            background-position: 0 6px !important;
-            font-family: 'Gaegu', cursive !important; font-size: .95rem !important;
-            line-height: 28px !important; color: #6a3d55 !important;
-            border: 1.5px dashed rgba(178,58,110,.35) !important; border-radius: 8px !important;
+            font-family: 'Gaegu', cursive !important; font-size: 1rem !important;
+            color: #6a3d55 !important;
+            border: 2px solid #ff9fd8 !important; border-radius: 10px !important;
+            padding: 10px 14px !important;
+        }
+        .st-key-tip_input_row input:focus {
+            border-color: #ff6fb8 !important; box-shadow: 0 0 0 3px rgba(255,111,184,.25) !important;
         }
         /* 닫힌 표지: 표지 그림 자체가 버튼 — 다른 글씨/버튼 없이 그림만 크게, 누르면 펼쳐짐.
            이미지는 버튼 자신의 background가 아니라 ::before 가상요소에 얹는다 —
@@ -556,7 +581,17 @@ def _passport_dialog_css():
     )
 
 
-@st.dialog("Beauty Passport", width="large", icon="📔")
+def _dismiss_passport():
+    """다이얼로그 기본 X/ESC/바깥 클릭으로 닫았을 때도 show_passport를 꺼준다.
+
+    이걸 안 하면 우리 쪽 상태는 계속 True로 남아있어서, 그 뒤 화면 아무
+    곳이나 클릭해 스크립트가 다시 실행될 때마다 여권이 또 뜨는 버그가 생김
+    (기본 X는 우리 코드를 거치지 않고 프레임워크가 자체적으로 닫기 때문)."""
+    st.session_state.show_passport = False
+    st.session_state.passport_page_open = False
+
+
+@st.dialog("Beauty Passport", width="large", icon="📔", on_dismiss=_dismiss_passport)
 def _beauty_passport_dialog():
     _passport_dialog_css()
     char = get_character() or {}
@@ -586,7 +621,7 @@ def _beauty_passport_dialog():
                 <div class="p-photo-row">
                     <div class="p-photo-box">{doll_svg}</div>
                     <div>
-                        <div class="p-name-big">{char.get("name") or "여행자"}</div>
+                        <div class="p-name-big">{html.escape(char.get("name") or "여행자")}</div>
                         <div class="p-passport-no">NO. COSMAX-0001</div>
                     </div>
                 </div>
@@ -602,14 +637,23 @@ def _beauty_passport_dialog():
                 <div class="p-section-title">✈ VISA STAMPS</div>
                 <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
                 <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
+                <div class="tips-list">{_passport_tips_html(st.session_state.passport_notes)}</div>
             </div>
             """
         )
-        st.session_state.passport_notes = st.text_area(
-            "나만의 여행 꿀팁", value=st.session_state.passport_notes,
-            key="passport_notes_input", height=220, label_visibility="collapsed",
-            placeholder="여행하면서 알게 된 나만의 꿀팁, 다음 여행 계획, 기억하고\n싶은 것들을 자유롭게 적어보세요 ✎ ...",
+
+    # 여권 맨 아래에 붙는 한 줄 입력창 — 여기 적고 Enter 치면 위 '나만의 여행
+    # 꿀팁' 목록에 새 줄로 쌓인다. key를 매번 바꿔서(tip_input_counter)
+    # 제출 후 입력창이 자동으로 비워지게 한다.
+    with st.container(key="tip_input_row"):
+        new_tip = st.text_input(
+            "나만의 여행 꿀팁 추가", key=f"tip_input_{st.session_state.tip_input_counter}",
+            placeholder="✎ 나만의 여행 꿀팁을 적고 Enter를 눌러보세요", label_visibility="collapsed",
         )
+    if new_tip and new_tip.strip():
+        st.session_state.passport_notes.append(new_tip.strip())
+        st.session_state.tip_input_counter += 1
+        st.rerun()
 
     if st.button("✕ 닫기", key="close_passport_btn", use_container_width=True):
         st.session_state.show_passport = False
