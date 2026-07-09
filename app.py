@@ -193,6 +193,46 @@ def goto(view):
     st.session_state.view = view
 
 
+# 화면 트리상 "뒤로" 가 어디를 가리키는지 — 히스토리 스택 없이 고정 계층으로 정의
+PARENT_VIEW = {
+    "character": "home",
+    "map": "character",
+    "country": "map",
+    "passport": "map",
+    "aftercare": "map",
+}
+
+
+def render_back_button():
+    """모든 화면 좌상단에 뒤로가기 버튼을 표시한다 (홈처럼 상위 화면이 없으면 숨김)."""
+    parent = PARENT_VIEW.get(st.session_state.view)
+    if not parent:
+        return
+    st.markdown(
+        """
+        <style>
+        .st-key-back_btn button {
+            width: 46px !important; height: 46px !important;
+            min-width: 46px !important; max-width: 46px !important;
+            min-height: 46px !important; max-height: 46px !important;
+            border-radius: 50% !important; padding: 0 !important;
+            background: #ffffff !important; border: 3px solid #ff6fb8 !important;
+            color: #ff3d97 !important; font-size: 1.4rem !important; font-weight: 900 !important;
+            box-shadow: 0 4px 10px rgba(120,40,90,.25);
+            transition: transform .12s ease;
+        }
+        .st-key-back_btn button:hover { transform: translateY(-2px) scale(1.05); }
+        .st-key-back_btn button:active { transform: translateY(1px) scale(.97); }
+        .st-key-back_btn { margin: -0.5rem 0 .5rem 0; }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+    if st.button("←", key="back_btn", help="뒤로 가기"):
+        goto(parent)
+        st.rerun()
+
+
 # ----------------------------------------------------------------------
 # 전역 테마 — 파스텔 하늘 + 크고 다양한 구름이 많이 둥둥
 # 모든 화면 공통. 아이콘/버튼 클릭 시 view 가 바뀌며 화면이 전환된다.
@@ -411,7 +451,7 @@ def render_home():
         .stage {{
             position: relative;
             width: 100%;
-            height: min(76vh, 700px);
+            height: min(84vh, 800px);
             margin: 0 auto;
             perspective: 1400px;
             overflow: hidden;
@@ -553,19 +593,19 @@ def render_home():
             100% {{ transform: scale(1); }}
         }}
         .hero-sub {{
-            position: absolute; left: 50%; top: 19%;
+            position: absolute; left: 50%; top: 71%;
             transform: translateX(-50%);
-            width: auto; max-width: 88%;
+            width: auto; max-width: 94%;
             text-align: center;
             font-family: 'Gamja Flower', 'Jua', cursive;
-            font-size: clamp(1.9rem,4vw,2.9rem);
-            font-weight: 700; line-height: 1.3;
+            font-size: clamp(2.6rem,6vw,4.2rem);
+            font-weight: 700; line-height: 1.35;
             color: #ffffff; z-index: 6;
-            padding: .3em .9em;
-            background: linear-gradient(180deg, rgba(130,55,150,.6), rgba(95,30,115,.48));
-            border-radius: 22px;
-            box-shadow: 0 8px 20px rgba(40,10,60,.35), inset 0 0 0 2px rgba(255,255,255,.4);
-            text-shadow: 0 2px 0 rgba(0,0,0,.3);
+            padding: .25em 1em;
+            background: linear-gradient(180deg, rgba(130,55,150,.62), rgba(95,30,115,.5));
+            border-radius: 26px;
+            box-shadow: 0 10px 24px rgba(40,10,60,.4), inset 0 0 0 3px rgba(255,255,255,.45);
+            text-shadow: 0 3px 0 rgba(0,0,0,.32);
             animation: rise .9s ease 2.6s both;
         }}
         @keyframes rise {{ from{{ opacity:0; transform: translateX(-50%) translateY(18px);}} to{{ opacity:1; transform: translateX(-50%) translateY(0);}} }}
@@ -611,77 +651,8 @@ def render_home():
             100% {{ left: -22%; opacity: 0; }}
         }}
 
-        /* ---- start game? 픽셀 다이얼로그 — 타이틀 애니메이션이 끝난 뒤 등장 ---- */
-        .start-dialog {{
-            max-width: 360px; margin: -.5rem auto 0;
-            font-family: 'Press Start 2P', 'Jua', cursive;
-            border: 4px solid #b23a6e; border-bottom: none;
-            border-radius: 10px 10px 0 0; overflow: hidden;
-            box-shadow: 0 10px 26px rgba(120,40,90,.3);
-            animation: dialog-in .8s cubic-bezier(.2,1.6,.35,1) 2.9s both;
-        }}
-        .start-dialog .titlebar {{
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 12px; background: linear-gradient(90deg,#ff9dc4,#ff7fb8);
-        }}
-        .start-dialog .titlebar .hearts {{ display: flex; gap: 7px; }}
-        .start-dialog .titlebar .hearts img {{ width: 18px; height: auto; image-rendering: pixelated; }}
-        .start-dialog .titlebar .checker {{
-            width: 18px; height: 18px;
-            background-color: #fff;
-            background-image:
-                linear-gradient(45deg,#b23a6e 25%,transparent 25%,transparent 75%,#b23a6e 75%),
-                linear-gradient(45deg,#b23a6e 25%,transparent 25%,transparent 75%,#b23a6e 75%);
-            background-size: 9px 9px; background-position: 0 0, 4.5px 4.5px;
-        }}
-        .start-dialog .body {{
-            padding: 30px 12px 22px; background: #ffe6f0; text-align: center;
-            color: #9c2f5c; font-size: clamp(1.05rem,2.6vw,1.6rem);
-            text-shadow: 2px 2px 0 #fff; letter-spacing: 2px;
-        }}
-        @keyframes dialog-in {{
-            0%   {{ opacity: 0; transform: translateY(34px) scale(.85); }}
-            100% {{ opacity: 1; transform: translateY(0)    scale(1); }}
-        }}
-
-        /* 하트 버튼(실제 클릭 요소) — 다이얼로그 하단과 이어붙는 발판 */
-        .st-key-start_heart_btn {{
-            max-width: 360px; margin: -4px auto 1rem; padding: 12px 0 16px;
-            background: #ffd0e6; border: 4px solid #b23a6e; border-top: none;
-            border-radius: 0 0 10px 10px;
-            display: flex !important; justify-content: center;
-            animation: dialog-in .8s cubic-bezier(.2,1.6,.35,1) 2.9s both;
-        }}
-        .st-key-start_heart_btn button {{
-            width: 78px !important; height: 46px !important;
-            min-width: 78px !important; max-width: 78px !important;
-            min-height: 46px !important; max-height: 46px !important;
-            padding: 0 !important; margin: 0 auto !important;
-            box-sizing: border-box !important; overflow: hidden !important;
-            background: #fff0f6 !important; border: 3px solid #b23a6e !important;
-            border-radius: 5px !important; box-shadow: inset 0 0 0 2px #ffd0e6;
-            position: relative; display: block !important;
-            transition: transform .1s ease;
-        }}
-        /* 라벨 텍스트는 스크린리더용으로만 남기고 시각적으로는 완전히 접어버려 —
-           안 그러면 숨긴 긴 라벨이 줄바꿈되며 버튼 상자가 찌그러져 보인다 */
-        .st-key-start_heart_btn button * {{
-            font-size: 0 !important; line-height: 0 !important;
-            color: transparent !important; margin: 0 !important; padding: 0 !important;
-        }}
-        .st-key-start_heart_btn button:hover {{ transform: translateY(-2px); }}
-        .st-key-start_heart_btn button:active {{ transform: translateY(1px); }}
-        .st-key-start_heart_btn button::before {{
-            content: ''; position: absolute; left: 50%; top: 50%;
-            width: 34px; height: 30px; transform: translate(-50%,-50%);
-            background-image: url('{HEART_BUTTON_URI}');
-            background-size: contain; background-repeat: no-repeat;
-            image-rendering: pixelated;
-        }}
-
         @media (prefers-reduced-motion: reduce) {{
-            .earth, .earth .tex, .earth-shadow, .atmos, .plane-main, .plane-bg, .trail,
-            .start-dialog, .st-key-start_heart_btn {{ animation: none !important; }}
+            .earth, .earth .tex, .earth-shadow, .atmos, .plane-main, .plane-bg, .trail {{ animation: none !important; }}
         }}
         </style>
 
@@ -700,10 +671,83 @@ def render_home():
                 <span class="trail"></span>
             </div>
             <h1 class="hero-title">{title}</h1>
-            <p class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰 알려주는 여행 뷰티 케어 ✈️</p>
+            <p class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰<br/>알려주는 여행 뷰티 케어 ✈️</p>
         </div>
+        """
+    )
 
-        <div class="start-dialog">
+    # start-game 다이얼로그 + 하트 버튼을 하나의 진짜 컨테이너 안에 함께 그린다.
+    # (버튼과 장식 HTML을 각각 따로 그리면 버튼이 자기 크기로 좁게 감싸져
+    #  다이얼로그와 이어붙는 넓은 띠 모양이 깨진다 — 반드시 같은 DOM 박스 안에 있어야 함)
+    with st.container(key="start_dialog"):
+        html_block(
+            f"""
+            <style>
+            .st-key-start_dialog {{
+                max-width: 360px !important; margin: -.5rem auto 1.5rem !important;
+                font-family: 'Press Start 2P', 'Jua', cursive;
+                border: 4px solid #b23a6e !important; border-radius: 10px !important;
+                overflow: hidden !important; background: #ffe6f0 !important;
+                box-shadow: 0 10px 26px rgba(120,40,90,.3);
+                animation: dialog-in .8s cubic-bezier(.2,1.6,.35,1) 2.9s both;
+            }}
+            .st-key-start_dialog .titlebar {{
+                display: flex; align-items: center; justify-content: space-between;
+                padding: 10px 12px; margin: -1px -1px 0; background: linear-gradient(90deg,#ff9dc4,#ff7fb8);
+            }}
+            .st-key-start_dialog .titlebar .hearts {{ display: flex; gap: 7px; }}
+            .st-key-start_dialog .titlebar .hearts img {{ width: 18px; height: auto; image-rendering: pixelated; }}
+            .st-key-start_dialog .titlebar .checker {{
+                width: 18px; height: 18px; background-color: #fff;
+                background-image:
+                    linear-gradient(45deg,#b23a6e 25%,transparent 25%,transparent 75%,#b23a6e 75%),
+                    linear-gradient(45deg,#b23a6e 25%,transparent 25%,transparent 75%,#b23a6e 75%);
+                background-size: 9px 9px; background-position: 0 0, 4.5px 4.5px;
+            }}
+            .st-key-start_dialog .body {{
+                padding: 26px 12px 10px; text-align: center;
+                color: #9c2f5c; font-size: clamp(1.05rem,2.6vw,1.6rem);
+                text-shadow: 2px 2px 0 #fff; letter-spacing: 2px;
+            }}
+            @keyframes dialog-in {{
+                0%   {{ opacity: 0; transform: translateY(34px) scale(.85); }}
+                100% {{ opacity: 1; transform: translateY(0)    scale(1); }}
+            }}
+            /* 버튼도 같은 다이얼로그 박스 안의 자식이므로 여기서 폭 100%로 펴서 가운데 정렬 */
+            .st-key-start_dialog .stButton {{
+                width: 100% !important; display: flex !important; justify-content: center !important;
+                padding: 4px 0 20px !important; margin: 0 !important;
+            }}
+            .st-key-start_dialog .stButton button {{
+                width: 78px !important; height: 46px !important;
+                min-width: 78px !important; max-width: 78px !important;
+                min-height: 46px !important; max-height: 46px !important;
+                padding: 0 !important; margin: 0 !important;
+                box-sizing: border-box !important; overflow: hidden !important;
+                background: #fff0f6 !important; border: 3px solid #b23a6e !important;
+                border-radius: 5px !important; box-shadow: inset 0 0 0 2px #ffd0e6;
+                position: relative !important; display: block !important;
+                transition: transform .1s ease;
+            }}
+            /* 라벨 텍스트는 스크린리더용으로만 남기고 시각적으로는 완전히 접어버려 —
+               안 그러면 숨긴 긴 라벨이 줄바꿈되며 버튼 상자가 찌그러져 보인다 */
+            .st-key-start_dialog .stButton button * {{
+                font-size: 0 !important; line-height: 0 !important;
+                color: transparent !important; margin: 0 !important; padding: 0 !important;
+            }}
+            .st-key-start_dialog .stButton button:hover {{ transform: translateY(-2px); }}
+            .st-key-start_dialog .stButton button:active {{ transform: translateY(1px); }}
+            .st-key-start_dialog .stButton button::before {{
+                content: ''; position: absolute; left: 50%; top: 50%;
+                width: 34px; height: 30px; transform: translate(-50%,-50%);
+                background-image: url('{HEART_BUTTON_URI}');
+                background-size: contain; background-repeat: no-repeat;
+                image-rendering: pixelated;
+            }}
+            @media (prefers-reduced-motion: reduce) {{
+                .st-key-start_dialog {{ animation: none !important; }}
+            }}
+            </style>
             <div class="titlebar">
                 <span class="hearts">
                     <img src="{HEART_ICON_PURPLE}" alt=""/>
@@ -713,12 +757,8 @@ def render_home():
                 <span class="checker"></span>
             </div>
             <div class="body">start game?</div>
-        </div>
-        """
-    )
-
-    _, mid, _ = st.columns([1, 1, 1])
-    with mid:
+            """
+        )
         if st.button("하트를 눌러 여행 시작", key="start_heart_btn"):
             goto("character")
             st.rerun()
@@ -924,4 +964,5 @@ VIEWS = {
     "passport": render_passport,
     "aftercare": render_aftercare,
 }
+render_back_button()
 VIEWS.get(st.session_state.view, render_home)()
