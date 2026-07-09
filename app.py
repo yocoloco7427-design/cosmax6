@@ -7,6 +7,7 @@ import base64
 import html
 import json
 import random
+import re
 import time
 from pathlib import Path
 
@@ -149,6 +150,48 @@ COUNTRIES = {
     },
 }
 
+# ----------------------------------------------------------------------
+# 세계지도 (public domain, Wikimedia BlankMap-World-Equirectangular) 위에
+# 각 여행지의 geo 위경도를 픽셀 위치로 옮기는 근사 선형식. 도쿄/파리/방콕/두바이/
+# 레이캬비크/LA 6개 도시의 실제 위경도와, 지도 이미지에서 육안으로 확인한 픽셀
+# 위치를 최소제곱으로 맞춰서 구함 (완벽히 표준적인 정사각도법은 아니라 국가마다
+# 손으로 다듬은 지도라 공식만으로 100% 정확하진 않지만, 핀 위치로는 충분함).
+_MAP_X_SCALE, _MAP_X_OFFSET = 7.9148, 1245.8989
+_MAP_Y_SCALE, _MAP_Y_OFFSET = -7.5120, 738.0763
+WORLD_MAP_VIEWBOX_W = 2752.766
+WORLD_MAP_VIEWBOX_H = 980  # 남극 아래 여백은 잘라내고 씀 (원본은 1537.631)
+
+
+def _country_pin_percent(geo_str):
+    """'lat;lon' 문자열을 지도 프레임 기준 (left%, top%) 픽셀 위치로 변환."""
+    lat_s, lon_s = geo_str.split(";")
+    lat, lon = float(lat_s), float(lon_s)
+    x = _MAP_X_SCALE * lon + _MAP_X_OFFSET
+    y = _MAP_Y_SCALE * lat + _MAP_Y_OFFSET
+    return x / WORLD_MAP_VIEWBOX_W * 100, y / WORLD_MAP_VIEWBOX_H * 100
+
+
+@st.cache_data(show_spinner=False)
+def _load_world_map_svg():
+    """실제 세계지도 SVG(퍼블릭 도메인)를 앱 팔레트로 재색칠해서 불러온다.
+    국경선/대륙 모양 데이터는 그대로 두고, 색상만 바꾸고 남극 아래 여백을 자른다.
+    우리 6개 여행지 국가만 포인트 컬러로 강조."""
+    raw = (ASSETS / "world_map.svg").read_text(encoding="utf-8")
+    raw = raw.replace(
+        'viewBox="0 0 2752.766 1537.631"',
+        f'viewBox="0 0 {WORLD_MAP_VIEWBOX_W} {WORLD_MAP_VIEWBOX_H}"',
+    )
+    raw = re.sub(r'\sheight="[0-9.]+"', ' height="100%"', raw, count=1)
+    raw = re.sub(r'\swidth="[0-9.]+"', ' width="100%"', raw, count=1)
+    highlight = ",".join(f".{code}" for code in COUNTRIES)
+    raw = raw.replace(
+        "</svg>",
+        "<style>.land{fill:#dbe7fb;stroke:#ffffff;}"
+        ".ocean,.lake{fill:none !important;stroke:none !important;}"
+        f"{highlight}{{fill:#ff6fb8 !important;}}</style></svg>",
+    )
+    return " ".join(raw.split())
+
 
 def _aqi_level_label(aqi):
     """WAQI 지수(미국 EPA 기준)를 한글 등급으로 변환."""
@@ -195,7 +238,8 @@ def get_air_quality(feed_path):
         return None
 
 
-SKIN_TYPES = ["건성", "지성", "복합성", "민감성", "트러블"]
+SKIN_TYPES = ["건성", "지성", "복합성"]
+SKIN_TYPE_EXTRAS = ["민감성", "트러블"]
 GENDERS = ["여성", "남성", "자유롭게"]
 CLOTHING = ["캐주얼", "러블리", "스트릿", "미니멀"]
 HAIR_TYPES = ["스트레이트", "웨이브", "컬리", "숏컷"]
@@ -343,6 +387,8 @@ if "selected_country" not in st.session_state:
     st.session_state.selected_country = None
 if "closet_category" not in st.session_state:
     st.session_state.closet_category = None
+if "map_globe_opened" not in st.session_state:
+    st.session_state.map_globe_opened = False  # 지도 화면에서 지구본을 눌러 펼쳤는지
 if "show_page_transition" not in st.session_state:
     st.session_state.show_page_transition = False
 if "bubble_specs" not in st.session_state:
@@ -454,6 +500,7 @@ def render_top_icons():
         """
     )
     if st.button("🗺️", key="nav_map_icon", help="여행지 지도"):
+        st.session_state.map_globe_opened = False  # 매번 지구본부터 다시 보여줌 (여권과 동일한 패턴)
         goto("map" if get_character() else "character")
         st.rerun()
     if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
@@ -482,6 +529,9 @@ def _passport_bio_fields(char):
         rows.append(f'<div class="p-field"><span class="p-label">{label}</span>'
                     f'<span class="p-value">{value}</span></div>')
 
+    skin_extra = ", ".join(char.get("skin_type_extra") or []) or "-"
+    rows.append(f'<div class="p-field"><span class="p-label">SKIN NOTE · 피부 특이사항</span>'
+                f'<span class="p-value">{skin_extra}</span></div>')
     personality = ", ".join(char.get("personality") or []) or "-"
     cosmetic = ", ".join(char.get("cosmetic_prefs") or []) or "-"
     outfit = char.get("outfit") or {}
@@ -1057,6 +1107,22 @@ def inject_theme():
 
     @media (prefers-reduced-motion: reduce) {
         .cloud, .stButton > button[kind="primary"] { animation: none !important; }
+    }
+
+    /* 캐릭터 만들기 · 기본 탭 — 이름/성별/연령대/피부타입 등 라벨·버튼 글씨 확대 */
+    .st-key-char_basic_tab .stMarkdown p {
+        font-size: 1.25rem !important;
+        font-weight: 800 !important;
+    }
+    .st-key-char_basic_tab label p {
+        font-size: 1.15rem !important;
+        font-weight: 700 !important;
+    }
+    .st-key-char_basic_tab .stTextInput input {
+        font-size: 1.15rem !important;
+    }
+    .st-key-char_basic_tab .stButton button {
+        font-size: 1.1rem !important;
     }
     </style>
     """
@@ -2144,14 +2210,15 @@ def render_character():
     with right:
         tab_basic, tab_closet, tab_taste = st.tabs(["✨ 기본", "👗 옷장 · 액세서리", "🧭 취향"])
 
-        with tab_basic:
+        with tab_basic, st.container(key="char_basic_tab"):
             draft["name"] = st.text_input(
                 "이름", value=draft.get("name", ""), placeholder="캐릭터 이름을 입력하세요",
                 key="char_name_input", max_chars=12,
             )
             chip_row("성별", GENDERS, "gender")
             chip_row("연령대", AGE_RANGES, "age_range")
-            chip_row("피부 타입", SKIN_TYPES, "skin_type")
+            chip_row("피부 타입 (택 1)", SKIN_TYPES, "skin_type")
+            chip_row("피부 특이사항 (해당되면 선택)", SKIN_TYPE_EXTRAS, "skin_type_extra", multi=True)
             skin_tone_row()
             chip_row("헤어 스타일", HAIR_TYPES, "hair_type")
             chip_row("패션 스타일", CLOTHING, "style")
@@ -2177,6 +2244,7 @@ def render_character():
                 "name": (draft.get("name") or "").strip() or "여행자",
                 "gender": draft.get("gender") or GENDERS[0],
                 "skin_type": draft.get("skin_type") or SKIN_TYPES[0],
+                "skin_type_extra": list(draft.get("skin_type_extra") or []),
                 "skin_tone": draft.get("skin_tone") or SKIN_TONES[0]["hex"],
                 "hair_type": draft.get("hair_type") or HAIR_TYPES[0],
                 "age_range": draft.get("age_range") or AGE_RANGES[0],
@@ -2237,37 +2305,159 @@ def render_closet():
             st.rerun()
 
 
+def _map_globe_gate():
+    """지도 화면 1단계 — 홈 화면의 자전하는 지구를 그대로 가져오되, 살짝 더 입체적으로
+    (고정된 축 기울기 rotateX + 그림자/하이라이트를 조금 더 진하게). 누르면 세계지도가
+    펼쳐진다. 홈 화면 자체의 애니메이션(render_home)은 그대로 두고 별도로 복사해서 씀."""
+    earth = asset_data_uri("earth_map.webp", "image/webp")
+    with st.container(key="map_globe_area"):
+        html_block(
+            f"""
+            <style>
+            .map-globe-stage {{ position: relative; width: 100%; height: min(58vh, 460px); }}
+            .map-globe-stage .earth {{
+                position: absolute; left: 50%; top: 50%;
+                width: clamp(220px,46vw,360px); height: clamp(220px,46vw,360px);
+                border-radius: 50%; overflow: hidden; z-index: 3;
+                box-shadow:
+                    inset 0 0 32px 7px rgba(170,220,255,.55),
+                    0 0 24px 5px rgba(255,255,255,.4),
+                    0 0 64px 16px rgba(120,190,255,.72),
+                    0 40px 68px rgba(20,40,90,.62);
+                animation: map-earth-float 7s ease-in-out infinite;
+            }}
+            .map-globe-stage .tex {{
+                position: absolute; inset: 0; border-radius: 50%;
+                background-image: url('{earth}');
+                background-size: 720px 360px; background-repeat: repeat-x;
+                background-position: 0 center;
+                filter: brightness(1.3) contrast(1.16) saturate(1.26);
+                animation: spin-earth-map 30s linear infinite;
+            }}
+            @keyframes spin-earth-map {{ from{{background-position:0 center;}} to{{background-position:-720px center;}} }}
+            @keyframes map-earth-float {{
+                0%,100%  {{ transform: translate(-50%,-50%) rotateX(-10deg) translateY(0); }}
+                50%      {{ transform: translate(-50%,-50%) rotateX(-10deg) translateY(-14px); }}
+            }}
+            .map-globe-stage .shade {{
+                position: absolute; inset: 0; border-radius: 50%; z-index: 2; pointer-events: none;
+                background:
+                    radial-gradient(circle at 28% 24%, rgba(255,255,255,.78) 0%, rgba(255,255,255,.26) 11%, rgba(255,255,255,0) 27%),
+                    radial-gradient(circle at 70% 76%, rgba(0,0,0,0) 20%, rgba(2,6,24,.5) 55%, rgba(1,3,16,.97) 100%),
+                    radial-gradient(circle at 50% 50%, rgba(3,8,28,0) 42%, rgba(3,8,28,.4) 80%, rgba(1,3,14,.86) 100%);
+            }}
+            .map-globe-stage .gloss {{
+                position: absolute; inset: 0; border-radius: 50%; z-index: 3; pointer-events: none;
+                box-shadow:
+                    inset 9px 9px 28px rgba(210,238,255,.72),
+                    inset -6px -8px 24px rgba(110,175,255,.46),
+                    inset 0 0 44px rgba(255,255,255,.18);
+                background:
+                    radial-gradient(ellipse 34% 20% at 31% 21%, rgba(255,255,255,.96) 0%, rgba(255,255,255,.42) 36%, rgba(255,255,255,0) 66%),
+                    radial-gradient(ellipse 60% 44% at 76% 80%, rgba(50,110,220,.46) 0%, rgba(50,110,220,0) 68%);
+                mix-blend-mode: screen;
+            }}
+            .map-globe-stage .earth-shadow {{
+                position: absolute; left: 50%; top: 84%;
+                width: clamp(150px,26vw,250px); height: 22px; transform: translateX(-50%);
+                border-radius: 50%;
+                background: radial-gradient(ellipse, rgba(60,50,110,.44) 0%, rgba(60,50,110,0) 72%);
+            }}
+            .map-globe-hint {{
+                position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%);
+                font-family: 'Jua', sans-serif; font-size: 1.05rem; color: #5a4a7a;
+                background: rgba(255,255,255,.78); padding: 7px 18px; border-radius: 999px;
+                white-space: nowrap; pointer-events: none;
+            }}
+            @media (prefers-reduced-motion: reduce) {{
+                .map-globe-stage .earth, .map-globe-stage .tex {{ animation: none !important; }}
+            }}
+            .st-key-map_globe_area {{ position: relative; }}
+            .st-key-open_world_map {{ position: absolute !important; inset: 0 !important; z-index: 5 !important; }}
+            .st-key-open_world_map button {{
+                width: 100% !important; height: 100% !important;
+                background: transparent !important; border: none !important; box-shadow: none !important;
+                color: transparent !important; font-size: 0 !important; cursor: pointer !important;
+            }}
+            </style>
+            <div class="map-globe-stage">
+                <div class="earth-shadow"></div>
+                <div class="earth">
+                    <div class="tex"></div>
+                    <div class="shade"></div>
+                    <div class="gloss"></div>
+                </div>
+                <div class="map-globe-hint">🌍 지구를 눌러 세계지도를 펼쳐보세요</div>
+            </div>
+            """
+        )
+        if st.button(" ", key="open_world_map", use_container_width=True):
+            st.session_state.map_globe_opened = True
+            st.rerun()
+
+
+def _render_world_map_with_pins():
+    """지도 화면 2단계 — 실제 세계지도 위에 여행지마다 핀을 찍어서 보여준다.
+    핀을 누르면 예전 카드의 '자세히 보기'와 동일하게 국가 상세 화면으로 이동."""
+    svg = _load_world_map_svg()
+    pin_rules = []
+    for code, c in COUNTRIES.items():
+        if not c.get("geo"):
+            continue
+        x_pct, y_pct = _country_pin_percent(c["geo"])
+        pin_rules.append(f'.st-key-pin_{code} {{ left:{x_pct:.2f}%; top:{y_pct:.2f}%; }}')
+
+    with st.container(key="world_map_area"):
+        html_block(
+            f"""
+            <style>
+            .st-key-world_map_area {{ position: relative; width: 100%; }}
+            .world-map-frame {{
+                position: relative; width: 100%;
+                aspect-ratio: {WORLD_MAP_VIEWBOX_W} / {WORLD_MAP_VIEWBOX_H};
+                border-radius: 18px; overflow: hidden;
+            }}
+            .world-map-frame svg {{ display: block; width: 100%; height: 100%; }}
+            .st-key-world_map_area div[class*="st-key-pin_"] {{
+                position: absolute !important; transform: translate(-50%,-100%) !important;
+                z-index: 6 !important;
+            }}
+            {" ".join(pin_rules)}
+            div[class*="st-key-pin_"] button {{
+                width: 38px !important; height: 38px !important; min-width: 0 !important;
+                border-radius: 50% !important; padding: 0 !important;
+                background: #ffffff !important; border: 3px solid #ff6fb8 !important;
+                box-shadow: 0 4px 8px rgba(120,40,90,.35) !important;
+                font-size: 1.15rem !important;
+                transition: transform .15s ease;
+            }}
+            div[class*="st-key-pin_"] button:hover {{ transform: scale(1.15) !important; }}
+            </style>
+            <div class="world-map-frame">{svg}</div>
+            """
+        )
+        for code, c in COUNTRIES.items():
+            if not c.get("geo"):
+                continue
+            if st.button(c["flag"], key=f"pin_{code}", help=c["name"]):
+                st.session_state.selected_country = code
+                goto("country")
+                st.rerun()
+
+
 def render_map():
     if not get_character():
         goto("character")
         st.rerun()
         return
 
+    if not st.session_state.map_globe_opened:
+        _map_globe_gate()
+        return
+
     st.title("🗺️ 여행지 지도")
-    st.caption("관심있는 여행지를 눌러 상세 정보를 확인하세요")
-    codes = list(COUNTRIES.keys())
-    cols = st.columns(3)
-    for i, code in enumerate(codes):
-        c = COUNTRIES[code]
-        with cols[i % 3]:
-            with st.container(border=True):
-                st.markdown(f"### {c['flag']} {c['landmark']}")
-                st.markdown(f"**{c['name']}**")
-                st.caption(c["climate"])
-                feed_path = c.get("aqi_station") or (
-                    f"geo:{c['geo']}" if c.get("geo") else None
-                )
-                aq = get_air_quality(feed_path) if feed_path else None
-                if aq and aq.get("aqi") not in (None, "-"):
-                    try:
-                        aqi_val = int(aq["aqi"])
-                        st.caption(f"🌫️ 미세먼지 AQI {aqi_val} · {_aqi_level_label(aqi_val)}")
-                    except (TypeError, ValueError):
-                        pass
-                if st.button("자세히 보기", key=f"detail_{code}", use_container_width=True):
-                    st.session_state.selected_country = code
-                    goto("country")
-                    st.rerun()
+    st.caption("핀을 눌러 여행지 상세 정보를 확인하세요")
+    _render_world_map_with_pins()
 
 
 def render_country():
@@ -2285,9 +2475,10 @@ def render_country():
     char = get_character()
     st.title(f"{country['flag']} {country['name']}")
 
-    if country["water"] == "경수" and char["skin_type"] in ("민감성", "트러블"):
+    skin_notes = char.get("skin_type_extra") or []
+    if country["water"] == "경수" and skin_notes:
         st.warning(
-            f"⚠ {char['skin_type']} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. "
+            f"⚠ {', '.join(skin_notes)} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. "
             f"저자극 클렌징워터를 꼭 챙기세요."
         )
 
