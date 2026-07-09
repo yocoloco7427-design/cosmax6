@@ -322,7 +322,7 @@ def render_back_button():
 
 BUBBLE_GRID_COLS = 18
 BUBBLE_GRID_ROWS = 8
-BUBBLE_GRID_SIZE_VH = (23, 31)  # 뷰포트 높이 기준 % — 가로세로 어떤 화면이든 비율 유지
+BUBBLE_GRID_SIZE_VH = (24, 34)  # 뷰포트 높이 기준 % — 가로세로 어떤 화면이든 비율 유지
 
 
 def _generate_bubble_specs():
@@ -346,8 +346,8 @@ def _generate_bubble_specs():
     for r in range(-1, BUBBLE_GRID_ROWS + 1):
         row_offset = col_pitch / 2 if r % 2 != 0 else 0
         for c in range(-1, BUBBLE_GRID_COLS + 1):
-            left = c * col_pitch + row_offset + random.uniform(-col_pitch * 0.2, col_pitch * 0.2)
-            top = r * row_pitch + random.uniform(-row_pitch * 0.15, row_pitch * 0.15)
+            left = c * col_pitch + row_offset + random.uniform(-col_pitch * 0.42, col_pitch * 0.42)
+            top = r * row_pitch + random.uniform(-row_pitch * 0.38, row_pitch * 0.38)
             specs.append({
                 "kind": "lg", "unit": "vh",
                 "size": round(random.uniform(*BUBBLE_GRID_SIZE_VH), 1),
@@ -408,28 +408,30 @@ def _bubble_layer_css():
        알파가 낮아지지 않게(0.85 이하로 안 내려가게) 해 뒤 화면이 안 비친다 */
     .bubble-layer .b-lg {
         background:
-            radial-gradient(circle at 30% 26%, #ffffff 0%, rgba(255,255,255,.9) 20%,
-                rgba(233,244,255,.97) 55%, rgba(206,229,250,.98) 100%);
+            radial-gradient(circle at 60% 62%, rgba(255,220,232,.10) 0%, rgba(255,220,232,0) 52%),
+            radial-gradient(circle at 36% 68%, rgba(205,255,222,.08) 0%, rgba(205,255,222,0) 50%),
+            radial-gradient(circle at 30% 26%, #eef3f6 0%, rgba(222,235,241,.93) 22%,
+                rgba(194,217,230,.96) 58%, rgba(163,195,218,.98) 100%);
         box-shadow:
-            inset -10px -10px 20px rgba(130,165,205,.4),
-            inset 8px 8px 16px rgba(255,255,255,.65),
-            0 3px 10px rgba(30,40,70,.18);
+            inset -10px -10px 20px rgba(100,138,178,.48),
+            inset 8px 8px 16px rgba(255,255,255,.5),
+            0 3px 10px rgba(30,40,70,.2);
     }
     .bubble-layer .b-lg::before {
         content: ''; position: absolute; top: 9%; left: 15%; width: 36%; height: 19%;
-        border-radius: 50%; background: rgba(255,255,255,.95); filter: blur(1.2px);
+        border-radius: 50%; background: rgba(255,255,255,.85); filter: blur(1.2px);
         transform: rotate(-22deg);
     }
     .bubble-layer .b-lg::after {
         content: ''; position: absolute; bottom: 19%; right: 21%; width: 12%; height: 12%;
-        border-radius: 50%; background: rgba(255,255,255,.6);
+        border-radius: 50%; background: rgba(255,255,255,.48);
     }
     /* 작은 기포 — 성능을 위해 단순한 그라데이션만 (격자 이음새를 메꾸는 용도, 역시 불투명) */
     .bubble-layer .b-sm {
         background: radial-gradient(circle at 32% 28%,
-            #ffffff 0%, rgba(255,255,255,.88) 30%,
-            rgba(221,238,255,.94) 70%, rgba(201,226,250,.97) 100%);
-        box-shadow: inset -4px -4px 8px rgba(130,165,205,.3), inset 3px 3px 6px rgba(255,255,255,.5);
+            #eef3f6 0%, rgba(218,233,240,.86) 32%,
+            rgba(196,220,235,.92) 70%, rgba(170,200,222,.96) 100%);
+        box-shadow: inset -4px -4px 8px rgba(100,138,178,.35), inset 3px 3px 6px rgba(255,255,255,.45);
     }
     .bubble-layer .rise-in {
         animation-name: bubble-rise-in;
@@ -1570,6 +1572,6 @@ VIEWS = {
     "passport": render_passport,
     "aftercare": render_aftercare,
 }
+render_bubble_clear()
 render_back_button()
 VIEWS.get(st.session_state.view, render_home)()
-render_bubble_clear()
