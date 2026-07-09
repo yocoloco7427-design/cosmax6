@@ -2363,7 +2363,7 @@ def _map_globe_gate():
             height: clamp(330px,69vw,{_MAP_GLOBE_MAX_PX}px) !important;
             min-width: 0 !important; max-width: none !important;
             border-radius: 50% !important; border: none !important; padding: 0 !important;
-            margin: 14px 0 6px !important;
+            margin: 14px auto 6px !important; display: block !important;
             background: transparent !important; overflow: hidden !important;
             /* 구 입체감: 좌상단 프레넬 하이라이트(밝게) + 우하단 코어 섀도우(어둡게)로
                텍스처 위에 실제 조명을 얹어 구체처럼 보이게 함 (아래 ::after의 평평한
@@ -2387,7 +2387,7 @@ def _map_globe_gate():
             background-image: url('{earth}');
             background-size: {tex_w}px {tex_h}px; background-repeat: repeat-x;
             background-position: 0 center;
-            filter: brightness(1.22) contrast(1.22) saturate(1.28);
+            filter: brightness(1.32) contrast(1.22) saturate(1.28);
             animation: spin-earth-map 30s linear infinite;
         }}
         /* mix-blend-mode: multiply를 쓰면 흰색 하이라이트가 곱연산으로 사라져버려
@@ -2681,4 +2681,14 @@ render_bubble_clear()
 render_passport_modal()
 render_back_button()
 render_top_icons()
-VIEWS.get(st.session_state.view, render_home)()
+
+# 화면(view)을 st.empty() 슬롯 하나에 넣어서 그린다. 예전에는 VIEWS[...]()를
+# 바로 호출했는데, 캐릭터 만들기(탭+위젯이 아주 많음)에서 지도(위젯이 훨씬
+# 적음)처럼 화면 크기가 크게 차이나는 화면으로 넘어갈 때 이전 화면의 일부
+# 요소가 안 지워지고 새 화면과 뒤섞여 남는 버그가 실제 브라우저에서 확인됐다
+# (Streamlit이 재실행 사이에 "안 쓰는 만큼 지우기"를 완전히 못 하는 것으로
+# 보임). st.empty()는 그 자리에 새로 그리면 이전 내용을 확실히 통째로 비우고
+# 다시 그리도록 설계된 API라 이 문제를 원천적으로 피할 수 있다.
+_view_slot = st.empty()
+with _view_slot.container():
+    VIEWS.get(st.session_state.view, render_home)()
