@@ -5,11 +5,13 @@
 """
 import base64
 import html
+import json
 import random
 import time
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 st.set_page_config(page_title="TravelMax+", page_icon="🧳", layout="wide")
 
@@ -1632,29 +1634,289 @@ def character_doll_svg(draft):
     '''
 
 
+def _doll_3d_params(draft):
+    """캐릭터 만들기 화면의 실제 3D(Three.js) 미리보기에 넘길 색상/옵션 값.
+    character_doll_svg와 같은 카탈로그 조회 로직을 쓰지만, 음영은 SVG처럼
+    직접 계산하지 않고(3D 조명이 실시간으로 계산해줌) 원색만 넘긴다."""
+    skin = draft.get("skin_tone") or SKIN_TONES[0]["hex"]
+    hair_type = draft.get("hair_type") or HAIR_TYPES[0]
+    style = draft.get("style") or CLOTHING[0]
+    style_conf = CLOTHING_STYLES[style]
+    outfit = draft.get("outfit") or {}
+    acc = draft.get("accessories") or {}
+    return {
+        "skin": skin,
+        "hair": HAIR_COLOR,
+        "hairType": hair_type,
+        "top": _catalog_hex("top", outfit.get("top")) or style_conf["top"],
+        "bottom": _catalog_hex("bottom", outfit.get("bottom")) or style_conf["bottom"],
+        "shoe": _catalog_hex("shoes", outfit.get("shoes")) or style_conf["shoe"],
+        "sole": style_conf["sole"],
+        "skirt": bool(style_conf["skirt"] and not outfit.get("bottom")),
+        "hat": _catalog_hex("hat", outfit.get("hat")),
+        "socks": _catalog_hex("socks", outfit.get("socks")),
+        "necklace": _catalog_hex("necklace", acc.get("necklace")),
+        "sunglasses": _catalog_hex("sunglasses", acc.get("sunglasses")),
+        "gloves": _catalog_hex("gloves", acc.get("gloves")),
+    }
+
+
+_DOLL_3D_HTML = """
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: transparent; }
+  #stage { width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+<script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const CHAR = __CHAR_JSON__;
+const stage = document.getElementById('stage');
+const width = window.innerWidth;
+const height = window.innerHeight;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, width / height, 0.1, 100);
+camera.position.set(0, 1.05, 7.2);
+camera.lookAt(0, 0.75, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(width, height);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+stage.appendChild(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0xbfd4ff, 0.55));
+
+const key = new THREE.DirectionalLight(0xfff3e0, 1.35);
+key.position.set(-3.2, 5, 4.5);
+key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024);
+key.shadow.radius = 6;
+scene.add(key);
+
+const rim = new THREE.DirectionalLight(0x7fb0ff, 1.1);
+rim.position.set(3.5, 3.2, -4);
+scene.add(rim);
+
+const fill = new THREE.DirectionalLight(0xffffff, 0.25);
+fill.position.set(2, 1, 4);
+scene.add(fill);
+
+function makeMat(hex, opts) {
+    opts = opts || {};
+    return new THREE.MeshPhysicalMaterial(Object.assign({
+        color: hex, roughness: 0.5, clearcoat: 0.35, clearcoatRoughness: 0.25, metalness: 0.02,
+    }, opts));
+}
+
+function makeCapsule(radius, length, mat) {
+    const g = new THREE.Group();
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 24, 1, true), mat);
+    cyl.castShadow = true;
+    g.add(cyl);
+    const capGeo = new THREE.SphereGeometry(radius, 24, 14, 0, Math.PI * 2, 0, Math.PI / 2);
+    const top = new THREE.Mesh(capGeo, mat);
+    top.position.y = length / 2; top.castShadow = true;
+    g.add(top);
+    const bot = new THREE.Mesh(capGeo, mat);
+    bot.position.y = -length / 2; bot.rotation.x = Math.PI; bot.castShadow = true;
+    g.add(bot);
+    return g;
+}
+
+const doll = new THREE.Group();
+const bottomMat = makeMat(CHAR.bottom);
+
+if (CHAR.skirt) {
+    const skirt = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.72, 0.62, 24, 1, true), bottomMat);
+    skirt.position.y = -0.02; skirt.castShadow = true;
+    doll.add(skirt);
+    [-0.24, 0.24].forEach((x) => {
+        const leg = makeCapsule(0.16, 0.55, makeMat(CHAR.skin));
+        leg.position.set(x, -0.62, 0);
+        doll.add(leg);
+    });
+} else {
+    [-0.26, 0.26].forEach((x) => {
+        const leg = makeCapsule(0.24, 1.05, bottomMat);
+        leg.position.set(x, -0.55, 0);
+        doll.add(leg);
+    });
+}
+
+if (CHAR.socks && !CHAR.skirt) {
+    const sockMat = makeMat(CHAR.socks, { roughness: 0.7, clearcoat: 0.1 });
+    [-0.26, 0.26].forEach((x) => {
+        const sock = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.22, 20), sockMat);
+        sock.position.set(x, -1.0, 0);
+        doll.add(sock);
+    });
+}
+
+const shoeMat = makeMat(CHAR.shoe, { roughness: 0.35, clearcoat: 0.5 });
+[-0.26, 0.26].forEach((x) => {
+    const shoe = new THREE.Mesh(new THREE.SphereGeometry(0.26, 20, 16), shoeMat);
+    shoe.scale.set(1, 0.62, 1.35);
+    shoe.position.set(x, -1.14, 0.08);
+    shoe.castShadow = true;
+    doll.add(shoe);
+});
+
+const topMat = makeMat(CHAR.top);
+const torso = makeCapsule(0.62, 0.85, topMat);
+torso.position.y = 0.32;
+doll.add(torso);
+
+[-1, 1].forEach((sign) => {
+    const arm = makeCapsule(0.17, 0.95, topMat);
+    arm.rotation.z = (Math.PI / 2) * sign * -1;
+    arm.position.set(sign * 0.92, 0.5, 0);
+    doll.add(arm);
+    const handMat = makeMat(CHAR.gloves || CHAR.skin, { roughness: CHAR.gloves ? 0.6 : 0.4 });
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(0.18, 18, 14), handMat);
+    hand.position.set(sign * 1.42, 0.5, 0);
+    hand.castShadow = true;
+    doll.add(hand);
+});
+
+if (CHAR.necklace) {
+    const neckMat = makeMat(CHAR.necklace, { roughness: 0.25, clearcoat: 0.7, metalness: 0.4 });
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.03, 12, 30, Math.PI * 1.3), neckMat);
+    ring.position.set(0, 0.72, 0.5);
+    ring.rotation.x = Math.PI * 0.42;
+    doll.add(ring);
+}
+
+const skinMat = makeMat(CHAR.skin, { roughness: 0.45, clearcoat: 0.45 });
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.58, 32, 24), skinMat);
+head.position.y = 1.28;
+head.castShadow = true;
+doll.add(head);
+
+[-1, 1].forEach((sign) => {
+    const cheek = new THREE.Mesh(
+        new THREE.SphereGeometry(0.09, 12, 10),
+        makeMat(0xff9ab3, { roughness: 1, clearcoat: 0, transparent: true, opacity: 0.4 })
+    );
+    cheek.position.set(sign * 0.32, 1.18, 0.48);
+    doll.add(cheek);
+});
+
+[-1, 1].forEach((sign) => {
+    const eye = new THREE.Mesh(
+        new THREE.SphereGeometry(0.045, 10, 8),
+        makeMat(0x3a2a20, { roughness: 0.3, clearcoat: 0.6 })
+    );
+    eye.position.set(sign * 0.19, 1.3, 0.53);
+    doll.add(eye);
+});
+
+const hairMat = makeMat(CHAR.hair, { roughness: 0.55, clearcoat: 0.2 });
+const hairCap = new THREE.Mesh(
+    new THREE.SphereGeometry(0.61, 28, 20, 0, Math.PI * 2, 0, Math.PI * 0.62),
+    hairMat
+);
+hairCap.position.y = 1.3;
+hairCap.castShadow = true;
+doll.add(hairCap);
+
+if (CHAR.hairType === '웨이브' || CHAR.hairType === '스트레이트') {
+    const back = makeCapsule(0.5, 1.0, hairMat);
+    back.position.set(0, 0.95, -0.28);
+    back.scale.set(0.85, 1, 0.55);
+    doll.add(back);
+} else if (CHAR.hairType === '컬리') {
+    const curlPts = [[-0.5, 1.55, 0.05], [0.5, 1.55, 0.05], [-0.62, 1.25, -0.15], [0.62, 1.25, -0.15], [0, 1.68, -0.1]];
+    curlPts.forEach((p) => {
+        const curl = new THREE.Mesh(new THREE.SphereGeometry(0.17, 14, 12), hairMat);
+        curl.position.set(p[0], p[1], p[2]);
+        doll.add(curl);
+    });
+}
+
+if (CHAR.hat) {
+    const hatMat = makeMat(CHAR.hat, { roughness: 0.65, clearcoat: 0.15 });
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.66, 0.66, 0.06, 24), hatMat);
+    brim.position.y = 1.62;
+    doll.add(brim);
+    const crown = new THREE.Mesh(
+        new THREE.SphereGeometry(0.5, 20, 16, 0, Math.PI * 2, 0, Math.PI * 0.55),
+        hatMat
+    );
+    crown.position.y = 1.66;
+    doll.add(crown);
+}
+
+if (CHAR.sunglasses) {
+    const glassMat = makeMat(CHAR.sunglasses, { roughness: 0.15, clearcoat: 0.9, metalness: 0.1 });
+    [-1, 1].forEach((sign) => {
+        const lens = new THREE.Mesh(new THREE.SphereGeometry(0.14, 16, 12), glassMat);
+        lens.scale.set(1, 0.85, 0.4);
+        lens.position.set(sign * 0.2, 1.3, 0.55);
+        doll.add(lens);
+    });
+}
+
+doll.position.y = 0.35;
+scene.add(doll);
+
+const shadowPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(3, 3),
+    new THREE.ShadowMaterial({ opacity: 0.32 })
+);
+shadowPlane.rotation.x = -Math.PI / 2;
+shadowPlane.position.y = -1.16;
+shadowPlane.receiveShadow = true;
+scene.add(shadowPlane);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enablePan = false;
+controls.enableZoom = false;
+controls.minPolarAngle = Math.PI / 2 - 0.35;
+controls.maxPolarAngle = Math.PI / 2 + 0.1;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.4;
+controls.target.set(0, 0.75, 0);
+
+function animate() {
+    requestAnimationFrame(animate);
+    doll.position.y = 0.35 + Math.sin(Date.now() * 0.0012) * 0.05;
+    controls.update();
+    renderer.render(scene, camera);
+}
+animate();
+
+window.addEventListener('resize', () => {
+    const w = window.innerWidth, h = window.innerHeight;
+    renderer.setSize(w, h);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+});
+</script>
+</body>
+</html>
+"""
+
+
 def render_doll_stage(draft):
-    # 카드/배경 없이 캐릭터만 화면에 크게 떠 있도록 — 배경, 테두리, 그림자 박스 없음
-    html_block(
-        f"""
-        <style>
-        .doll-stage {{
-            position: relative; text-align: center; padding: 4px 0 18px;
-        }}
-        .doll-stage .doll-svg {{
-            width: 94%; max-width: 480px; height: auto;
-            animation: doll-bob 3.4s ease-in-out infinite;
-            filter: drop-shadow(0 24px 20px rgba(20,20,50,.4)) drop-shadow(0 6px 6px rgba(20,20,50,.25));
-        }}
-        @keyframes doll-bob {{
-            0%,100% {{ transform: translateY(0); }}
-            50%     {{ transform: translateY(-10px); }}
-        }}
-        @media (prefers-reduced-motion: reduce) {{
-            .doll-stage .doll-svg {{ animation: none !important; }}
-        }}
-        </style>
-        <div class="doll-stage">{character_doll_svg(draft)}</div>
-        """
+    """캐릭터 만들기 화면의 큰 미리보기 — 카드/배경 없이 실제 Three.js(WebGL)로
+    조명·그림자·재질까지 계산해서 렌더링한다 (SVG 평면 그림이 아니라 진짜 3D)."""
+    char_json = json.dumps(_doll_3d_params(draft))
+    components.html(
+        _DOLL_3D_HTML.replace("__CHAR_JSON__", char_json),
+        height=560,
+        scrolling=False,
     )
 
 
