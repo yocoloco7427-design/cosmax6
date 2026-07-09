@@ -179,40 +179,40 @@ COUNTRIES = {
         "drugstores": ["Chemist Warehouse 시드니시티점", "Priceline Pharmacy 피트스트리트점", "Mecca 시드니 QVB점"],
     },
     "cn": {
-        "name": "중국 · 베이징",
+        "name": "중국 · 상하이",
         "flag": "🇨🇳",
         "landmark": "🐼",
-        "geo": "39.9042;116.4074",
-        "climate": "온대 대륙성. 여름 고온다습, 겨울은 매우 건조·황사",
-        "humidity": "평균 55% (건기엔 30% 이하로 급감)",
-        "temp_diff": "겨울 기준 -5°C",
+        "geo": "31.2304;121.4737",
+        "climate": "습윤 아열대. 여름은 고온다습한 찜통더위, 겨울은 서늘하고 흐림",
+        "humidity": "평균 75% (여름 장마철엔 80% 이상)",
+        "temp_diff": "여름 기준 +3°C (한국보다 더 무더움)",
         "visa": "무비자 15일 (단기 관광 시)",
-        "flight_time": "약 2시간",
+        "flight_time": "약 1시간 50분",
         "water": "경수",
-        "water_note": "석회질이 있는 경수 지역 — 세안 후 당김 주의",
-        "uv": "보통~강함 (여름 최고 8)",
-        "essentials": ["미세먼지 차단 프라이머", "고보습 클렌징오일", "황사 대비 마스크"],
-        "trouble": "미세먼지·황사로 인한 모공 트러블, 건조 지역 당김",
-        "hair_tip": "미세먼지 잔여물 제거하는 클래리파잉 샴푸",
-        "drugstores": ["Watsons 왕푸징점", "Sephora SKP점", "Innisfree 산리툰점"],
+        "water_note": "석회질이 있는 경수 지역 — 세안 후 당김 주의, 높은 습도로 유분도 함께 관리",
+        "uv": "강함 (여름 최고 9)",
+        "essentials": ["유분 조절 클렌징폼", "가벼운 워터 젤 선크림", "제습 헤어 에센스"],
+        "trouble": "고온다습으로 인한 유분·모공 트러블, 장마철 악화",
+        "hair_tip": "습기 대비 볼륨 컨트롤 헤어 에센스",
+        "drugstores": ["Watsons 난징동루점", "Sephora 화이하이루점", "Innisfree IAPM점"],
     },
     "kr": {
-        "name": "한국 · 제주",
+        "name": "한국 · 서울",
         "flag": "🇰🇷",
-        "landmark": "🍊",
-        "geo": "33.4996;126.5312",
-        "climate": "해양성 온대. 육지보다 온화하지만 바람이 강함",
-        "humidity": "평균 70% (여름 장마철 습함)",
-        "temp_diff": "육지 대비 겨울 기준 +3°C",
+        "landmark": "🏯",
+        "geo": "37.5665;126.9780",
+        "climate": "온대 대륙성. 사계절이 뚜렷하고 여름 장마·겨울 건조가 특징",
+        "humidity": "평균 65% (여름 장마철 습함, 겨울은 매우 건조)",
+        "temp_diff": "계절별 변동 매우 큼 (여름 최고 35°C, 겨울 최저 -15°C)",
         "visa": "국내 여행 (비자 불필요)",
-        "flight_time": "약 1시간 (김포·인천 기준)",
-        "water": "연수 (화산암반수)",
-        "water_note": "화산암반수 기반 연수라 자극은 적지만, 강한 바닷바람으로 건조 주의",
-        "uv": "강함 (여름 최고 9)",
-        "essentials": ["바람 대비 고정력 헤어 에센스", "가벼운 데일리 선크림", "진정 수분 마스크"],
-        "trouble": "강한 바닷바람으로 인한 피부 당김·모발 손상",
-        "hair_tip": "손상 모발용 오일 세럼",
-        "drugstores": ["올리브영 제주공항점", "롭스 연동점", "다이소 노형점"],
+        "flight_time": "국내 거점 도시 (이동 불필요)",
+        "water": "연수 (아리수)",
+        "water_note": "일반 연수라 자극은 적은 편, 미세먼지 노출 후 꼼꼼한 세안 필요",
+        "uv": "보통~강함 (여름 최고 8)",
+        "essentials": ["미세먼지 딥클렌징폼", "환절기 보습 크림", "데일리 선크림"],
+        "trouble": "환절기 급격한 건조·미세먼지로 인한 트러블",
+        "hair_tip": "미세먼지 케어 헤어 클렌저",
+        "drugstores": ["올리브영 명동점", "롭스 홍대점", "다이소 강남점"],
     },
 }
 
@@ -2292,13 +2292,14 @@ def skin_tone_row():
 
 
 def closet_link_row(title, cat_key, bucket):
-    """옷/액세서리 항목 버튼 — 누르면 30개 선택지가 있는 하위 페이지로 이동."""
+    """옷/액세서리 항목 버튼 — 누르면 30개 선택지가 있는 하위 페이지로 이동.
+    이미 뭔가 착용 중이면 옆에 '벗기기' 버튼이 나타나 바로 선택을 취소할 수 있다."""
     draft = st.session_state.char_draft
     item_id = (draft.get(bucket) or {}).get(cat_key)
     catalog = ALL_CATALOGS[cat_key]
     current_label = _catalog_label(cat_key, item_id) or "선택 안 함"
     swatch_hex = _catalog_hex(cat_key, item_id) or "#eeeeee"
-    col_sw, col_btn = st.columns([1, 4])
+    col_sw, col_btn, col_off = st.columns([1, 3.3, 1])
     with col_sw:
         html_block(
             f'<div style="width:100%;aspect-ratio:1;border-radius:10px;background:{swatch_hex};'
@@ -2310,6 +2311,13 @@ def closet_link_row(title, cat_key, bucket):
             st.session_state.closet_category = cat_key
             goto("closet")
             st.rerun()
+    with col_off:
+        if item_id:
+            if st.button("벗기기", key=f"unequip_{cat_key}", use_container_width=True):
+                bucket_dict = dict(draft.get(bucket) or {})
+                bucket_dict[cat_key] = None
+                draft[bucket] = bucket_dict
+                st.rerun()
 
 
 def render_character():
