@@ -257,9 +257,24 @@ def _load_world_map_svg():
         'viewBox="0 0 2752.766 1537.631"',
         f'viewBox="0 0 {WORLD_MAP_VIEWBOX_W} {WORLD_MAP_VIEWBOX_H}"',
     )
-    raw = re.sub(r'\sheight="[0-9.]+"', ' height="100%"', raw, count=1)
-    raw = re.sub(r'\swidth="[0-9.]+"', ' width="100%"', raw, count=1)
+    # width/height를 "100%"로 두면 SVG가 고유 크기(intrinsic size) 없는 상태가 되는데,
+    # 인라인 <svg>로 쓸 때는 위 .world-map-frame svg{width:100%;height:100%} CSS가
+    # 어차피 덮어써서 문제가 없지만, CSS background-image로 쓸 때는 브라우저가 크기를
+    # 특정할 기준이 없어 background-size/position 퍼센트 계산이 예측 불가능하게 깨진다
+    # (확대 지도 기능에서 실측으로 확인됨). viewBox와 동일한 절대 px 값을 줘서 두 용도
+    # 모두에서 같은 좌표계 기준(1 유닛 = 1px)을 갖도록 고정한다.
+    raw = re.sub(r'\sheight="[0-9.]+"', f' height="{WORLD_MAP_VIEWBOX_H}"', raw, count=1)
+    raw = re.sub(r'\swidth="[0-9.]+"', f' width="{WORLD_MAP_VIEWBOX_W}"', raw, count=1)
     highlight = ",".join(f".{code}" for code in COUNTRIES)
+    # 강조할 국가마다 자기 <path>에 직접 클래스가 붙어있는 경우(중국/한국 등 —
+    # 이땐 svg path{...} 베이스 규칙과 동일한 요소를 다투므로 클래스 선택자가 더
+    # 높은 명시도로 이김)와, 큰 본토 도형은 클래스 없이 상위 <g class="...">에만
+    # 클래스가 있고 상속으로만 색이 내려오는 경우(호주 등 — 이땐 자기 자신에게
+    # 직접 걸리는 svg path{...} 베이스 규칙이 상속값을 항상 이겨버려 핑크가 전혀
+    # 안 먹혔다)가 섞여 있다. `.국가 path`로 자손까지 명시적으로 짚어주면 두
+    # 경우 모두 명시도로 베이스 규칙을 이기게 되어 국가마다 다른 이 구조 차이에
+    # 상관없이 항상 강조색이 적용된다.
+    highlight_desc = ",".join(f".{code} path" for code in COUNTRIES)
     raw = raw.replace(
         "</svg>",
         # 국가 대부분은 class="land ..."로 묶여 있지만, 원본 파일에 class 없이
@@ -270,7 +285,8 @@ def _load_world_map_svg():
         # 강조 국가만 원래 쓰던 핑크로 남겨서 핀 색상과 톤이 이어지게 한다.
         "<style>svg path{fill:#dccb98 !important;stroke:#6b4423 !important;stroke-width:1.1 !important;}"
         ".ocean,.lake{fill:#b9a06d !important;stroke:none !important;}"
-        f"{highlight}{{fill:#ff6fb8 !important;stroke:#a53d78 !important;}}</style></svg>",
+        f"{highlight},{highlight_desc}"
+        "{fill:#ff6fb8 !important;stroke:#a53d78 !important;}</style></svg>",
     )
     return " ".join(raw.split())
 
@@ -3138,18 +3154,18 @@ def _render_country_map_stage(country, char, code):
             white-space: nowrap;
         }}
         .country-sticky-note {{
-            position: absolute; top: 6%; right: 3%; width: min(280px, 42%);
-            background: #fff7c2; padding: 16px 16px 14px; border-radius: 4px 16px 16px 4px;
-            box-shadow: 3px 6px 14px rgba(0,0,0,.28); transform: rotate(2.5deg);
+            position: absolute; top: 4%; right: 2%; width: min(460px, 62%);
+            background: #fff7c2; padding: 26px 26px 22px; border-radius: 6px 22px 22px 6px;
+            box-shadow: 5px 10px 22px rgba(0,0,0,.32); transform: rotate(2deg);
             font-family: 'Gaegu', cursive; color: #4a3a1a; pointer-events: none; z-index: 5;
         }}
         .country-sticky-note::before {{
-            content: '📌'; position: absolute; top: -14px; left: 14px; font-size: 1.3rem;
+            content: '📌'; position: absolute; top: -20px; left: 20px; font-size: 2rem;
             transform: rotate(-15deg);
         }}
-        .note-title {{ font-weight: 700; font-size: 1.15rem; margin-bottom: 6px; }}
-        .note-section {{ font-weight: 700; font-size: .82rem; margin: 8px 0 2px; color: #8a5a10; }}
-        .note-line {{ font-size: .82rem; line-height: 1.35; margin: 0 0 2px; }}
+        .note-title {{ font-weight: 700; font-size: 1.9rem; margin-bottom: 10px; }}
+        .note-section {{ font-weight: 700; font-size: 1.25rem; margin: 14px 0 4px; color: #8a5a10; }}
+        .note-line {{ font-size: 1.25rem; line-height: 1.5; margin: 0 0 4px; }}
         </style>
         """
     )
