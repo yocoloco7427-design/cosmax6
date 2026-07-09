@@ -228,7 +228,7 @@ def _catalog_label(cat_key, item_id):
 # 낙서)을 우리 팔레트로 재현한 SVG. 작은 아이콘 버튼과 확대된 표지에 이
 # 그래픽을 그대로 재사용해서 "아이콘이 그대로 커진다"가 실제로 맞아떨어지게 한다.
 PASSPORT_ICON_SVG = """
-<svg viewBox="0 0 200 240" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 200 240" width="200" height="240" xmlns="http://www.w3.org/2000/svg">
   <g transform="rotate(-7 100 130)">
     <path d="M22 30 L152 10 L163 26 L33 46 Z" fill="#ffd9ec"/>
     <rect x="26" y="32" width="148" height="196" rx="16" fill="#ff6fb8" stroke="#6b1638" stroke-width="3.5"/>
@@ -364,17 +364,17 @@ def render_top_icons():
         f"""
         <style>
         .st-key-nav_map_icon button, .st-key-open_passport_icon button {{
-            position: fixed !important; top: 64px !important;
+            position: fixed !important; top: 60px !important;
             z-index: 99997 !important;
-            width: 46px !important; height: 46px !important;
-            min-width: 46px !important; max-width: 46px !important;
-            min-height: 46px !important; max-height: 46px !important;
+            width: 62px !important; height: 62px !important;
+            min-width: 62px !important; max-width: 62px !important;
+            min-height: 62px !important; max-height: 62px !important;
             border-radius: 50% !important; padding: 0 !important;
             background: #ffffff !important; border: 3px solid #ff6fb8 !important;
-            font-size: 1.35rem !important; box-shadow: 0 4px 10px rgba(120,40,90,.25);
+            font-size: 1.8rem !important; box-shadow: 0 4px 10px rgba(120,40,90,.25);
             transition: transform .12s ease;
         }}
-        .st-key-nav_map_icon button {{ right: 72px !important; }}
+        .st-key-nav_map_icon button {{ right: 92px !important; }}
         .st-key-open_passport_icon button {{ right: 16px !important; }}
         .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover {{
             transform: translateY(-2px) scale(1.06);
@@ -412,27 +412,33 @@ PASSPORT_FIELD_LABELS = {
 }
 
 
-def _passport_field_rows(char):
+def _passport_bio_fields(char):
+    """왼쪽 페이지 — 신원 정보 (여권 기본 페이지 느낌)."""
     rows = ['<div class="p-field"><span class="p-label">NATIONALITY · 국적</span>'
             '<span class="p-value">Republic of Cosmax</span></div>']
     for key, label in PASSPORT_FIELD_LABELS.items():
         value = char.get(key) or "-"
         rows.append(f'<div class="p-field"><span class="p-label">{label}</span>'
                     f'<span class="p-value">{value}</span></div>')
+    return "".join(rows)
+
+
+def _passport_extra_fields(char):
+    """오른쪽 페이지 상단 — 성격/취향/착용 아이템."""
     personality = ", ".join(char.get("personality") or []) or "-"
     cosmetic = ", ".join(char.get("cosmetic_prefs") or []) or "-"
-    rows.append(f'<div class="p-field"><span class="p-label">PERSONALITY · 성격 특성</span>'
-                f'<span class="p-value">{personality}</span></div>')
-    rows.append(f'<div class="p-field"><span class="p-label">COSMETIC PREFS · 화장품 취향</span>'
-                f'<span class="p-value">{cosmetic}</span></div>')
     outfit = char.get("outfit") or {}
     acc = char.get("accessories") or {}
-    equipped = [
-        _catalog_label(k, v) for k, v in {**outfit, **acc}.items() if v
-    ]
+    equipped = [_catalog_label(k, v) for k, v in {**outfit, **acc}.items() if v]
     equipped_str = ", ".join(equipped) if equipped else "-"
-    rows.append(f'<div class="p-field"><span class="p-label">EQUIPPED · 착용 중</span>'
-                f'<span class="p-value">{equipped_str}</span></div>')
+    rows = [
+        f'<div class="p-field"><span class="p-label">PERSONALITY · 성격 특성</span>'
+        f'<span class="p-value">{personality}</span></div>',
+        f'<div class="p-field"><span class="p-label">COSMETIC PREFS · 화장품 취향</span>'
+        f'<span class="p-value">{cosmetic}</span></div>',
+        f'<div class="p-field"><span class="p-label">EQUIPPED · 착용 중</span>'
+        f'<span class="p-value">{equipped_str}</span></div>',
+    ]
     return "".join(rows)
 
 
@@ -451,6 +457,13 @@ def _passport_dialog_css():
         """
         <style>
         .p-body { padding-top: 2px; }
+        /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자 */
+        .page {
+            background: #fffaf3; border-radius: 4px; padding: 14px 14px 10px;
+            min-height: 360px; box-shadow: 0 1px 4px rgba(0,0,0,.06);
+        }
+        .page-left { border-right: 1px solid rgba(178,58,110,.15); box-shadow: inset -8px 0 12px -8px rgba(0,0,0,.12); }
+        .page-right { border-left: 1px solid rgba(178,58,110,.15); box-shadow: inset 8px 0 12px -8px rgba(0,0,0,.12); }
         @keyframes passport-reveal {
             0%   { opacity: 0; transform: translateY(-10px); }
             100% { opacity: 1; transform: translateY(0); }
@@ -488,11 +501,12 @@ def _passport_dialog_css():
         .stamp-empty { font-family: 'Jua', sans-serif; font-size: .85rem; color: #a06; opacity: .8; }
         /* 닫힌 표지: 표지 그림 자체가 버튼 — 다른 글씨/버튼 없이 그림만 크게, 누르면 펼쳐짐 */
         .st-key-open_passport_cover button {
-            width: 100% !important; height: 300px !important; padding: 0 !important;
-            border: none !important; border-radius: 14px !important;
+            width: 100% !important; height: 300px !important; padding: 24px !important;
+            border: none !important; border-radius: 14px !important; box-sizing: border-box !important;
             background-color: #fff0f6 !important;
             background-image: url('__PASSPORT_URI__') !important;
-            background-size: auto 92% !important; background-position: center !important;
+            background-origin: content-box !important;
+            background-size: contain !important; background-position: center !important;
             background-repeat: no-repeat !important;
             color: transparent !important; font-size: 0 !important;
             transition: transform .15s ease;
@@ -504,7 +518,7 @@ def _passport_dialog_css():
     )
 
 
-@st.dialog("Beauty Passport", width="small", icon="📔")
+@st.dialog("Beauty Passport", width="medium", icon="📔")
 def _beauty_passport_dialog():
     _passport_dialog_css()
     char = get_character() or {}
@@ -524,28 +538,42 @@ def _beauty_passport_dialog():
     )
     st.session_state.just_opened_passport_page = False
 
-    html_block(
-        f"""
-        <div class="p-body" style="{reveal_rule}">
-            <div class="p-photo-row">
-                <div class="p-photo-box">{doll_svg}</div>
-                <div>
-                    <div class="p-name-big">{char.get("name") or "여행자"}</div>
-                    <div class="p-passport-no">NO. COSMAX-0001</div>
+    # 펼친 여권 — 왼쪽 신원 페이지 / 오른쪽 스탬프+꿀팁 페이지, 책처럼 나란히
+    left_page, right_page = st.columns(2, gap="medium")
+
+    with left_page:
+        html_block(
+            f"""
+            <div class="page page-left" style="{reveal_rule}">
+                <div class="p-photo-row">
+                    <div class="p-photo-box">{doll_svg}</div>
+                    <div>
+                        <div class="p-name-big">{char.get("name") or "여행자"}</div>
+                        <div class="p-passport-no">NO. COSMAX-0001</div>
+                    </div>
                 </div>
+                {_passport_bio_fields(char)}
             </div>
-            {_passport_field_rows(char)}
-            <div class="p-section-title">✈ VISA STAMPS</div>
-            <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
-            <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
-        </div>
-        """
-    )
-    st.session_state.passport_notes = st.text_area(
-        "나만의 여행 꿀팁", value=st.session_state.passport_notes,
-        key="passport_notes_input", height=90, label_visibility="collapsed",
-        placeholder="여행하면서 알게 된 나만의 꿀팁을 적어보세요 ...",
-    )
+            """
+        )
+
+    with right_page:
+        html_block(
+            f"""
+            <div class="page page-right" style="{reveal_rule}">
+                {_passport_extra_fields(char)}
+                <div class="p-section-title">✈ VISA STAMPS</div>
+                <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
+                <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
+            </div>
+            """
+        )
+        st.session_state.passport_notes = st.text_area(
+            "나만의 여행 꿀팁", value=st.session_state.passport_notes,
+            key="passport_notes_input", height=90, label_visibility="collapsed",
+            placeholder="여행하면서 알게 된 나만의 꿀팁을 적어보세요 ...",
+        )
+
     if st.button("✕ 닫기", key="close_passport_btn", use_container_width=True):
         st.session_state.show_passport = False
         st.session_state.passport_page_open = False
