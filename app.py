@@ -6,6 +6,7 @@
 import base64
 import html
 import json
+import math
 import random
 import re
 import time
@@ -715,6 +716,8 @@ if "unlocked_countries" not in st.session_state:
     st.session_state.unlocked_countries = set()  # 코인으로 잠금 해제한 여행지 코드
 if "confirming_unlock" not in st.session_state:
     st.session_state.confirming_unlock = None  # 언락 확인 문구를 보여줄 국가 코드 (없으면 None)
+if "coin_celebration_amount" not in st.session_state:
+    st.session_state.coin_celebration_amount = None  # 코인 획득 폭죽 애니메이션에 표시할 금액
 
 
 def get_character():
@@ -1081,8 +1084,87 @@ def _ad_reward_dialog():
         })
         st.session_state.show_ad_reward = False
         st.session_state.current_ad_video = None
-        st.toast(f"🪙 코인 {AD_REWARD_COINS}개 적립!", icon="🪙")
+        st.session_state.coin_celebration_amount = AD_REWARD_COINS
         st.rerun()
+
+
+COIN_CELEBRATION_COLORS = ["#FF6FB8", "#FFD86F", "#7CE0C1", "#8FB8FF", "#FFA63D", "#C79BFF", "#FF8AA8"]
+
+
+def render_coin_celebration():
+    """코인을 받은 바로 다음 rerun에 화면 정중앙에서 한 번만 터지는 폭죽(컨페티) +
+    큰 축하 문구. coin_celebration_amount를 곧바로 None으로 되돌려서 그 다음
+    상호작용부터는(다이얼로그가 이미 닫힌 뒤이므로) 다시 나타나지 않게 한다
+    (다른 화면의 just_* 1회성 플래그와 같은 패턴)."""
+    amount = st.session_state.coin_celebration_amount
+    if not amount:
+        return
+    st.session_state.coin_celebration_amount = None
+
+    pieces = []
+    n = 26
+    for i in range(n):
+        angle = math.radians((360 / n) * i + random.uniform(-10, 10))
+        dist = random.uniform(200, 360)
+        dx = round(math.cos(angle) * dist, 1)
+        dy = round(math.sin(angle) * dist, 1)
+        size = round(random.uniform(8, 15), 1)
+        color = random.choice(COIN_CELEBRATION_COLORS)
+        delay = round(random.uniform(0, 0.12), 2)
+        dur = round(random.uniform(0.8, 1.15), 2)
+        rot = round(random.uniform(180, 640))
+        pieces.append(
+            f'<span class="confetti-piece" style="--dx:{dx}px; --dy:{dy}px; --rot:{rot}deg; '
+            f'width:{size}px; height:{size}px; background:{color}; '
+            f'animation-delay:{delay}s; animation-duration:{dur}s;"></span>'
+        )
+
+    html_block(
+        f"""
+        <style>
+        .coin-celebration-layer {{
+            position: fixed; inset: 0; z-index: 999998; pointer-events: none;
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+        }}
+        .confetti-piece {{
+            position: absolute; top: 50%; left: 50%; border-radius: 3px;
+            transform: translate(-50%,-50%);
+            animation-name: confetti-burst; animation-timing-function: cubic-bezier(.2,.7,.3,1);
+            animation-fill-mode: both;
+        }}
+        @keyframes confetti-burst {{
+            0%   {{ transform: translate(-50%,-50%) rotate(0deg); opacity: 1; }}
+            70%  {{ opacity: 1; }}
+            100% {{
+                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) rotate(var(--rot));
+                opacity: 0;
+            }}
+        }}
+        .coin-celebration-text {{
+            position: relative; z-index: 2; text-align: center; padding: 0 6vw;
+            font-family: 'Jua', sans-serif; font-weight: 900; color: #ff3d97;
+            font-size: clamp(1.5rem, 5.5vw, 3rem);
+            text-shadow: 3px 3px 0 #fff, -2px -2px 0 #fff, 3px -2px 0 #fff, -2px 3px 0 #fff,
+                         0 8px 24px rgba(255,111,184,.6);
+            animation: coin-text-pop 2s cubic-bezier(.22,1.4,.36,1) both;
+        }}
+        @keyframes coin-text-pop {{
+            0%   {{ transform: scale(.2); opacity: 0; }}
+            35%  {{ transform: scale(1.15); opacity: 1; }}
+            50%  {{ transform: scale(1); }}
+            82%  {{ transform: scale(1); opacity: 1; }}
+            100% {{ transform: scale(.85); opacity: 0; }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .confetti-piece, .coin-celebration-text {{ animation: none !important; }}
+        }}
+        </style>
+        <div class="coin-celebration-layer">
+            {"".join(pieces)}
+            <div class="coin-celebration-text">🎉 {amount}코인을 획득하셨습니다!!! 🎉</div>
+        </div>
+        """
+    )
 
 
 def render_ad_reward_button():
@@ -4801,6 +4883,7 @@ render_passport_modal()
 render_back_button()
 render_top_icons()
 render_ad_reward_button()
+render_coin_celebration()
 
 # 화면(view)을 st.empty() 슬롯 하나에 넣어서 그린다. 예전에는 VIEWS[...]()를
 # 바로 호출했는데, 캐릭터 만들기(탭+위젯이 아주 많음)에서 지도(위젯이 훨씬
