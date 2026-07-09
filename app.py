@@ -4003,15 +4003,15 @@ def _map_globe_gate():
             top: calc(14px + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px)) !important;
             left: calc(50% + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px) + 28px) !important;
             transform: translateY(-50%) !important;
-            width: clamp(64px, 9vw, 96px) !important; height: clamp(64px, 9vw, 96px) !important;
+            width: clamp(72px, 10vw, 108px) !important; height: clamp(72px, 10vw, 108px) !important;
             min-width: 0 !important; max-width: none !important;
-            border-radius: 50% !important; border: 3px solid #ff6fb8 !important; padding: 0 !important;
-            background-color: #fff8fb !important;
+            border-radius: 0 !important; border: none !important; padding: 0 !important;
+            background: none !important;
             background-image: url('{HOME_ICON_URI}') !important;
-            background-size: 108% 108% !important; background-position: center !important;
+            background-size: contain !important; background-position: center !important;
             background-repeat: no-repeat !important;
-            color: transparent !important; font-size: 0 !important; overflow: hidden !important;
-            box-shadow: 0 4px 10px rgba(120,40,90,.25);
+            color: transparent !important; font-size: 0 !important; overflow: visible !important;
+            filter: drop-shadow(0 4px 10px rgba(120,40,90,.25));
             transition: transform .12s ease;
             z-index: 5;
         }}
