@@ -504,7 +504,7 @@ def render_top_icons():
         """
     )
     if st.button("🗺️", key="nav_map_icon", help="여행지 지도"):
-        st.session_state.map_globe_opened = False  # 매번 지구본부터 다시 보여줌 (여권과 동일한 패턴)
+        st.session_state.map_globe_opened = True  # 지구본 단계를 건너뛰고 세계지도를 바로 띄움
         goto("map" if get_character() else "character")
         st.rerun()
     if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
@@ -2331,10 +2331,15 @@ def render_closet():
             st.rerun()
 
 
+_MAP_GLOBE_MAX_PX = 540  # clamp()의 최댓값 — 텍스처 background-size(2배)와 항상 같이 맞춰줘야 함
+
+
 def _map_globe_gate():
-    """지도 화면 1단계 — 홈 화면의 자전하는 지구를 그대로 가져오되, 살짝 더 입체적으로
-    (그림자/하이라이트를 조금 더 진하게). 누르면 세계지도가 펼쳐진다. 홈 화면 자체의
-    애니메이션(render_home)은 그대로 두고 별도로 복사해서 씀.
+    """지도 화면의 기본 화면 — 홈 화면의 자전하는 지구를 그대로 가져오되, 살짝 더
+    입체적으로(그림자/하이라이트를 조금 더 진하게). 누르면 세계지도가 지구 위에 뜬다
+    (다른 페이지로 넘어가는 게 아니라 st.dialog로 배경이 어두워지며 펼쳐짐 — 아래
+    _world_map_dialog). 홈 화면 자체의 애니메이션(render_home)은 그대로 두고
+    별도로 복사해서 씀.
 
     처음엔 지구 그림을 html_block으로 따로 그리고 그 위에 투명 버튼을 겹쳐서 클릭을
     받으려 했는데, 실제로는 안 눌리는 버그가 있었다(두 요소를 따로 겹치다 보니 위치/
@@ -2342,19 +2347,27 @@ def _map_globe_gate():
     바꿈 — 버튼 자기 자신에 ::before/::after로 그림을 입혀서 "그림 = 버튼"이 되게
     하면 겹침 문제 자체가 생길 수 없다."""
     earth = asset_data_uri("earth_map.webp", "image/webp")
+    tex_w, tex_h = _MAP_GLOBE_MAX_PX * 2, _MAP_GLOBE_MAX_PX
     html_block(
         f"""
         <style>
         .map-globe-hint {{
-            text-align: center; font-family: 'Jua', sans-serif; font-size: 1.05rem;
-            color: #5a4a7a; margin: 4px 0 6px;
+            text-align: center; font-family: 'Jua', sans-serif; font-size: 1.5rem;
+            font-weight: 700; color: #5a4a7a; margin: 4px 0 6px;
+        }}
+        /* 버튼 자체가 아니라 버튼을 감싸는 st-key wrapper를 flex로 중앙 정렬한다 —
+           Streamlit이 위젯을 자체적으로 flex 컨테이너에 넣는 경우가 있어서, 버튼에
+           margin:auto만 주면 안 먹히고 왼쪽에 붙어버리는 문제가 있었다. */
+        .st-key-open_world_map {{
+            display: flex !important; justify-content: center !important; width: 100% !important;
         }}
         .st-key-open_world_map.st-key-open_world_map button {{
             position: relative !important;
-            width: clamp(330px,69vw,540px) !important; height: clamp(330px,69vw,540px) !important;
+            width: clamp(330px,69vw,{_MAP_GLOBE_MAX_PX}px) !important;
+            height: clamp(330px,69vw,{_MAP_GLOBE_MAX_PX}px) !important;
             min-width: 0 !important; max-width: none !important;
             border-radius: 50% !important; border: none !important; padding: 0 !important;
-            margin: 14px auto 6px !important; display: block !important;
+            margin: 14px 0 6px !important;
             background: transparent !important; overflow: hidden !important;
             box-shadow:
                 inset 0 0 32px 7px rgba(170,220,255,.55),
@@ -2370,7 +2383,7 @@ def _map_globe_gate():
         .st-key-open_world_map.st-key-open_world_map button::before {{
             content: ''; position: absolute; inset: 0; border-radius: 50%;
             background-image: url('{earth}');
-            background-size: 720px 360px; background-repeat: repeat-x;
+            background-size: {tex_w}px {tex_h}px; background-repeat: repeat-x;
             background-position: 0 center;
             filter: brightness(1.3) contrast(1.16) saturate(1.26);
             animation: spin-earth-map 30s linear infinite;
@@ -2382,7 +2395,7 @@ def _map_globe_gate():
                 radial-gradient(circle at 70% 76%, rgba(2,6,24,0) 18%, rgba(2,6,24,.55) 54%, rgba(1,3,16,.98) 100%);
             mix-blend-mode: multiply;
         }}
-        @keyframes spin-earth-map {{ from{{background-position:0 center;}} to{{background-position:-720px center;}} }}
+        @keyframes spin-earth-map {{ from{{background-position:0 center;}} to{{background-position:-{tex_w}px center;}} }}
         @keyframes map-earth-float {{ 0%,100%{{transform:translateY(0);}} 50%{{transform:translateY(-14px);}} }}
         @media (prefers-reduced-motion: reduce) {{
             .st-key-open_world_map.st-key-open_world_map button,
@@ -2397,9 +2410,18 @@ def _map_globe_gate():
         st.rerun()
 
 
-def _render_world_map_with_pins():
-    """지도 화면 2단계 — 실제 세계지도 위에 여행지마다 핀을 찍어서 보여준다.
+def _dismiss_world_map():
+    """다이얼로그 기본 X/ESC/바깥 클릭으로 닫았을 때도 상태를 꺼준다 — 뷰티
+    패스포트에서 겪었던 것과 같은 '닫아도 계속 뜨는' 버그를 막기 위함."""
+    st.session_state.map_globe_opened = False
+
+
+@st.dialog("🗺️ 여행지 지도", width="large", on_dismiss=_dismiss_world_map)
+def _world_map_dialog():
+    """지구를 누르면 배경이 어두워지며 이 위에 세계지도가 뜬다 (페이지 이동이 아니라
+    지구 '위에 뜨는' 느낌을 위해 st.dialog 사용 — 뷰티 패스포트와 같은 방식).
     핀을 누르면 예전 카드의 '자세히 보기'와 동일하게 국가 상세 화면으로 이동."""
+    st.caption("핀을 눌러 여행지 상세 정보를 확인하세요")
     svg = _load_world_map_svg()
     pin_rules = []
     for code, c in COUNTRIES.items():
@@ -2412,15 +2434,7 @@ def _render_world_map_with_pins():
         html_block(
             f"""
             <style>
-            /* 화면에 거의 꽉 차게 — Streamlit 본문의 중앙 정렬 폭 제한을 무시하고
-               뷰포트 기준으로 폭을 잡는다 (흔히 쓰는 "full-bleed" 트릭:
-               left:50% + translateX(-50%)는 레이아웃 폭에는 영향을 주지 않고
-               화면상 위치만 뷰포트 중앙으로 옮긴다). */
-            .st-key-world_map_area {{
-                position: relative !important;
-                width: min(96vw, {85 * WORLD_MAP_VIEWBOX_W / WORLD_MAP_VIEWBOX_H:.2f}vh) !important;
-                left: 50% !important; transform: translateX(-50%) !important;
-            }}
+            .st-key-world_map_area {{ position: relative !important; width: 100% !important; }}
             .world-map-frame {{
                 position: relative; width: 100%;
                 aspect-ratio: {WORLD_MAP_VIEWBOX_W} / {WORLD_MAP_VIEWBOX_H};
@@ -2453,6 +2467,10 @@ def _render_world_map_with_pins():
                 goto("country")
                 st.rerun()
 
+    if st.button("나가기", key="close_world_map", use_container_width=True):
+        st.session_state.map_globe_opened = False
+        st.rerun()
+
 
 def render_map():
     if not get_character():
@@ -2460,13 +2478,9 @@ def render_map():
         st.rerun()
         return
 
-    if not st.session_state.map_globe_opened:
-        _map_globe_gate()
-        return
-
-    st.title("🗺️ 여행지 지도")
-    st.caption("핀을 눌러 여행지 상세 정보를 확인하세요")
-    _render_world_map_with_pins()
+    _map_globe_gate()
+    if st.session_state.map_globe_opened:
+        _world_map_dialog()
 
 
 def render_country():
