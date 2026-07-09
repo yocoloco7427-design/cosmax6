@@ -10,8 +10,11 @@ import random
 import time
 from pathlib import Path
 
+import requests
 import streamlit as st
 import streamlit.components.v1 as components
+
+WAQI_TOKEN = st.secrets.get("WAQI_TOKEN", "")
 
 st.set_page_config(page_title="TravelMax+", page_icon="🧳", layout="wide")
 
@@ -45,6 +48,7 @@ COUNTRIES = {
         "name": "일본 · 도쿄",
         "flag": "🗾",
         "landmark": "🗼",
+        "geo": "35.6895;139.6917",
         "climate": "온난 습윤. 여름엔 고온다습, 겨울은 건조",
         "humidity": "평균 65% (한국보다 다소 높음)",
         "temp_diff": "여름 기준 +2°C",
@@ -61,6 +65,7 @@ COUNTRIES = {
         "name": "프랑스 · 파리",
         "flag": "🇫🇷",
         "landmark": "🗼",
+        "geo": "48.8566;2.3522",
         "climate": "서안 해양성. 사계절 온화, 겨울철 건조·바람",
         "humidity": "평균 40% (한국보다 낮음, 건조)",
         "temp_diff": "겨울 기준 -3°C",
@@ -77,6 +82,7 @@ COUNTRIES = {
         "name": "태국 · 방콕",
         "flag": "🇹🇭",
         "landmark": "🛕",
+        "geo": "13.7563;100.5018",
         "climate": "열대 몬순. 고온다습, 우기·건기 뚜렷",
         "humidity": "평균 75% (한국보다 매우 높음)",
         "temp_diff": "연중 +8°C",
@@ -93,6 +99,7 @@ COUNTRIES = {
         "name": "아랍에미리트 · 두바이",
         "flag": "🇦🇪",
         "landmark": "🏙️",
+        "geo": "25.2048;55.2708",
         "climate": "사막성. 고온 건조, 낮밤 온도차 큼",
         "humidity": "평균 25% (매우 건조)",
         "temp_diff": "여름 기준 +15°C",
@@ -109,6 +116,7 @@ COUNTRIES = {
         "name": "아이슬란드 · 레이캬비크",
         "flag": "🇮🇸",
         "landmark": "🌋",
+        "geo": "64.1466;-21.9426",
         "climate": "한대 해양성. 서늘하고 강풍, 낮은 자외선",
         "humidity": "평균 75% (습하지만 기온이 낮아 체감 건조)",
         "temp_diff": "여름 기준 -12°C",
@@ -125,6 +133,7 @@ COUNTRIES = {
         "name": "미국 · 로스앤젤레스",
         "flag": "🇺🇸",
         "landmark": "🌴",
+        "geo": "34.0522;-118.2437",
         "climate": "지중해성. 건조하고 자외선 강함",
         "humidity": "평균 45%",
         "temp_diff": "여름 기준 +1°C",
@@ -138,6 +147,45 @@ COUNTRIES = {
         "hair_tip": "샤워기 필터 또는 킬레이팅 샴푸",
     },
 }
+
+
+def _aqi_level_label(aqi):
+    """WAQI 지수(미국 EPA 기준)를 한글 등급으로 변환."""
+    if aqi <= 50:
+        return "🟢 좋음"
+    if aqi <= 100:
+        return "🟡 보통"
+    if aqi <= 150:
+        return "🟠 민감군 주의"
+    if aqi <= 200:
+        return "🔴 나쁨"
+    if aqi <= 300:
+        return "🟣 매우 나쁨"
+    return "🟤 위험"
+
+
+@st.cache_data(show_spinner=False, ttl=1800)
+def get_air_quality(geo):
+    """WAQI(World Air Quality Index) API에서 해당 좌표의 실시간 미세먼지 지수를 가져온다."""
+    if not WAQI_TOKEN:
+        return None
+    try:
+        resp = requests.get(
+            f"https://api.waqi.info/feed/geo:{geo}/",
+            params={"token": WAQI_TOKEN},
+            timeout=5,
+        )
+        data = resp.json()
+        if data.get("status") != "ok":
+            return None
+        d = data["data"]
+        return {
+            "aqi": d.get("aqi"),
+            "station": (d.get("city") or {}).get("name", ""),
+        }
+    except (requests.RequestException, ValueError, KeyError):
+        return None
+
 
 SKIN_TYPES = ["건성", "지성", "복합성", "민감성", "트러블"]
 GENDERS = ["여성", "남성", "자유롭게"]
@@ -2229,6 +2277,17 @@ def render_country():
     with col1:
         st.metric("기후", country["climate"])
         st.metric("습도", country["humidity"])
+        aq = get_air_quality(country["geo"]) if country.get("geo") else None
+        if aq and aq.get("aqi") not in (None, "-"):
+            try:
+                aqi_val = int(aq["aqi"])
+                st.metric("미세먼지 (AQI)", f"{aqi_val} · {_aqi_level_label(aqi_val)}")
+                if aq.get("station"):
+                    st.caption(f"측정소: {aq['station']}")
+            except (TypeError, ValueError):
+                st.metric("미세먼지 (AQI)", "정보 없음")
+        else:
+            st.metric("미세먼지 (AQI)", "정보 없음")
         st.metric("기온 차", country["temp_diff"])
         st.metric("비자", country["visa"])
         st.metric("비행 시간", country["flight_time"])
