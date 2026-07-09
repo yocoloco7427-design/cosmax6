@@ -598,6 +598,7 @@ def render_home():
             position: absolute !important; left: 50% !important; top: 76% !important;
             transform: translateX(-50%) !important;
             width: auto !important; max-width: 94% !important;
+            white-space: nowrap !important;
             text-align: center !important;
             font-family: 'Gamja Flower', 'Jua', cursive !important;
             font-size: clamp(1.1rem,2.3vw,1.8rem) !important;
@@ -673,7 +674,7 @@ def render_home():
                 <span class="trail"></span>
             </div>
             <h1 class="hero-title">{title}</h1>
-            <div class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰<br/>알려주는 여행 뷰티 케어 ✈️</div>
+            <div class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰 알려주는 여행 뷰티 케어 ✈️</div>
         </div>
         """
     )
@@ -686,7 +687,7 @@ def render_home():
             f"""
             <style>
             .st-key-start_dialog {{
-                max-width: 360px !important; margin: -.5rem auto 1.5rem !important;
+                max-width: 360px !important; margin: -3rem auto 1rem !important;
                 font-family: 'Press Start 2P', 'Jua', cursive;
                 border: 4px solid #b23a6e !important; border-radius: 10px !important;
                 overflow: hidden !important; background: #ffe6f0 !important;
