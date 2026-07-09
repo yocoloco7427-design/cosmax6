@@ -592,20 +592,22 @@ def render_home():
             90%  {{ transform: scale(.99); }}
             100% {{ transform: scale(1); }}
         }}
-        .hero-sub {{
-            position: absolute; left: 50%; top: 71%;
-            transform: translateX(-50%);
-            width: auto; max-width: 94%;
-            text-align: center;
-            font-family: 'Gamja Flower', 'Jua', cursive;
-            font-size: clamp(3.2rem,8vw,6.2rem);
-            font-weight: 700; line-height: 1.3;
-            color: #ffffff; z-index: 6;
-            padding: .25em 1em;
-            background: linear-gradient(180deg, rgba(130,55,150,.62), rgba(95,30,115,.5));
-            border-radius: 26px;
-            box-shadow: 0 10px 24px rgba(40,10,60,.4), inset 0 0 0 3px rgba(255,255,255,.45);
-            text-shadow: 0 3px 0 rgba(0,0,0,.32);
+        /* div 태그 + !important: Streamlit 기본 <p> 타이포그래피 규칙이 명시도가 더 높아
+           일반 클래스 font-size를 눌러 이겨버리는 문제를 막기 위함 (실측 확인된 버그) */
+        div.hero-sub {{
+            position: absolute !important; left: 50% !important; top: 71% !important;
+            transform: translateX(-50%) !important;
+            width: auto !important; max-width: 94% !important;
+            text-align: center !important;
+            font-family: 'Gamja Flower', 'Jua', cursive !important;
+            font-size: clamp(1.5rem,3.4vw,2.6rem) !important;
+            font-weight: 700 !important; line-height: 1.3 !important;
+            color: #ffffff !important; z-index: 6 !important;
+            padding: .25em 1em !important;
+            background: linear-gradient(180deg, rgba(130,55,150,.62), rgba(95,30,115,.5)) !important;
+            border-radius: 22px !important;
+            box-shadow: 0 10px 24px rgba(40,10,60,.4), inset 0 0 0 3px rgba(255,255,255,.45) !important;
+            text-shadow: 0 3px 0 rgba(0,0,0,.32) !important;
             animation: rise .9s ease 2.6s both;
         }}
         @keyframes rise {{ from{{ opacity:0; transform: translateX(-50%) translateY(18px);}} to{{ opacity:1; transform: translateX(-50%) translateY(0);}} }}
@@ -671,7 +673,7 @@ def render_home():
                 <span class="trail"></span>
             </div>
             <h1 class="hero-title">{title}</h1>
-            <p class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰<br/>알려주는 여행 뷰티 케어 ✈️</p>
+            <div class="hero-sub">기후 · 수질 · 자외선을 내 피부에 맞춰<br/>알려주는 여행 뷰티 케어 ✈️</div>
         </div>
         """
     )
