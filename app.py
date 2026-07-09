@@ -15,7 +15,13 @@ import requests
 import streamlit as st
 import streamlit.components.v1 as components
 
+try:
+    import anthropic
+except ImportError:
+    anthropic = None
+
 WAQI_TOKEN = st.secrets.get("WAQI_TOKEN", "")
+ANTHROPIC_API_KEY = st.secrets.get("ANTHROPIC_API_KEY", "")
 
 st.set_page_config(page_title="TravelMax+", page_icon="🧳", layout="wide")
 
@@ -62,6 +68,7 @@ COUNTRIES = {
         "essentials": ["가벼운 젤 타입 자외선 차단제", "여름철 유분 조절 클렌징폼", "쿨링 미스트"],
         "trouble": "여름철 높은 습도로 인한 유분·모공 트러블",
         "hair_tip": "쓰리와우 저자극 샴푸 (현지 드럭스토어 판매)",
+        "drugstores": ["마츠모토키요시 신주쿠점", "돈키호테 신주쿠 히가시구치점", "웰시아 신주쿠"],
     },
     "fr": {
         "name": "프랑스 · 파리",
@@ -79,6 +86,7 @@ COUNTRIES = {
         "essentials": ["고보습 크림", "미셀라 클렌징워터 (헹굼 불필요)", "립밤·핸드크림"],
         "trouble": "경수로 인한 세안 후 당김, 두피 건조",
         "hair_tip": "경수 전용 킬레이팅 샴푸 추천",
+        "drugstores": ["Monoprix 오페라점", "Marionnaud 샹젤리제점", "Sephora 샹젤리제 플래그십"],
     },
     "th": {
         "name": "태국 · 방콕",
@@ -96,6 +104,7 @@ COUNTRIES = {
         "essentials": ["고자차 선크림 (SPF50+/PA++++)", "가벼운 워터 젤 로션", "쿨링 시트팩"],
         "trouble": "강한 자외선 + 습도로 인한 색소침착, 트러블 동반",
         "hair_tip": "두피 쿨링 샴푸 (더위 대비)",
+        "drugstores": ["Boots 시암파라곤점", "Watsons 아속점", "Eveandboy 센트럴월드점"],
     },
     "ae": {
         "name": "아랍에미리트 · 두바이",
@@ -113,6 +122,7 @@ COUNTRIES = {
         "essentials": ["고보습 앰플", "미네랄 워터 미스트", "고자차 선크림"],
         "trouble": "극건조 + 강한 자외선 콤보로 인한 각질·자극",
         "hair_tip": "경수 대응 헤어 에센스 필수",
+        "drugstores": ["Boots 두바이몰점", "Life Pharmacy 마리나몰점", "Sephora 두바이몰점"],
     },
     "is": {
         "name": "아이슬란드 · 레이캬비크",
@@ -130,6 +140,7 @@ COUNTRIES = {
         "essentials": ["고영양 크림", "바람막이용 페이스 오일", "립밤"],
         "trouble": "강풍·저온으로 인한 피부 당김, 각질",
         "hair_tip": "지열수 미네랄 대응 헤어팩",
+        "drugstores": ["Lyfja 레이캬비크 다운타운점", "Hagkaup 크링글안점"],
     },
     "us": {
         "name": "미국 · 로스앤젤레스",
@@ -147,8 +158,70 @@ COUNTRIES = {
         "essentials": ["데일리 선크림", "안티옥시던트 세럼", "샤워 필터(장기체류시)"],
         "trouble": "자외선 + 경수 복합 자극",
         "hair_tip": "샤워기 필터 또는 킬레이팅 샴푸",
+        "drugstores": ["CVS 할리우드점", "Sephora 더그로브점", "Walgreens 산타모니카점"],
+    },
+    "au": {
+        "name": "호주 · 시드니",
+        "flag": "🇦🇺",
+        "landmark": "🦘",
+        "geo": "-33.8688;151.2093",
+        "climate": "온대 해양성. 계절이 한국과 반대(12~2월이 한여름)",
+        "humidity": "평균 65% (한국과 비슷하나 계절이 반대)",
+        "temp_diff": "1월 기준 +14°C (한국은 겨울, 시드니는 한여름)",
+        "visa": "전자여행허가(ETA) 필요",
+        "flight_time": "약 10시간 30분",
+        "water": "연수",
+        "water_note": "연수 지역이라 세안 자극은 적은 편, 자외선 대비가 훨씬 중요",
+        "uv": "매우 강함 (연중 최고 11+, 오존층이 얇아 세계 최고 수준)",
+        "essentials": ["고자차 선크림 (SPF50+/PA++++)", "애프터선 케어 젤", "쿨링 미스트"],
+        "trouble": "세계 최고 수준의 자외선으로 인한 광노화·색소침착",
+        "hair_tip": "UV 프로텍트 헤어 미스트",
+        "drugstores": ["Chemist Warehouse 시드니시티점", "Priceline Pharmacy 피트스트리트점", "Mecca 시드니 QVB점"],
+    },
+    "cn": {
+        "name": "중국 · 베이징",
+        "flag": "🇨🇳",
+        "landmark": "🐼",
+        "geo": "39.9042;116.4074",
+        "climate": "온대 대륙성. 여름 고온다습, 겨울은 매우 건조·황사",
+        "humidity": "평균 55% (건기엔 30% 이하로 급감)",
+        "temp_diff": "겨울 기준 -5°C",
+        "visa": "무비자 15일 (단기 관광 시)",
+        "flight_time": "약 2시간",
+        "water": "경수",
+        "water_note": "석회질이 있는 경수 지역 — 세안 후 당김 주의",
+        "uv": "보통~강함 (여름 최고 8)",
+        "essentials": ["미세먼지 차단 프라이머", "고보습 클렌징오일", "황사 대비 마스크"],
+        "trouble": "미세먼지·황사로 인한 모공 트러블, 건조 지역 당김",
+        "hair_tip": "미세먼지 잔여물 제거하는 클래리파잉 샴푸",
+        "drugstores": ["Watsons 왕푸징점", "Sephora SKP점", "Innisfree 산리툰점"],
+    },
+    "kr": {
+        "name": "한국 · 제주",
+        "flag": "🇰🇷",
+        "landmark": "🍊",
+        "geo": "33.4996;126.5312",
+        "climate": "해양성 온대. 육지보다 온화하지만 바람이 강함",
+        "humidity": "평균 70% (여름 장마철 습함)",
+        "temp_diff": "육지 대비 겨울 기준 +3°C",
+        "visa": "국내 여행 (비자 불필요)",
+        "flight_time": "약 1시간 (김포·인천 기준)",
+        "water": "연수 (화산암반수)",
+        "water_note": "화산암반수 기반 연수라 자극은 적지만, 강한 바닷바람으로 건조 주의",
+        "uv": "강함 (여름 최고 9)",
+        "essentials": ["바람 대비 고정력 헤어 에센스", "가벼운 데일리 선크림", "진정 수분 마스크"],
+        "trouble": "강한 바닷바람으로 인한 피부 당김·모발 손상",
+        "hair_tip": "손상 모발용 오일 세럼",
+        "drugstores": ["올리브영 제주공항점", "롭스 연동점", "다이소 노형점"],
     },
 }
+
+# 헤어 아이콘에서 "3WAU 추천 및 구매 사이트로 이동" 버튼이 여는 실제 스토어 링크
+THREE_WAU_STORE_URL = (
+    "https://3waau.com/?utm_medium=search&utm_source=Naver&utm_campaign=240311_cpc_brandname_pc"
+    "&NaPm=ct%3Dmrd6nxqn%7Cci%3DER7fb8525b%2D7b67%2D11f1%2Dbff5%2Dc2fa024ff2a0%7Ctr%3Dsa"
+    "%7Chk%3Dc29c3a0ba55ad0fc719c36173a43bbfa8e745111%7Cnacn%3DWSLcBIhX58R0"
+)
 
 # ----------------------------------------------------------------------
 # 세계지도 (public domain, Wikimedia BlankMap-World-Equirectangular) 위에
@@ -272,26 +345,24 @@ PERSONALITY_TRAITS = ["발랄한", "차분한", "모험적인", "감성적인", 
 TRAVEL_STYLES = ["휴양형", "액티비티형", "맛집탐방형", "문화탐방형", "쇼핑형", "자연탐방형"]
 COSMETIC_PREFS = ["저자극", "고보습", "미백", "산뜻한 마무리", "자외선 차단", "안티에이징", "모공 케어", "트러블 케어"]
 
-# 옷장/액세서리 30개 선택지 생성용 색상 팔레트 (이름, hex)
-COLOR_PALETTE_30 = [
-    ("화이트", "#FFFFFF"), ("아이보리", "#F5F0E6"), ("베이지", "#E8DCC8"), ("크림", "#FFF6DD"),
-    ("그레이", "#B9B9B9"), ("차콜", "#4A4A4A"), ("블랙", "#1C1C1C"), ("네이비", "#233158"),
-    ("스카이블루", "#8FD3F4"), ("블루", "#4A7FE0"), ("민트", "#8FE3C8"), ("그린", "#5FAE6E"),
-    ("올리브", "#7C7C4A"), ("카키", "#A79465"), ("옐로우", "#F4D35E"), ("머스타드", "#D9A441"),
-    ("오렌지", "#F2823C"), ("코랄", "#FF7F6B"), ("레드", "#E14B4B"), ("버건디", "#7A2E3A"),
-    ("와인", "#5C2233"), ("핑크", "#FFB6D9"), ("로즈", "#E67FA1"), ("라벤더", "#C9AEEA"),
-    ("퍼플", "#8E6BB0"), ("브라운", "#8B5E3C"), ("탄", "#C99A6C"), ("실버", "#D8D8D8"),
-    ("골드", "#D4AF37"), ("데님블루", "#5C7DA6"),
+# 옷장/액세서리 10개 선택지 생성용 색상 팔레트 (이름, hex)
+COLOR_PALETTE_10 = [
+    ("화이트", "#FFFFFF"), ("베이지", "#E8DCC8"), ("그레이", "#B9B9B9"), ("블랙", "#1C1C1C"),
+    ("네이비", "#233158"), ("스카이블루", "#8FD3F4"), ("핑크", "#FFB6D9"), ("레드", "#E14B4B"),
+    ("옐로우", "#F4D35E"), ("브라운", "#8B5E3C"),
 ]
 
 
 def _build_catalog(prefix, types):
-    """색상 30개 x 종류 목록을 돌려가며 짜서 정확히 30개의 (종류+색상) 조합을 만든다."""
+    """색상 10개 x 종류 목록을 돌려가며 짜서 정확히 10개의 (종류+색상) 조합을 만든다.
+    shape_idx는 types 안에서 몇 번째 종류인지 — 실제 옷 모양 SVG를 고를 때 씀."""
     items = []
-    for i in range(30):
-        type_name = types[i % len(types)]
-        color_name, hex_color = COLOR_PALETTE_30[i]
-        items.append({"id": f"{prefix}_{i:02d}", "label": f"{color_name} {type_name}", "hex": hex_color})
+    for i in range(len(COLOR_PALETTE_10)):
+        shape_idx = i % len(types)
+        type_name = types[shape_idx]
+        color_name, hex_color = COLOR_PALETTE_10[i]
+        items.append({"id": f"{prefix}_{i:02d}", "label": f"{color_name} {type_name}",
+                      "hex": hex_color, "shape_idx": shape_idx})
     return items
 
 
@@ -412,6 +483,12 @@ if "passport_notes" not in st.session_state:
     st.session_state.passport_notes = []  # 적립된 "나만의 여행 꿀팁" 목록 (각 항목 = 한 줄)
 if "tip_input_counter" not in st.session_state:
     st.session_state.tip_input_counter = 0  # 입력창을 매번 새 위젯으로 만들어 제출 후 비우기 위한 값
+if "country_stage" not in st.session_state:
+    st.session_state.country_stage = "map"  # "map"(확대 지도+포스트잇) | "scene"(캐릭터+아이콘)
+if "active_country_sheet" not in st.session_state:
+    st.session_state.active_country_sheet = None  # water/lipstick/shop/hair/carrier 중 열린 바텀시트
+if "just_saved_country_sparkle" not in st.session_state:
+    st.session_state.just_saved_country_sparkle = False
 
 
 def get_character():
@@ -2294,6 +2371,354 @@ def _render_character_body():
             st.rerun()
 
 
+# ----------------------------------------------------------------------
+# 옷장/액세서리 아이템 아이콘 — 색깔 사각형이 아니라 실제 옷 모양처럼 보이는
+# SVG 실루엣. 카테고리마다 종류(예: 상의의 티셔츠/니트/셔츠/후드티/블라우스)별로
+# 모양이 다르고, 색은 아이템의 hex를 그대로 입힌다.
+# ----------------------------------------------------------------------
+def _top_tshirt(hex_, dark):
+    return (f'<path d="M35,28 Q50,40 65,28 L71,37 L85,46 L78,61 L66,52 L66,86 L34,86 L34,52 '
+            f'L22,61 L15,46 L29,37 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+
+
+def _top_knit(hex_, dark):
+    body = (f'<path d="M35,30 Q50,40 65,30 L72,40 L84,48 L77,60 L67,53 L67,80 L33,80 L33,53 '
+            f'L23,60 L16,48 L28,40 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    ribs = "".join(f'<line x1="{33+n*3}" y1="79" x2="{33+n*3}" y2="83" stroke="{dark}" stroke-width="1.4"/>'
+                   for n in range(12))
+    return body + ribs
+
+
+def _top_shirt(hex_, dark):
+    body = (f'<path d="M36,29 L50,38 L64,29 L71,38 L84,47 L77,60 L67,52 L67,85 L33,85 L33,52 '
+            f'L23,60 L16,47 L29,38 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+            f'<path d="M50,38 L44,30 L36,29 Z" fill="{dark}" opacity=".55"/>'
+            f'<path d="M50,38 L56,30 L64,29 Z" fill="{dark}" opacity=".55"/>')
+    placket = f'<line x1="50" y1="42" x2="50" y2="83" stroke="{dark}" stroke-width="1.4"/>'
+    buttons = "".join(f'<circle cx="50" cy="{48+n*9}" r="1.6" fill="{dark}"/>' for n in range(4))
+    return body + placket + buttons
+
+
+def _top_hoodie(hex_, dark):
+    hood = f'<path d="M38,26 Q50,16 62,26 Q66,34 58,36 Q50,30 42,36 Q34,34 38,26 Z" fill="{dark}" opacity=".65"/>'
+    body = (f'<path d="M37,32 Q50,42 63,32 L71,42 L85,51 L78,64 L67,56 L67,86 L33,86 L33,56 '
+            f'L22,64 L15,51 L29,42 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    strings = (f'<line x1="46" y1="40" x2="45" y2="54" stroke="{dark}" stroke-width="1.6"/>'
+               f'<line x1="54" y1="40" x2="55" y2="54" stroke="{dark}" stroke-width="1.6"/>')
+    pocket = f'<path d="M38,68 Q50,74 62,68" fill="none" stroke="{dark}" stroke-width="1.6"/>'
+    return hood + body + strings + pocket
+
+
+def _top_blouse(hex_, dark):
+    body = (f'<path d="M37,30 Q50,40 63,30 L74,40 Q84,46 80,54 Q73,58 66,50 L66,84 L34,84 L34,50 '
+            f'Q27,58 20,54 Q16,46 26,40 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    bow = f'<circle cx="50" cy="36" r="3.4" fill="{dark}" opacity=".7"/>'
+    return body + bow
+
+
+def _bottom_jeans(hex_, dark):
+    waist = f'<rect x="30" y="18" width="40" height="8" rx="2" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    loops = "".join(f'<rect x="{x}" y="16" width="3" height="6" fill="{dark}"/>' for x in (34, 47, 63))
+    legs = (f'<path d="M31,26 L30,86 L45,86 L49,40 L51,40 L55,86 L70,86 L69,26 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    # 실제 청바지 특유의 대비되는(주황빛) 스티치 — 슬랙스와 구분되는 포인트
+    seams = (f'<line x1="37" y1="30" x2="34" y2="84" stroke="#d9922e" stroke-width="1.3" stroke-dasharray="2,2" opacity=".85"/>'
+             f'<line x1="63" y1="30" x2="66" y2="84" stroke="#d9922e" stroke-width="1.3" stroke-dasharray="2,2" opacity=".85"/>')
+    pockets = (f'<path d="M35,30 Q40,34 44,30" fill="none" stroke="{dark}" stroke-width="1.4"/>'
+               f'<path d="M56,30 Q60,34 65,30" fill="none" stroke="{dark}" stroke-width="1.4"/>')
+    return waist + loops + legs + seams + pockets
+
+
+def _bottom_slacks(hex_, dark):
+    waist = f'<rect x="30" y="18" width="40" height="7" rx="2" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    legs = (f'<path d="M31,25 L29,86 L44,86 L49,38 L51,38 L56,86 L71,86 L69,25 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    creases = (f'<line x1="38" y1="30" x2="35" y2="84" stroke="{dark}" stroke-width="1" opacity=".5"/>'
+               f'<line x1="62" y1="30" x2="65" y2="84" stroke="{dark}" stroke-width="1" opacity=".5"/>')
+    return waist + legs + creases
+
+
+def _bottom_shorts(hex_, dark):
+    waist = f'<rect x="30" y="20" width="40" height="8" rx="2" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    legs = (f'<path d="M31,28 L28,58 L46,58 L49,44 L51,44 L54,58 L72,58 L69,28 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    seams = (f'<line x1="38" y1="32" x2="36" y2="56" stroke="{dark}" stroke-width="1" opacity=".5"/>'
+             f'<line x1="62" y1="32" x2="64" y2="56" stroke="{dark}" stroke-width="1" opacity=".5"/>')
+    return waist + legs + seams
+
+
+def _bottom_skirt(hex_, dark):
+    return (f'<path d="M40,20 L60,20 L82,84 L18,84 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+            f'<line x1="50" y1="26" x2="50" y2="78" stroke="{dark}" stroke-width="1" opacity=".4"/>'
+            f'<line x1="38" y1="30" x2="30" y2="80" stroke="{dark}" stroke-width="1" opacity=".4"/>'
+            f'<line x1="62" y1="30" x2="70" y2="80" stroke="{dark}" stroke-width="1" opacity=".4"/>')
+
+
+def _bottom_leggings(hex_, dark):
+    waist = f'<rect x="33" y="18" width="34" height="7" rx="2" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    legs = (f'<path d="M34,25 L33,90 L45,90 L49,40 L51,40 L55,90 L67,90 L66,25 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    stripe = (f'<line x1="36" y1="28" x2="35" y2="88" stroke="{dark}" stroke-width="1" opacity=".45"/>'
+              f'<line x1="64" y1="28" x2="65" y2="88" stroke="{dark}" stroke-width="1" opacity=".45"/>')
+    return waist + legs + stripe
+
+
+def _sock_base(hex_, dark, cuff_top):
+    return (f'<path d="M38,{cuff_top} L64,{cuff_top} L64,68 L84,68 Q90,68 89,76 L86,84 L38,84 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+
+
+def _socks_ankle(hex_, dark):
+    return _sock_base(hex_, dark, 52)
+
+
+def _socks_knee(hex_, dark):
+    return _sock_base(hex_, dark, 16)
+
+
+def _socks_knit(hex_, dark):
+    base = _sock_base(hex_, dark, 16)
+    ribs = "".join(f'<line x1="39" y1="{20+n*7}" x2="63" y2="{20+n*7}" stroke="{dark}" '
+                   f'stroke-width="1.2" opacity=".5"/>' for n in range(7))
+    return base + ribs
+
+
+def _socks_lace(hex_, dark):
+    base = _sock_base(hex_, dark, 40)
+    scallops = "".join(f'<circle cx="{40+n*6}" cy="40" r="3" fill="{hex_}" stroke="{dark}" '
+                       f'stroke-width="1"/>' for n in range(5))
+    return base + scallops
+
+
+def _socks_pattern(hex_, dark):
+    base = _sock_base(hex_, dark, 30)
+    dots = "".join(f'<circle cx="{cx}" cy="{cy}" r="2.2" fill="{dark}" opacity=".6"/>'
+                   for cx, cy in [(45, 38), (55, 45), (46, 52), (57, 58), (48, 64)])
+    return base + dots
+
+
+def _shoes_sneakers(hex_, dark):
+    body = (f'<path d="M10,72 Q10,58 28,56 L60,52 Q72,50 80,58 L90,62 Q92,68 88,72 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    sole = f'<path d="M8,72 L90,72 Q92,80 84,80 L14,80 Q8,80 8,72 Z" fill="#f4f4f4" stroke="{dark}" stroke-width="1.6"/>'
+    laces = "".join(f'<line x1="{40+n*7}" y1="55" x2="{47+n*7}" y2="62" stroke="{dark}" stroke-width="1.4"/>'
+                    for n in range(3))
+    return body + sole + laces
+
+
+def _shoes_loafers(hex_, dark):
+    body = (f'<path d="M10,70 Q12,56 30,55 L62,54 Q76,54 84,62 L90,68 Q90,74 82,74 L12,74 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    sole = f'<rect x="9" y="74" width="82" height="6" rx="3" fill="#f4f4f4" stroke="{dark}" stroke-width="1.4"/>'
+    strap = (f'<rect x="34" y="60" width="24" height="6" rx="2" fill="{dark}" opacity=".7"/>'
+             f'<rect x="43" y="60" width="6" height="6" fill="{dark}"/>')
+    return body + sole + strap
+
+
+def _shoes_boots(hex_, dark):
+    body = (f'<path d="M30,20 L66,20 L66,58 L84,64 Q92,68 88,74 L12,74 Q10,66 20,60 L30,56 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    sole = f'<rect x="9" y="74" width="82" height="7" rx="3" fill="#3a3a3a" stroke="{dark}" stroke-width="1.4"/>'
+    zip_ = f'<line x1="60" y1="24" x2="60" y2="56" stroke="{dark}" stroke-width="1.2" opacity=".5"/>'
+    return body + sole + zip_
+
+
+def _shoes_sandals(hex_, dark):
+    sole = f'<path d="M10,68 Q10,78 22,78 L78,78 Q90,78 90,68 Q90,60 78,60 L22,60 Q10,60 10,68 Z" ' \
+           f'fill="{hex_}" opacity=".9" stroke="{dark}" stroke-width="2"/>'
+    # 스트랩이 밑창과 같은 색조라서 어두운 색 아이템일 때 안 보이던 문제 —
+    # 색과 상관없이 항상 보이도록 크림색 바탕 + 어두운 중심선 이중선으로 그림
+    strap_pts = [(22, 60, 40, 40), (40, 60, 22, 40), (34, 60, 34, 38)]
+    straps = "".join(
+        f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#fffaf3" stroke-width="5" stroke-linecap="round"/>'
+        f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{dark}" stroke-width="2" stroke-linecap="round"/>'
+        for x1, y1, x2, y2 in strap_pts
+    )
+    return sole + straps
+
+
+def _shoes_flats(hex_, dark):
+    body = (f'<path d="M10,70 Q12,58 30,57 L64,56 Q78,56 84,64 Q86,70 78,72 L14,72 Z" '
+            f'fill="{hex_}" stroke="{dark}" stroke-width="2"/>')
+    sole = f'<rect x="10" y="72" width="76" height="4" rx="2" fill="#f4f4f4" stroke="{dark}" stroke-width="1.2"/>'
+    bow = f'<circle cx="30" cy="62" r="3" fill="{dark}" opacity=".7"/>'
+    return body + sole + bow
+
+
+def _hat_cap(hex_, dark):
+    crown = f'<path d="M20,55 Q20,25 50,25 Q80,25 80,55 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    brim = f'<path d="M50,55 Q75,55 88,50 Q90,58 78,62 L50,58 Z" fill="{dark}" opacity=".75"/>'
+    button = f'<circle cx="50" cy="27" r="2.4" fill="{dark}"/>'
+    return crown + brim + button
+
+
+def _hat_bucket(hex_, dark):
+    crown = f'<ellipse cx="50" cy="35" rx="26" ry="18" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    brim = f'<ellipse cx="50" cy="56" rx="40" ry="12" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    return brim + crown
+
+
+def _hat_beanie(hex_, dark):
+    dome = f'<path d="M22,58 Q22,20 50,18 Q78,20 78,58 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    cuff = f'<rect x="22" y="48" width="56" height="12" rx="4" fill="{dark}" opacity=".55"/>'
+    pom = f'<circle cx="50" cy="16" r="5" fill="{hex_}" stroke="{dark}" stroke-width="1.6"/>'
+    return dome + cuff + pom
+
+
+def _hat_beret(hex_, dark):
+    disc = f'<ellipse cx="48" cy="42" rx="34" ry="20" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    folds = "".join(f'<line x1="62" y1="28" x2="{30+n*8}" y2="{50+n*2}" stroke="{dark}" '
+                    f'stroke-width="1" opacity=".35"/>' for n in range(4))
+    stem = f'<circle cx="62" cy="26" r="2.6" fill="{dark}"/>'
+    return disc + folds + stem
+
+
+def _hat_straw(hex_, dark):
+    brim = f'<ellipse cx="50" cy="55" rx="42" ry="10" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    crown = f'<path d="M32,55 Q32,30 50,28 Q68,30 68,55 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    band = f'<rect x="32" y="48" width="36" height="5" fill="{dark}" opacity=".6"/>'
+    weave = "".join(f'<line x1="{28+n*9}" y1="48" x2="{28+n*9}" y2="62" stroke="{dark}" '
+                    f'stroke-width="1" opacity=".3"/>' for n in range(8))
+    return brim + weave + crown + band
+
+
+def _necklace_chain(hex_, dark):
+    pts = [(24, 30), (30, 44), (38, 54), (50, 58), (62, 54), (70, 44), (76, 30)]
+    links = "".join(f'<circle cx="{x}" cy="{y}" r="4" fill="none" stroke="{hex_}" stroke-width="2.6"/>'
+                    for x, y in pts)
+    return links
+
+
+def _necklace_pearl(hex_, dark):
+    pts = [(24, 28), (30, 42), (37, 53), (50, 58), (63, 53), (70, 42), (76, 28)]
+    pearls = "".join(f'<circle cx="{x}" cy="{y}" r="5" fill="{hex_}" stroke="{dark}" stroke-width="1"/>'
+                     for x, y in pts)
+    return pearls
+
+
+def _necklace_pendant(hex_, dark):
+    cord = f'<path d="M24,26 Q50,60 76,26" fill="none" stroke="{dark}" stroke-width="1.8"/>'
+    gem = f'<path d="M46,56 L54,56 L58,68 L50,80 L42,68 Z" fill="{hex_}" stroke="{dark}" stroke-width="1.6"/>'
+    return cord + gem
+
+
+def _necklace_choker(hex_, dark):
+    band = f'<path d="M30,32 Q50,48 70,32" fill="none" stroke="{hex_}" stroke-width="7" stroke-linecap="round"/>'
+    charm = f'<circle cx="50" cy="44" r="3.2" fill="{dark}"/>'
+    return band + charm
+
+
+def _necklace_layered(hex_, dark):
+    l1 = f'<path d="M26,26 Q50,42 74,26" fill="none" stroke="{hex_}" stroke-width="2.4"/>'
+    l2 = f'<path d="M24,28 Q50,54 76,28" fill="none" stroke="{hex_}" stroke-width="2.4"/>'
+    l3 = f'<path d="M22,30 Q50,68 78,30" fill="none" stroke="{hex_}" stroke-width="2.4"/>'
+    return l1 + l2 + l3
+
+
+def _sun_round(hex_, dark):
+    lenses = (f'<circle cx="34" cy="50" r="16" fill="{hex_}" stroke="{dark}" stroke-width="2.4"/>'
+              f'<circle cx="66" cy="50" r="16" fill="{hex_}" stroke="{dark}" stroke-width="2.4"/>')
+    bridge = f'<line x1="50" y1="47" x2="50" y2="47" stroke="{dark}" stroke-width="3"/>' \
+             f'<path d="M46,47 Q50,44 54,47" fill="none" stroke="{dark}" stroke-width="2.4"/>'
+    temples = (f'<line x1="18" y1="46" x2="6" y2="40" stroke="{dark}" stroke-width="2.4"/>'
+               f'<line x1="82" y1="46" x2="94" y2="40" stroke="{dark}" stroke-width="2.4"/>')
+    return lenses + bridge + temples
+
+
+def _sun_cat(hex_, dark):
+    left = f'<path d="M14,52 Q14,38 30,38 L44,42 Q46,52 40,58 Q26,62 14,52 Z" fill="{hex_}" stroke="{dark}" stroke-width="2.2"/>'
+    right = f'<path d="M86,52 Q86,38 70,38 L56,42 Q54,52 60,58 Q74,62 86,52 Z" fill="{hex_}" stroke="{dark}" stroke-width="2.2"/>'
+    bridge = f'<path d="M44,45 Q50,42 56,45" fill="none" stroke="{dark}" stroke-width="2.2"/>'
+    return left + right + bridge
+
+
+def _sun_square(hex_, dark):
+    lenses = (f'<rect x="16" y="38" width="30" height="22" rx="4" fill="{hex_}" stroke="{dark}" stroke-width="2.2"/>'
+              f'<rect x="54" y="38" width="30" height="22" rx="4" fill="{hex_}" stroke="{dark}" stroke-width="2.2"/>')
+    bridge = f'<line x1="46" y1="47" x2="54" y2="47" stroke="{dark}" stroke-width="2.4"/>'
+    return lenses + bridge
+
+
+def _sun_oversized(hex_, dark):
+    lenses = (f'<rect x="10" y="32" width="36" height="30" rx="10" fill="{hex_}" stroke="{dark}" stroke-width="2.6"/>'
+              f'<rect x="54" y="32" width="36" height="30" rx="10" fill="{hex_}" stroke="{dark}" stroke-width="2.6"/>')
+    bridge = f'<line x1="46" y1="46" x2="54" y2="46" stroke="{dark}" stroke-width="3"/>'
+    return lenses + bridge
+
+
+def _sun_sport(hex_, dark):
+    return (f'<path d="M8,50 Q8,34 30,32 Q50,30 70,32 Q92,34 92,50 Q92,60 78,60 Q50,64 22,60 '
+            f'Q8,60 8,50 Z" fill="{hex_}" stroke="{dark}" stroke-width="2.4"/>'
+            f'<path d="M46,40 Q50,38 54,40" fill="none" stroke="{dark}" stroke-width="1.6" opacity=".6"/>')
+
+
+def _glove_base(hex_, dark, extra=""):
+    palm = f'<rect x="32" y="42" width="32" height="38" rx="12" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    fingers = "".join(
+        f'<rect x="{x}" y="16" width="7" height="30" rx="3.4" fill="{hex_}" stroke="{dark}" stroke-width="1.6"/>'
+        for x in (33, 43, 53, 63)
+    )
+    thumb = f'<rect x="18" y="46" width="16" height="9" rx="4" fill="{hex_}" stroke="{dark}" stroke-width="1.6"/>'
+    return palm + fingers + thumb + extra
+
+
+def _glove_knit(hex_, dark):
+    ribs = "".join(f'<line x1="34" y1="{68+n*4}" x2="62" y2="{68+n*4}" stroke="{dark}" '
+                   f'stroke-width="1" opacity=".5"/>' for n in range(3))
+    return _glove_base(hex_, dark, ribs)
+
+
+def _glove_leather(hex_, dark):
+    seams = "".join(f'<line x1="{x}" y1="18" x2="{x}" y2="44" stroke="{dark}" stroke-width="1" opacity=".4"/>'
+                    for x in (36.5, 46.5, 56.5, 66.5))
+    strap = f'<rect x="40" y="74" width="16" height="4" fill="{dark}" opacity=".7"/>'
+    return _glove_base(hex_, dark, seams + strap)
+
+
+def _glove_lace(hex_, dark):
+    dots = "".join(f'<circle cx="{34+n*6}" cy="76" r="1.6" fill="{dark}" opacity=".6"/>' for n in range(6))
+    return _glove_base(hex_, dark, dots)
+
+
+def _glove_sport(hex_, dark):
+    panels = "".join(f'<line x1="33" y1="{22+n*8}" x2="63" y2="{22+n*8}" stroke="{dark}" '
+                     f'stroke-width="1" opacity=".4"/>' for n in range(3))
+    strap = f'<rect x="30" y="70" width="34" height="6" fill="{dark}" opacity=".7"/>'
+    return _glove_base(hex_, dark, panels + strap)
+
+
+def _glove_mitten(hex_, dark):
+    pouch = f'<path d="M34,80 L34,50 Q34,20 50,20 Q66,20 66,50 L66,80 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    thumb = f'<path d="M34,58 Q18,56 18,46 Q18,38 28,40 L34,46 Z" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    cuff = f'<rect x="32" y="74" width="36" height="8" rx="3" fill="{dark}" opacity=".5"/>'
+    return pouch + thumb + cuff
+
+
+GARMENT_SHAPES = {
+    "top": [_top_tshirt, _top_knit, _top_shirt, _top_hoodie, _top_blouse],
+    "bottom": [_bottom_jeans, _bottom_slacks, _bottom_shorts, _bottom_skirt, _bottom_leggings],
+    "socks": [_socks_ankle, _socks_knee, _socks_knit, _socks_lace, _socks_pattern],
+    "shoes": [_shoes_sneakers, _shoes_loafers, _shoes_boots, _shoes_sandals, _shoes_flats],
+    "hat": [_hat_cap, _hat_bucket, _hat_beanie, _hat_beret, _hat_straw],
+    "necklace": [_necklace_chain, _necklace_pearl, _necklace_pendant, _necklace_choker, _necklace_layered],
+    "sunglasses": [_sun_round, _sun_cat, _sun_square, _sun_oversized, _sun_sport],
+    "gloves": [_glove_knit, _glove_leather, _glove_lace, _glove_sport, _glove_mitten],
+}
+
+
+def item_icon_svg(cat_key, item):
+    """옷장/액세서리 아이템 하나를 실제 옷 모양과 비슷한 SVG 아이콘으로 그린다."""
+    shapes = GARMENT_SHAPES.get(cat_key)
+    hex_ = item["hex"]
+    # 흰색·아주 밝은 아이템은 테두리가 안 보여서 카드에 묻히니 살짝 어둡게, 나머진 그림자색으로
+    dark = _shade(hex_, 0.55) if hex_.upper() not in ("#FFFFFF",) else "#c9c4bd"
+    if not shapes:
+        return f'<circle cx="50" cy="50" r="30" fill="{hex_}" stroke="{dark}" stroke-width="2"/>'
+    fn = shapes[item.get("shape_idx", 0) % len(shapes)]
+    return (f'<svg viewBox="0 0 100 100" width="100%" height="100%" style="display:block;" '
+            f'xmlns="http://www.w3.org/2000/svg">{fn(hex_, dark)}</svg>')
+
+
 def render_closet():
     cat_key = st.session_state.closet_category
     catalog = ALL_CATALOGS.get(cat_key)
@@ -2323,10 +2748,11 @@ def render_closet():
                     selected = current == item["id"]
                     border = "4px solid #ff6fb8" if selected else "3px solid rgba(0,0,0,.08)"
                     shadow = "0 0 0 3px #fff, 0 6px 14px rgba(255,111,184,.4)" if selected else "0 3px 8px rgba(0,0,0,.1)"
+                    icon_svg = item_icon_svg(cat_key, item)
                     html_block(
-                        f'<div style="width:100%;aspect-ratio:1;border-radius:14px;background:{item["hex"]};'
-                        f'display:flex;align-items:center;justify-content:center;font-size:1.5rem;'
-                        f'border:{border};box-shadow:{shadow};">{catalog["icon"]}</div>'
+                        f'<div style="width:100%;aspect-ratio:1;border-radius:14px;background:#faf7f2;'
+                        f'display:flex;align-items:center;justify-content:center;padding:10px;box-sizing:border-box;'
+                        f'border:{border};box-shadow:{shadow};">{icon_svg}</div>'
                     )
                     if st.button(item["label"], key=f"pick_{item['id']}", use_container_width=True):
                         bucket_dict = dict(draft.get(bucket) or {})
@@ -2556,6 +2982,8 @@ def _world_map_dialog():
                     continue
                 if st.button(c["flag"], key=f"pin_{code}", help=c["name"]):
                     st.session_state.selected_country = code
+                    st.session_state.country_stage = "map"
+                    st.session_state.active_country_sheet = None
                     goto("country")
                     st.rerun()
 
@@ -2575,6 +3003,64 @@ def render_map():
         _world_map_dialog()
 
 
+def _quick_skin_tip(char, country):
+    """규칙 기반(즉시 응답) 피부타입×현지 기후 추천 — 포스트잇과 쇼핑 시트에서 재사용."""
+    skin_type = char.get("skin_type") or SKIN_TYPES[0]
+    extras = char.get("skin_type_extra") or []
+    base = {
+        "건성": "고보습 크림·오일로 수분 방어막을 단단히 챙기세요",
+        "지성": "가벼운 젤·워터 타입으로 유분 밸런스를 잡아주세요",
+        "복합성": "부위별로 보습과 유분 조절 제품을 나눠 쓰는 게 좋아요",
+    }
+    tips = [base.get(skin_type, base["복합성"])]
+    if "민감성" in extras:
+        tips.append("저자극·무향 성분 위주로 챙기세요")
+    if "트러블" in extras:
+        tips.append("살리실릭·티트리 등 트러블 케어 성분을 곁들이면 좋아요")
+    if country.get("essentials"):
+        tips.append(f"현지 추천템: {country['essentials'][0]}")
+    return tips
+
+
+@st.cache_data(show_spinner=False, ttl=86400)
+def _cached_ai_cosmetic_recommendation(skin_type, extras_key, prefs_key, country_code):
+    country = COUNTRIES[country_code]
+    prompt = (
+        "너는 여행 뷰티 코디네이터야. 아래 여행자 정보와 목적지 기후를 보고 "
+        "챙기면 좋은 화장품을 한국어로 짧게 추천해줘.\n\n"
+        f"[여행자] 피부타입: {skin_type} / 피부 특이사항: {', '.join(extras_key) or '없음'} / "
+        f"선호 화장품 특성: {', '.join(prefs_key) or '없음'}\n"
+        f"[목적지] {country['name']} — 기후: {country['climate']} / 습도: {country['humidity']} / "
+        f"자외선: {country['uv']} / 수질: {country['water']} ({country['water_note']}) / "
+        f"주의할 트러블: {country['trouble']}\n\n"
+        "형식: 제품 카테고리 3~4개를 각각 한 줄로, 필요한 이유를 짧게 붙여서 "
+        "'- '로 시작하는 불릿 리스트로만 답해. 다른 설명은 붙이지 마."
+    )
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=300,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "".join(block.text for block in resp.content if block.type == "text").strip()
+
+
+def get_ai_cosmetic_recommendation(char, country_code):
+    """AI 추천에 성공하면 텍스트를, 키가 없거나 호출이 실패하면 None을 반환한다
+    (호출부는 None이면 규칙 기반 _quick_skin_tip으로 대체 표시)."""
+    if not ANTHROPIC_API_KEY or anthropic is None:
+        return None
+    try:
+        return _cached_ai_cosmetic_recommendation(
+            char.get("skin_type") or SKIN_TYPES[0],
+            tuple(sorted(char.get("skin_type_extra") or [])),
+            tuple(sorted(char.get("cosmetic_prefs") or [])),
+            country_code,
+        )
+    except Exception:
+        return None
+
+
 def render_country():
     code = st.session_state.selected_country
     country = COUNTRIES.get(code)
@@ -2588,71 +3074,348 @@ def render_country():
         return
 
     char = get_character()
+    if st.session_state.country_stage == "scene":
+        _render_country_scene_stage(country, char, code)
+    else:
+        _render_country_map_stage(country, char, code)
+
+    if st.session_state.active_country_sheet:
+        _country_action_sheet(country, char, code)
+
+
+COUNTRY_ZOOM_SCALE = 5.5  # 확대 지도의 배경 확대 배율 (background-size 550%와 항상 맞춰 쓴다)
+
+
+def _bg_zoom_position(target_pct, scale):
+    """background-size로 scale배 확대한 배경을 target_pct(0~100, 이미지 기준 좌표) 지점이
+    컨테이너 정중앙에 오도록 만드는 background-position 값을 계산한다.
+
+    CSS background-position의 백분율은 '이미지의 X%점 = 컨테이너의 X%점'을 맞추는
+    것이라, 확대된 이미지에서 그대로 쓰면 중앙이 아니라 원본 배율 기준 위치에
+    정렬돼버린다(축소되지 않은 지도 위 좌표를 그대로 쓰면 목표 지점이 화면 중앙에서
+    한참 벗어남). 컨테이너 중앙에 오도록 역산한 공식.
+    """
+    return (target_pct * scale - 50) / (scale - 1)
+
+
+def _render_country_map_stage(country, char, code):
+    """1단계 — 그 나라만 확대된 지도 + 옆에 붙은 포스트잇(환경/피부타입 추천/유의사항).
+    지도 자체가 곧 버튼(다른 화면에서 이미 검증된 '그림=버튼' 방식) — 탭하면 2단계로."""
     st.title(f"{country['flag']} {country['name']}")
 
-    skin_notes = char.get("skin_type_extra") or []
-    if country["water"] == "경수" and skin_notes:
-        st.warning(
-            f"⚠ {', '.join(skin_notes)} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. "
-            f"저자극 클렌징워터를 꼭 챙기세요."
-        )
+    svg = _load_world_map_svg()
+    svg_uri = "data:image/svg+xml;base64," + base64.b64encode(svg.encode("utf-8")).decode()
+    pin_x_pct, pin_y_pct = _country_pin_percent(country["geo"])
+    x_pct = _bg_zoom_position(pin_x_pct, COUNTRY_ZOOM_SCALE)
+    y_pct = _bg_zoom_position(pin_y_pct, COUNTRY_ZOOM_SCALE)
+    tips = _quick_skin_tip(char, country)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("기후", country["climate"])
-        st.metric("습도", country["humidity"])
-        feed_path = country.get("aqi_station") or (
-            f"geo:{country['geo']}" if country.get("geo") else None
-        )
-        aq = get_air_quality(feed_path) if feed_path else None
-        if aq and aq.get("aqi") not in (None, "-"):
-            try:
-                aqi_val = int(aq["aqi"])
-                st.metric("미세먼지 (AQI)", f"{aqi_val} · {_aqi_level_label(aqi_val)}")
-                pm_parts = []
-                if aq.get("pm25") is not None:
-                    pm_parts.append(f"PM2.5 {aq['pm25']}㎍/㎥")
-                if aq.get("pm10") is not None:
-                    pm_parts.append(f"PM10 {aq['pm10']}㎍/㎥")
-                caption_bits = pm_parts + ([f"측정소: {aq['station']}"] if aq.get("station") else [])
-                if caption_bits:
-                    st.caption(" · ".join(caption_bits))
-            except (TypeError, ValueError):
-                st.metric("미세먼지 (AQI)", "정보 없음")
-        else:
-            st.metric("미세먼지 (AQI)", "정보 없음")
-        st.metric("기온 차", country["temp_diff"])
-        st.metric("비자", country["visa"])
-        st.metric("비행 시간", country["flight_time"])
-    with col2:
-        st.metric("수질", f"{country['water']}")
-        st.caption(country["water_note"])
-        st.metric("자외선", country["uv"])
-        st.markdown("**필수 아이템**")
-        for item in country["essentials"]:
-            st.write(f"- {item}")
-        st.markdown(f"**주의할 트러블:** {country['trouble']}")
-        st.markdown(f"**헤어 팁:** {country['hair_tip']}")
+    html_block(
+        f"""
+        <style>
+        .st-key-country_stage_wrap {{ position: relative !important; }}
+        .st-key-enter_country_scene {{ width: 100% !important; }}
+        .st-key-enter_country_scene button {{
+            position: relative !important; width: 100% !important;
+            aspect-ratio: {WORLD_MAP_VIEWBOX_W} / {WORLD_MAP_VIEWBOX_H} !important;
+            max-height: 580px !important; min-height: 300px !important;
+            border-radius: 18px !important; border: 4px solid #6b4423 !important;
+            overflow: hidden !important; padding: 0 !important;
+            background-color: #dccb98 !important;
+            background-image: url('{svg_uri}') !important;
+            background-size: {COUNTRY_ZOOM_SCALE * 100:.0f}% {COUNTRY_ZOOM_SCALE * 100:.0f}% !important;
+            background-position: {x_pct:.2f}% {y_pct:.2f}% !important;
+            background-repeat: no-repeat !important;
+            box-shadow: inset 0 0 40px rgba(60,36,10,.5), 0 14px 30px rgba(60,30,10,.35) !important;
+            transition: transform .15s ease;
+        }}
+        .st-key-enter_country_scene button:hover {{ transform: scale(1.008); }}
+        .st-key-enter_country_scene button:active {{ transform: scale(.99); }}
+        .st-key-enter_country_scene button::after {{
+            content: '👆 탭해서 캐릭터 만나기'; position: absolute; left: 50%; bottom: 14px;
+            transform: translateX(-50%); font-family: 'Jua', sans-serif; font-size: .95rem;
+            color: #fff; background: rgba(40,20,10,.55); padding: 6px 14px; border-radius: 999px;
+            white-space: nowrap;
+        }}
+        .country-sticky-note {{
+            position: absolute; top: 6%; right: 3%; width: min(280px, 42%);
+            background: #fff7c2; padding: 16px 16px 14px; border-radius: 4px 16px 16px 4px;
+            box-shadow: 3px 6px 14px rgba(0,0,0,.28); transform: rotate(2.5deg);
+            font-family: 'Gaegu', cursive; color: #4a3a1a; pointer-events: none; z-index: 5;
+        }}
+        .country-sticky-note::before {{
+            content: '📌'; position: absolute; top: -14px; left: 14px; font-size: 1.3rem;
+            transform: rotate(-15deg);
+        }}
+        .note-title {{ font-weight: 700; font-size: 1.15rem; margin-bottom: 6px; }}
+        .note-section {{ font-weight: 700; font-size: .82rem; margin: 8px 0 2px; color: #8a5a10; }}
+        .note-line {{ font-size: .82rem; line-height: 1.35; margin: 0 0 2px; }}
+        </style>
+        """
+    )
 
-    st.divider()
-    nav_col1, nav_col2 = st.columns(2)
-    with nav_col1:
-        if st.button("⬅ 지도로 돌아가기"):
+    with st.container(key="country_stage_wrap"):
+        html_block(
+            f"""
+            <div class="country-sticky-note">
+                <div class="note-title">{country["flag"]} {country["name"]}</div>
+                <div class="note-section">🌡 환경</div>
+                <div class="note-line">기온 {html.escape(country["temp_diff"])}</div>
+                <div class="note-line">습도 {html.escape(country["humidity"])}</div>
+                <div class="note-line">자외선 {html.escape(country["uv"])}</div>
+                <div class="note-line">수질 {html.escape(country["water"])} · {html.escape(country["water_note"])}</div>
+                <div class="note-section">🧴 내 피부에 좋은 것</div>
+                {''.join(f'<div class="note-line">· {html.escape(t)}</div>' for t in tips)}
+                <div class="note-section">⚠ 유의사항</div>
+                <div class="note-line">{html.escape(country["trouble"])}</div>
+            </div>
+            """
+        )
+        if st.button(" ", key="enter_country_scene"):
+            st.session_state.country_stage = "scene"
+            st.rerun()
+
+    if st.button("⬅ 지도로 돌아가기", key="back_to_world_map"):
+        goto("map")
+        st.rerun()
+
+
+def _render_country_scene_stage(country, char, code):
+    """2단계 — 배경은 랜드마크(디자인 요소, 클릭 불가) + 캐릭터가 중앙,
+    그 위에 6개 아이콘. 각 아이콘은 화면 전환 없이 바텀시트(다이얼로그)를 연다."""
+    st.title(f"{country['flag']} {country['name']}")
+
+    doll_svg = character_doll_svg(char)
+    already_saved = code in [p["code"] for p in get_passport()]
+    just_saved = st.session_state.just_saved_country_sparkle
+    sparkle_rule = "animation: country-sparkle-burst 1s ease both;" if just_saved else ""
+    st.session_state.just_saved_country_sparkle = False
+
+    html_block(
+        f"""
+        <style>
+        .st-key-country_scene_stage {{ position: relative !important; }}
+        .scene-stage {{
+            position: relative; width: 100%; height: clamp(420px, 74vh, 680px);
+            border-radius: 22px; overflow: hidden; margin-bottom: 10px;
+            background: linear-gradient(160deg, #ffd9ec 0%, #cfe8ff 55%, #fff3d6 100%);
+            box-shadow: inset 0 0 0 4px rgba(255,255,255,.6), 0 16px 32px rgba(120,60,90,.25);
+        }}
+        .scene-landmark-bg {{
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            font-size: min(60vw, 420px); opacity: .22; pointer-events: none; user-select: none;
+        }}
+        .scene-doll-box {{
+            position: absolute; left: 50%; top: 52%; transform: translate(-50%,-50%);
+            width: min(46vw, 260px); pointer-events: none; z-index: 2;
+            filter: drop-shadow(0 18px 20px rgba(60,30,60,.28));
+        }}
+        .scene-doll-box svg {{ width: 100%; height: auto; display: block; }}
+        .st-key-country_scene_stage div[class*="st-key-icn_"] {{
+            position: absolute !important; z-index: 6 !important;
+        }}
+        .st-key-icn_water {{ top: 6%; left: 13%; }}
+        .st-key-icn_lipstick {{ top: 6%; left: 77%; }}
+        .st-key-icn_shop {{ top: 42%; left: 3%; }}
+        .st-key-icn_hair {{ top: 42%; left: 87%; }}
+        .st-key-icn_carrier {{ top: 80%; left: 13%; }}
+        .st-key-icn_star {{ top: 80%; left: 77%; }}
+        div[class*="st-key-icn_"] button {{
+            width: 58px !important; height: 58px !important; min-width: 0 !important;
+            border-radius: 50% !important; padding: 0 !important; font-size: 1.6rem !important;
+            background: #ffffff !important; border: 3px solid #ff9fd8 !important;
+            box-shadow: 0 6px 12px rgba(120,40,90,.3) !important;
+            transition: transform .12s ease;
+        }}
+        div[class*="st-key-icn_"] button:hover {{ transform: scale(1.12) translateY(-2px); }}
+        div[class*="st-key-icn_"] button:active {{ transform: scale(.94); }}
+        .st-key-icn_star button {{
+            {"background: linear-gradient(160deg,#ffe27a,#ffb347) !important; border-color:#ff9a1f !important;" if already_saved else ""}
+        }}
+        .scene-sparkle {{
+            position: absolute; inset: 0; pointer-events: none; z-index: 8;
+            background: radial-gradient(circle at 50% 52%, rgba(255,240,150,.9) 0%, rgba(255,240,150,0) 55%);
+            {sparkle_rule}
+        }}
+        @keyframes country-sparkle-burst {{
+            0% {{ opacity: 0; transform: scale(.6); }}
+            35% {{ opacity: 1; transform: scale(1.15); }}
+            100% {{ opacity: 0; transform: scale(1.6); }}
+        }}
+        </style>
+        """
+    )
+
+    with st.container(key="country_scene_stage"):
+        html_block(
+            f"""
+            <div class="scene-stage">
+                <div class="scene-landmark-bg">{country["landmark"]}</div>
+                <div class="scene-doll-box">{doll_svg}</div>
+                <div class="scene-sparkle"></div>
+            </div>
+            """
+        )
+        c1, c2, c3, c4, c5, c6 = st.columns(6)
+        with c1:
+            if st.button("💧", key="icn_water", help="기후·수질 정보"):
+                st.session_state.active_country_sheet = "water"
+                st.rerun()
+        with c2:
+            if st.button("💄", key="icn_lipstick", help="피부 맞춤 추천"):
+                st.session_state.active_country_sheet = "lipstick"
+                st.rerun()
+        with c3:
+            if st.button("🛍️", key="icn_shop", help="드럭스토어"):
+                st.session_state.active_country_sheet = "shop"
+                st.rerun()
+        with c4:
+            if st.button("💇", key="icn_hair", help="헤어 케어"):
+                st.session_state.active_country_sheet = "hair"
+                st.rerun()
+        with c5:
+            if st.button("🎒", key="icn_carrier", help="캐리어 담기"):
+                st.session_state.active_country_sheet = "carrier"
+                st.rerun()
+        with c6:
+            if st.button("⭐", key="icn_star", help="패스포트에 저장"):
+                if already_saved:
+                    st.toast("📘 이미 패스포트에 저장되어 있어요", icon="📘")
+                else:
+                    st.session_state.passport.append({
+                        "code": code,
+                        "name": country["name"],
+                        "flag": country["flag"],
+                        "tip": country["essentials"][0],
+                    })
+                    st.session_state.just_saved_country_sparkle = True
+                    st.toast("⭐ 패스포트에 저장됨!", icon="⭐")
+                st.rerun()
+
+    nav1, nav2 = st.columns(2)
+    with nav1:
+        if st.button("🗺️ 정보 다시 보기", key="back_to_country_map"):
+            st.session_state.country_stage = "map"
+            st.rerun()
+    with nav2:
+        if st.button("⬅ 지도로 돌아가기", key="back_to_world_map_from_scene"):
             goto("map")
             st.rerun()
-    with nav_col2:
-        already_saved = code in [p["code"] for p in get_passport()]
-        if already_saved:
-            st.success("📘 이미 여권에 저장됨")
-        else:
-            if st.button("📘 여권에 저장", type="primary"):
-                st.session_state.passport.append({
-                    "code": code,
-                    "name": country["name"],
-                    "flag": country["flag"],
-                    "tip": country["essentials"][0],
-                })
-                st.rerun()
+
+
+def _dismiss_country_sheet():
+    """다이얼로그 기본 X/ESC/바깥 클릭으로 닫혀도 상태를 꺼준다 — 다른 다이얼로그와 동일한 패턴."""
+    st.session_state.active_country_sheet = None
+
+
+def _bottom_sheet_css():
+    html_block(
+        """
+        <style>
+        div[data-testid="stDialog"] [slot="title"] { display: none !important; }
+        div[data-testid="stDialog"] div { background: transparent !important; box-shadow: none !important; }
+        div[data-testid="stDialog"] > div {
+            position: fixed !important; left: 50% !important; bottom: 0 !important; top: auto !important;
+            transform: translateX(-50%) !important; margin: 0 !important;
+            max-width: min(94vw, 640px) !important; width: min(94vw, 640px) !important;
+            max-height: 82vh !important; overflow-y: auto !important;
+            border-radius: 22px 22px 0 0 !important;
+            animation: sheet-slide-up .28s ease both;
+        }
+        @keyframes sheet-slide-up {
+            from { transform: translate(-50%, 100%); }
+            to   { transform: translate(-50%, 0); }
+        }
+        .st-key-country_sheet_card {
+            background: #fffaf3 !important; border-radius: 22px 22px 0 0 !important;
+            padding: 22px 22px 26px !important; box-shadow: 0 -10px 30px rgba(120,40,90,.22) !important;
+            min-height: 240px;
+        }
+        .sheet-title {
+            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.4rem;
+            color: #9c2f5c; margin-bottom: 10px;
+        }
+        </style>
+        """
+    )
+
+
+@st.dialog("여행 정보", width="large", on_dismiss=_dismiss_country_sheet)
+def _country_action_sheet(country, char, code):
+    _bottom_sheet_css()
+    kind = st.session_state.active_country_sheet
+    titles = {
+        "water": "💧 기후 · 수질 정보",
+        "lipstick": "💄 피부 맞춤 추천",
+        "shop": "🛍️ 드럭스토어 & 추천템",
+        "hair": "💇 헤어 케어",
+        "carrier": "🎒 캐리어 담기",
+    }
+    with st.container(key="country_sheet_card"):
+        html_block(f'<div class="sheet-title">{titles.get(kind, "")}</div>')
+
+        if kind == "water":
+            skin_notes = char.get("skin_type_extra") or []
+            if country["water"] == "경수" and skin_notes:
+                st.warning(
+                    f"⚠ {', '.join(skin_notes)} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. "
+                    f"저자극 클렌징워터를 꼭 챙기세요."
+                )
+            st.metric("기후", country["climate"])
+            st.metric("습도", country["humidity"])
+            st.metric("자외선", country["uv"])
+            st.metric("수질", country["water"])
+            st.caption(country["water_note"])
+            feed_path = country.get("aqi_station") or (
+                f"geo:{country['geo']}" if country.get("geo") else None
+            )
+            aq = get_air_quality(feed_path) if feed_path else None
+            if aq and aq.get("aqi") not in (None, "-"):
+                try:
+                    aqi_val = int(aq["aqi"])
+                    st.metric("미세먼지 (AQI)", f"{aqi_val} · {_aqi_level_label(aqi_val)}")
+                    pm_parts = []
+                    if aq.get("pm25") is not None:
+                        pm_parts.append(f"PM2.5 {aq['pm25']}㎍/㎥")
+                    if aq.get("pm10") is not None:
+                        pm_parts.append(f"PM10 {aq['pm10']}㎍/㎥")
+                    if pm_parts:
+                        st.caption(" · ".join(pm_parts))
+                except (TypeError, ValueError):
+                    pass
+
+        elif kind == "lipstick":
+            with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
+                rec = get_ai_cosmetic_recommendation(char, code)
+            if rec:
+                st.markdown(rec)
+                st.caption("✨ AI가 피부타입과 현지 기후를 분석해 추천했어요")
+            else:
+                st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
+                for t in _quick_skin_tip(char, country):
+                    st.write(f"- {t}")
+
+        elif kind == "shop":
+            st.markdown("**🧳 필수 아이템**")
+            for item in country["essentials"]:
+                st.write(f"- {item}")
+            st.markdown("**📍 현지 드럭스토어**")
+            for store in country.get("drugstores") or []:
+                st.write(f"- {store}")
+            st.markdown("**🧴 내 피부에 맞는 추천**")
+            for t in _quick_skin_tip(char, country):
+                st.write(f"- {t}")
+
+        elif kind == "hair":
+            st.write(country["hair_tip"])
+            st.link_button("3WAU에서 추천 제품 보러 가기 →", THREE_WAU_STORE_URL, use_container_width=True)
+
+        elif kind == "carrier":
+            st.info("🧳 캐리어 담기 서비스는 준비 중이에요! 조금만 기다려주세요 ✨")
+
+        if st.button("✕ 닫기", key="close_country_sheet", use_container_width=True):
+            st.session_state.active_country_sheet = None
+            st.rerun()
 
 
 def render_aftercare():
