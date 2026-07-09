@@ -329,15 +329,17 @@ def render_page_transition():
     st.session_state.show_page_transition = False
 
     bubbles = []
-    for _ in range(24):
-        left = random.uniform(1, 97)
-        size = random.uniform(16, 70)
-        delay = random.uniform(0, 0.5)
-        duration = random.uniform(0.85, 1.5)
-        drift = random.uniform(-36, 36)
+    for _ in range(80):
+        left = random.uniform(-3, 100)
+        size = random.uniform(34, 150)
+        delay = random.uniform(0, 0.6)
+        duration = random.uniform(1.3, 2.1)
+        drift = random.uniform(-50, 50)
+        maxop = random.uniform(.6, .95)
         bubbles.append(
             f'<span class="bubble" style="left:{left:.1f}%; width:{size:.0f}px; height:{size:.0f}px; '
-            f'--drift:{drift:.0f}px; animation-delay:{delay:.2f}s; animation-duration:{duration:.2f}s;"></span>'
+            f'--drift:{drift:.0f}px; --maxop:{maxop:.2f}; '
+            f'animation-delay:{delay:.2f}s; animation-duration:{duration:.2f}s;"></span>'
         )
 
     html_block(
@@ -346,28 +348,34 @@ def render_page_transition():
         .bubble-overlay {
             position: fixed; inset: 0; z-index: 999999;
             pointer-events: none; overflow: hidden;
-            background: linear-gradient(180deg, rgba(160,225,255,.92), rgba(70,175,240,.92));
-            animation: overlay-fade 1.5s ease forwards;
-        }
-        @keyframes overlay-fade {
-            0%, 52% { opacity: 1; }
-            100%    { opacity: 0; }
+            background: transparent;
         }
         .bubble-overlay .bubble {
-            position: absolute; bottom: -12%;
+            position: absolute; bottom: -15%;
             border-radius: 50%;
-            background: radial-gradient(circle at 30% 26%,
-                rgba(255,255,255,.98) 0%, rgba(255,255,255,.35) 32%,
-                rgba(200,235,255,.4) 62%, rgba(150,210,255,.2) 100%);
-            box-shadow: inset -5px -5px 9px rgba(70,150,215,.4), 0 0 8px rgba(255,255,255,.55);
+            /* 가장자리만 무지개빛 얇은 링으로 남기고 중앙은 완전히 투명하게 마스킹 */
+            background: conic-gradient(from 0deg,
+                rgba(255,190,210,.95), rgba(255,235,170,.9), rgba(200,255,190,.9),
+                rgba(170,220,255,.95), rgba(210,180,255,.95), rgba(255,190,210,.95));
+            -webkit-mask-image: radial-gradient(circle, transparent 56%, #000 62%, #000 90%, transparent 96%);
+            mask-image: radial-gradient(circle, transparent 56%, #000 62%, #000 90%, transparent 96%);
             animation-name: bubble-rise;
-            animation-timing-function: cubic-bezier(.22,.7,.4,1);
+            animation-timing-function: cubic-bezier(.3,.62,.4,1);
             animation-fill-mode: forwards;
+            opacity: 0;
+        }
+        .bubble-overlay .bubble::before {
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background:
+                radial-gradient(circle at 30% 26%, rgba(255,255,255,.95) 0%, rgba(255,255,255,.5) 10%, rgba(255,255,255,0) 26%),
+                radial-gradient(circle at 68% 74%, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 16%),
+                radial-gradient(circle, rgba(255,255,255,.05) 0%, rgba(255,255,255,0) 60%);
         }
         @keyframes bubble-rise {
-            0%   { transform: translateY(0) translateX(0) scale(.55); opacity: .9; }
-            65%  { opacity: 1; }
-            100% { transform: translateY(-125vh) translateX(var(--drift,0px)) scale(1.15); opacity: 0; }
+            0%   { transform: translateY(0) translateX(0) scale(.5); opacity: 0; }
+            12%  { opacity: var(--maxop, .85); }
+            80%  { opacity: var(--maxop, .85); }
+            100% { transform: translateY(-130vh) translateX(var(--drift,0px)) scale(1.1); opacity: 0; }
         }
         @media (prefers-reduced-motion: reduce) {
             .bubble-overlay, .bubble-overlay .bubble { animation: none !important; display: none !important; }
