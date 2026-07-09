@@ -9,6 +9,7 @@ import json
 import random
 import re
 import time
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote as urlquote
 
@@ -582,6 +583,34 @@ POTION_ICON_SVG = """
 """
 POTION_ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(POTION_ICON_SVG.strip().encode()).decode()
 
+# 얼굴 스캔하기 아이콘 — 뷰파인더 모서리 브래킷 + 얼굴 실루엣 + 스캔 라인.
+FACE_SCAN_ICON_SVG = """
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="scanFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd9ee"/>
+      <stop offset="100%" stop-color="#ff9fd8"/>
+    </linearGradient>
+    <linearGradient id="scanLine" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ff6fb8" stop-opacity="0"/>
+      <stop offset="50%" stop-color="#ff2f9e"/>
+      <stop offset="100%" stop-color="#ff6fb8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M10,26 L10,14 Q10,8 16,8 L28,8" fill="none" stroke="#c2409c" stroke-width="5" stroke-linecap="round"/>
+  <path d="M90,26 L90,14 Q90,8 84,8 L72,8" fill="none" stroke="#c2409c" stroke-width="5" stroke-linecap="round"/>
+  <path d="M10,74 L10,86 Q10,92 16,92 L28,92" fill="none" stroke="#c2409c" stroke-width="5" stroke-linecap="round"/>
+  <path d="M90,74 L90,86 Q90,92 84,92 L72,92" fill="none" stroke="#c2409c" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="50" cy="45" r="17" fill="url(#scanFace)" stroke="#c2409c" stroke-width="2.4"/>
+  <path d="M35,58 Q50,72 65,58 L65,66 Q50,80 35,66 Z" fill="url(#scanFace)" stroke="#c2409c" stroke-width="2.4"/>
+  <circle cx="43" cy="43" r="2.6" fill="#7a3060"/>
+  <circle cx="57" cy="43" r="2.6" fill="#7a3060"/>
+  <path d="M46,50 Q50,53 54,50" stroke="#7a3060" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <rect x="8" y="49" width="84" height="4" rx="2" fill="url(#scanLine)"/>
+</svg>
+"""
+FACE_SCAN_ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(FACE_SCAN_ICON_SVG.strip().encode()).decode()
+
 AFTERCARE_ADVICE = {
     "트러블": {
         "pack": "티트리 진정 팩",
@@ -647,11 +676,19 @@ if "just_saved_country_sparkle" not in st.session_state:
 if "just_entered_country_scene" not in st.session_state:
     st.session_state.just_entered_country_scene = False  # 지도->캐릭터 장면 전환 시 팝인 애니메이션 1회용
 if "diagnosis_stage" not in st.session_state:
-    st.session_state.diagnosis_stage = "select"  # "select" | "brewing" | "result"
+    st.session_state.diagnosis_stage = "scan"  # "scan" | "brewing" | "result"
 if "diagnosis_country" not in st.session_state:
     st.session_state.diagnosis_country = None
 if "diagnosis_result" not in st.session_state:
     st.session_state.diagnosis_result = None
+if "coins" not in st.session_state:
+    st.session_state.coins = 9999  # 베타 단계 임시 초기값 — 추후 실제 0부터 시작하도록 변경 필요
+if "coin_history" not in st.session_state:
+    st.session_state.coin_history = []  # 코인 적립 내역 — 뷰티 패스포트에서 표시
+if "show_ad_reward" not in st.session_state:
+    st.session_state.show_ad_reward = False
+if "current_ad_video" not in st.session_state:
+    st.session_state.current_ad_video = None
 
 
 def get_character():
@@ -809,7 +846,7 @@ PARENT_VIEW = {
     "map": "character",
     "country": "map",
     "aftercare": "map",
-    "diagnosis": "map",
+    "diagnosis": "country",
 }
 
 
@@ -856,7 +893,7 @@ def render_top_icons():
     html_block(
         f"""
         <style>
-        .st-key-nav_map_icon button, .st-key-open_passport_icon button, .st-key-open_diagnosis_icon button {{
+        .st-key-nav_map_icon button, .st-key-open_passport_icon button {{
             position: fixed !important; top: 60px !important;
             z-index: 99997 !important;
             width: 62px !important; height: 62px !important;
@@ -869,26 +906,16 @@ def render_top_icons():
         }}
         .st-key-nav_map_icon button {{ right: 92px !important; }}
         .st-key-open_passport_icon button {{ right: 16px !important; }}
-        .st-key-open_diagnosis_icon button {{ right: 168px !important; }}
-        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover,
-        .st-key-open_diagnosis_icon button:hover {{
+        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover {{
             transform: translateY(-2px) scale(1.06);
         }}
-        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active,
-        .st-key-open_diagnosis_icon button:active {{
+        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active {{
             transform: translateY(1px) scale(.96);
         }}
         /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 */
         .st-key-open_passport_icon button {{
             background-image: url('{PASSPORT_ICON_URI}') !important;
             background-size: 155% 155% !important; background-position: center 42% !important;
-            background-repeat: no-repeat !important; background-color: #fff8fb !important;
-            color: transparent !important; font-size: 0 !important; overflow: hidden !important;
-        }}
-        /* 피부 궁합 진단 아이콘도 포션 그래픽으로 교체 */
-        .st-key-open_diagnosis_icon button {{
-            background-image: url('{POTION_ICON_URI}') !important;
-            background-size: 105% 105% !important; background-position: center 60% !important;
             background-repeat: no-repeat !important; background-color: #fff8fb !important;
             color: transparent !important; font-size: 0 !important; overflow: hidden !important;
         }}
@@ -903,13 +930,81 @@ def render_top_icons():
         st.session_state.show_passport = True
         st.session_state.passport_page_open = False
         st.rerun()
-    if st.button("🧪", key="open_diagnosis_icon", help="피부 궁합 진단"):
-        if get_character():
-            st.session_state.diagnosis_stage = "select"
-            goto("diagnosis")
-        else:
-            goto("character")
+
+
+AD_VIDEOS_DIR = ASSETS / "ads"
+AD_VIDEO_EXTS = (".mp4", ".webm", ".mov", ".m4v")
+AD_REWARD_COINS = 10
+
+
+@st.cache_data(show_spinner=False)
+def _list_ad_videos():
+    """assets/ads/ 폴더에 넣어둔 광고 영상 파일을 전부 찾는다 — 개수 제한 없이
+    폴더에 있는 만큼(3~5개든 몇 개든) 그대로 랜덤 재생 후보가 된다."""
+    if not AD_VIDEOS_DIR.exists():
+        return []
+    return sorted(str(p) for p in AD_VIDEOS_DIR.iterdir() if p.suffix.lower() in AD_VIDEO_EXTS)
+
+
+def _dismiss_ad_reward():
+    """기본 X/바깥 클릭으로 닫아도 '떠 있는 채로 남는' 버그를 막기 위해 상태를 정리한다
+    (뷰티 패스포트 다이얼로그에서 쓴 것과 같은 패턴)."""
+    st.session_state.show_ad_reward = False
+    st.session_state.current_ad_video = None
+
+
+@st.dialog("🎬 광고 보고 코인 받기", on_dismiss=_dismiss_ad_reward)
+def _ad_reward_dialog():
+    videos = _list_ad_videos()
+    if not videos:
+        st.warning("아직 등록된 광고 영상이 없어요. assets/ads/ 폴더에 영상 파일을 넣어주세요.")
+        return
+    video_path = st.session_state.current_ad_video or random.choice(videos)
+    st.session_state.current_ad_video = video_path
+    st.video(video_path, autoplay=True)
+    st.caption("영상을 다 보셨다면 아래에서 코인을 받아보세요")
+    if st.button(f"🎁 {AD_REWARD_COINS}코인 받기", key="claim_ad_reward", type="primary", use_container_width=True):
+        st.session_state.coins += AD_REWARD_COINS
+        st.session_state.coin_history.append({
+            "amount": AD_REWARD_COINS,
+            "label": Path(video_path).stem,
+            "when": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        })
+        st.session_state.show_ad_reward = False
+        st.session_state.current_ad_video = None
+        st.toast(f"🪙 코인 {AD_REWARD_COINS}개 적립!", icon="🪙")
         st.rerun()
+
+
+def render_ad_reward_button():
+    """화면 좌하단에 항상 떠 있는 '광고보고 코인 받기' 버튼. 누르면 assets/ads/ 폴더의
+    영상 중 하나를 무작위로 골라 다이얼로그로 재생하고, 다 보면 코인을 지급한다.
+    적립 내역은 뷰티 패스포트(_passport_bio_fields)에서 함께 확인할 수 있다."""
+    html_block(
+        """
+        <style>
+        .st-key-watch_ad_btn button {
+            position: fixed !important; bottom: 20px !important; left: 20px !important;
+            z-index: 99997 !important; border-radius: 999px !important;
+            padding: 0.7rem 1.3rem !important; font-family: 'Jua', sans-serif !important;
+            font-size: 1.05rem !important; font-weight: 700 !important;
+            border: 3px solid #fff !important;
+            background: linear-gradient(90deg,#FFD86F,#FFA63D) !important; color: #5a3410 !important;
+            box-shadow: 0 6px 14px rgba(180,110,20,.4) !important;
+            transition: transform .12s ease;
+        }
+        .st-key-watch_ad_btn button:hover { transform: translateY(-2px) scale(1.03); }
+        .st-key-watch_ad_btn button:active { transform: translateY(1px) scale(.97); }
+        </style>
+        """
+    )
+    if st.button("🎬 광고보고 코인 받기", key="watch_ad_btn"):
+        videos = _list_ad_videos()
+        st.session_state.current_ad_video = random.choice(videos) if videos else None
+        st.session_state.show_ad_reward = True
+        st.rerun()
+    if st.session_state.show_ad_reward:
+        _ad_reward_dialog()
 
 
 PASSPORT_FIELD_LABELS = {
@@ -927,6 +1022,8 @@ def _passport_bio_fields(char):
     """왼쪽 페이지 — 선택한 정보 전부 (여권 기본 페이지처럼 한 곳에 모아서)."""
     rows = ['<div class="p-field"><span class="p-label">NATIONALITY · 국적</span>'
             '<span class="p-value">Republic of Cosmax</span></div>']
+    rows.append('<div class="p-field"><span class="p-label">COINS · 보유 코인</span>'
+                f'<span class="p-value">🪙 {st.session_state.coins:,}</span></div>')
     for key, label in PASSPORT_FIELD_LABELS.items():
         value = html.escape(str(char.get(key) or "-"))
         rows.append(f'<div class="p-field"><span class="p-label">{label}</span>'
@@ -1215,6 +1312,20 @@ def _beauty_passport_dialog():
                         if st.button("✕", key=f"del_store_{i}", help="이 스토어 삭제"):
                             st.session_state.passport_stores.pop(i)
                             st.rerun()
+
+            html_block(f'<div class="p-section-title">🪙 코인 적립 내역 (보유 {st.session_state.coins:,}코인)</div>')
+            history = st.session_state.coin_history
+            if not history:
+                html_block(
+                    '<div class="tip-empty">아직 적립 내역이 없어요 — '
+                    '좌하단 "광고보고 코인 받기"를 눌러보세요 🎬</div>'
+                )
+            else:
+                for entry in reversed(history[-10:]):
+                    html_block(
+                        f'<div class="tip-entry">🎬 광고 시청 +{entry["amount"]}코인 '
+                        f'<span style="opacity:.6;font-size:.85em;">· {html.escape(entry["when"])}</span></div>'
+                    )
 
     # 여권 맨 아래에 붙는 한 줄 입력창 — 여기 적고 Enter 치면 위 '나만의 여행
     # 꿀팁' 목록에 새 줄로 쌓인다. key를 매번 바꿔서(tip_input_counter)
@@ -3560,6 +3671,45 @@ def _render_country_map_stage(country, char, code):
             0%, 100% {{ background: rgba(230,60,60,.14); }}
             50% {{ background: rgba(230,60,60,.28); }}
         }}
+        /* 화면 왼쪽에 크게 반짝이는 포션 버튼 — 지도 자체가 버튼(enter_country_scene)
+           이라 그 위에 올라오도록 z-index를 확실히 더 높게 준다. 포션은 은은하게
+           빛나는 글로우(potion-glow-pulse)로, 옆의 별들은 각기 다른 타이밍으로
+           반짝여서(sparkle-twinkle) "반짝반짝" 느낌을 낸다. */
+        .st-key-open_country_potion {{
+            position: absolute !important; top: 32%; left: 4%; z-index: 30 !important;
+        }}
+        .st-key-open_country_potion.st-key-open_country_potion button {{
+            position: relative !important; width: 120px !important; height: 156px !important;
+            min-width: 0 !important; background: transparent !important; border: none !important;
+            padding: 0 !important; background-image: url('{POTION_ICON_URI}') !important;
+            background-size: contain !important; background-repeat: no-repeat !important;
+            background-position: center !important; color: transparent !important; font-size: 0 !important;
+            animation: potion-glow-pulse 1.8s ease-in-out infinite;
+        }}
+        .st-key-open_country_potion.st-key-open_country_potion button:hover {{ transform: scale(1.08); }}
+        .st-key-open_country_potion.st-key-open_country_potion button:active {{ transform: scale(.92); }}
+        @keyframes potion-glow-pulse {{
+            0%, 100% {{
+                filter: drop-shadow(0 0 6px rgba(255,214,120,.55)) drop-shadow(0 0 14px rgba(255,111,184,.4));
+                transform: scale(1);
+            }}
+            50% {{
+                filter: drop-shadow(0 0 18px rgba(255,214,120,.95)) drop-shadow(0 0 30px rgba(255,111,184,.65));
+                transform: scale(1.06);
+            }}
+        }}
+        .country-potion-sparkle {{
+            position: absolute; font-size: 1.5rem; pointer-events: none; z-index: 29;
+            animation: sparkle-twinkle 1.5s ease-in-out infinite;
+        }}
+        @keyframes sparkle-twinkle {{
+            0%, 100% {{ opacity: .15; transform: scale(.7) rotate(0deg); }}
+            50%      {{ opacity: 1;   transform: scale(1.2) rotate(20deg); }}
+        }}
+        @media (prefers-reduced-motion: reduce) {{
+            .st-key-open_country_potion.st-key-open_country_potion button,
+            .country-potion-sparkle {{ animation: none !important; }}
+        }}
         </style>
         """
     )
@@ -3581,8 +3731,17 @@ def _render_country_map_stage(country, char, code):
                 <div class="note-section">⚠ 유의사항</div>
                 <div class="{risk_class}">{html.escape(risk_text)}</div>
             </div>
+            <span class="country-potion-sparkle" style="top:28%; left:2%; animation-delay:0s;">✨</span>
+            <span class="country-potion-sparkle" style="top:52%; left:16%; animation-delay:.5s;">✨</span>
+            <span class="country-potion-sparkle" style="top:38%; left:13%; animation-delay:1s;">✨</span>
             """
         )
+        if st.button(" ", key="open_country_potion", help="포션을 눌러 피부 궁합 확인하기"):
+            st.session_state.diagnosis_country = code
+            st.session_state.diagnosis_stage = "scan"
+            st.session_state.diagnosis_result = None
+            goto("diagnosis")
+            st.rerun()
         if st.button(" ", key="enter_country_scene"):
             st.session_state.country_stage = "scene"
             st.session_state.just_entered_country_scene = True
@@ -3973,16 +4132,21 @@ def render_aftercare():
 
 
 # ----------------------------------------------------------------------
-# 피부 궁합 진단 — 국가를 최종 선택하기 전에 들어가는 진단 단계.
-# select(도시 고르기) -> brewing(포션 진행 애니메이션) -> result(궁합 스코어)
-# 3단계를 diagnosis_stage로 관리한다. MVP는 서울/상하이/시드니 3개 도시만.
+# 피부 궁합 진단 — 여행지 지도에서 국가/도시를 고른 뒤(country_stage="map")
+# 화면 왼쪽의 반짝이는 포션을 누르면 들어오는 진단 단계.
+# scan(얼굴 스캔하기) -> brewing(포션 진행 애니메이션) -> result(궁합 스코어)
+# 3단계를 diagnosis_stage로 관리한다. diagnosis_country는 지도에서 고른
+# 국가 코드가 이미 채워져 들어온다(별도의 나라 선택 그리드는 없음).
 # ----------------------------------------------------------------------
-DIAGNOSIS_MVP_CODES = ["kr", "cn", "au"]
-
-
 def render_diagnosis():
     if not get_character():
         goto("character")
+        st.rerun()
+        return
+    if not st.session_state.diagnosis_country:
+        # 지도에서 국가를 고르지 않고는 들어올 수 없는 화면 — 안전하게 지도로
+        goto("map")
+        st.session_state.map_globe_opened = True
         st.rerun()
         return
     stage = st.session_state.diagnosis_stage
@@ -3991,66 +4155,48 @@ def render_diagnosis():
     elif stage == "result":
         _render_diagnosis_result()
     else:
-        _render_diagnosis_select()
+        _render_diagnosis_scan()
 
 
-def _render_diagnosis_select():
-    st.title("🧪 피부 궁합 진단")
+def _render_diagnosis_scan():
+    code = st.session_state.diagnosis_country
+    country = COUNTRIES.get(code) or {}
+    st.title(f"{country.get('flag','')} {country.get('name','')} 피부 궁합 진단")
     html_block(
-        """
+        f"""
         <style>
-        .diag-copy {
-            text-align: center; font-family: 'Jua', sans-serif; font-size: 1.35rem;
-            color: #5a3d7a; margin: 4px 0 20px;
-        }
-        .diag-city-card {
-            aspect-ratio: 1; border-radius: 16px; background: #ffffff;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 2.6rem; box-shadow: 0 3px 8px rgba(0,0,0,.1);
-        }
-        .diag-brew-hint {
-            text-align: center; font-family: 'Jua', sans-serif; color: #8a5a10; margin-top: -2px;
-        }
+        .diag-scan-copy {{
+            text-align: center; font-family: 'Jua', sans-serif; font-size: 1.2rem;
+            color: #5a3d7a; margin: 4px 0 22px;
+        }}
+        .st-key-diag_scan_btn.st-key-diag_scan_btn button {{
+            position: relative !important;
+            width: 160px !important; height: 160px !important; margin: 6px auto 10px !important;
+            display: block !important; border-radius: 50% !important;
+            background: linear-gradient(160deg,#ffe9f3,#ffd2ea) !important;
+            border: 4px solid #ff9fd8 !important;
+            box-shadow: 0 8px 20px rgba(255,111,184,.35) !important;
+            color: transparent !important; font-size: 0 !important;
+            transition: transform .15s ease;
+        }}
+        .st-key-diag_scan_btn.st-key-diag_scan_btn button::before {{
+            content: ""; position: absolute; inset: 30px;
+            background-image: url('{FACE_SCAN_ICON_URI}');
+            background-size: contain; background-repeat: no-repeat; background-position: center;
+        }}
+        .st-key-diag_scan_btn.st-key-diag_scan_btn button:hover {{ transform: scale(1.06); }}
+        .st-key-diag_scan_btn.st-key-diag_scan_btn button:active {{ transform: scale(.93); }}
+        .diag-scan-hint {{
+            text-align: center; font-family: 'Jua', sans-serif; color: #8a5a10; margin-top: 2px;
+        }}
         </style>
-        <div class="diag-copy">내 피부, 어디랑 잘 맞을까? 🔮</div>
+        <div class="diag-scan-copy">포션이 완성됐어요! 얼굴을 스캔해서<br>이 여행지와의 궁합을 확인해볼까요?</div>
         """
     )
-
-    selected = st.session_state.diagnosis_country
-    cols = st.columns(len(DIAGNOSIS_MVP_CODES))
-    for col, code in zip(cols, DIAGNOSIS_MVP_CODES):
-        country = COUNTRIES[code]
-        with col:
-            is_sel = selected == code
-            border = "4px solid #ff6fb8" if is_sel else "3px solid rgba(0,0,0,.08)"
-            html_block(f'<div class="diag-city-card" style="border:{border};">{country["flag"]}</div>')
-            if st.button(country["name"], key=f"diag_pick_{code}", use_container_width=True):
-                st.session_state.diagnosis_country = None if is_sel else code
-                st.rerun()
-
-    if selected:
-        html_block(
-            f"""
-            <style>
-            .st-key-diag_brew_btn.st-key-diag_brew_btn button {{
-                position: relative !important;
-                width: 140px !important; height: 182px !important; margin: 18px auto 4px !important;
-                display: block !important; background: transparent !important; border: none !important;
-                background-image: url('{POTION_ICON_URI}') !important;
-                background-size: contain !important; background-repeat: no-repeat !important;
-                background-position: center !important;
-                color: transparent !important; font-size: 0 !important;
-                transition: transform .15s ease;
-            }}
-            .st-key-diag_brew_btn.st-key-diag_brew_btn button:hover {{ transform: scale(1.06) translateY(-3px); }}
-            .st-key-diag_brew_btn.st-key-diag_brew_btn button:active {{ transform: scale(.93); }}
-            </style>
-            """
-        )
-        if st.button(" ", key="diag_brew_btn"):
-            st.session_state.diagnosis_stage = "brewing"
-            st.rerun()
-        html_block('<div class="diag-brew-hint">🧪 포션을 눌러 궁합을 확인해보세요</div>')
+    if st.button("📷", key="diag_scan_btn", help="얼굴 스캔하기"):
+        st.session_state.diagnosis_stage = "brewing"
+        st.rerun()
+    html_block('<div class="diag-scan-hint">👆 얼굴 스캔하기</div>')
 
 
 def _render_diagnosis_brewing():
@@ -4073,7 +4219,7 @@ def _render_diagnosis_brewing():
         </style>
         <div class="diag-brewing">
             <div class="diag-potion-shake">{POTION_ICON_SVG}</div>
-            <div class="diag-brewing-label">{country.get("flag","")} {country.get("name","")}와의 궁합을 확인하는 중...</div>
+            <div class="diag-brewing-label">얼굴을 스캔해서 {country.get("flag","")} {country.get("name","")}와의 궁합을 분석하는 중...</div>
         </div>
         """
     )
@@ -4100,7 +4246,9 @@ def _render_diagnosis_result():
     country = COUNTRIES.get(code)
     char = get_character()
     if not country:
-        st.session_state.diagnosis_stage = "select"
+        st.session_state.diagnosis_country = None
+        goto("map")
+        st.session_state.map_globe_opened = True
         st.rerun()
         return
 
@@ -4178,7 +4326,8 @@ def _render_diagnosis_result():
         if st.button("다른 나라 볼래요", key="diag_pick_other", use_container_width=True):
             st.session_state.diagnosis_country = None
             st.session_state.diagnosis_result = None
-            st.session_state.diagnosis_stage = "select"
+            goto("map")
+            st.session_state.map_globe_opened = True
             st.rerun()
 
     already_saved = code in [p["code"] for p in get_passport()]
@@ -4222,6 +4371,7 @@ render_bubble_clear()
 render_passport_modal()
 render_back_button()
 render_top_icons()
+render_ad_reward_button()
 
 # 화면(view)을 st.empty() 슬롯 하나에 넣어서 그린다. 예전에는 VIEWS[...]()를
 # 바로 호출했는데, 캐릭터 만들기(탭+위젯이 아주 많음)에서 지도(위젯이 훨씬
