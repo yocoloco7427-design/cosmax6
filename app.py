@@ -4005,17 +4005,21 @@ def _render_country_map_stage(country, char, code):
            버튼 자체가 기준 박스가 되어 항상 포션과 겹치게 붙어있는게 보장된다. */
         .st-key-open_country_potion.st-key-open_country_potion button::before,
         .st-key-open_country_potion.st-key-open_country_potion button::after {{
-            content: '✨'; position: absolute; font-size: 1.6rem; pointer-events: none; z-index: 29;
-            animation: sparkle-twinkle 1.5s ease-in-out infinite;
+            content: '✨'; position: absolute; font-size: 1.8rem; line-height: 1; pointer-events: none;
+            z-index: 29; animation: sparkle-twinkle 1.5s ease-in-out infinite;
+            /* 버튼 자체가 글자를 숨기려고 color: transparent를 쓰고 있어서, 이 이모지도
+               상속으로 투명해져 안 보이는 버그가 있었다 — 명시적으로 색을 되살린다. */
+            color: initial !important; -webkit-text-fill-color: initial !important;
+            filter: drop-shadow(0 0 4px rgba(255,255,255,.9));
         }}
         .st-key-open_country_potion.st-key-open_country_potion button::before {{
-            top: -6px; left: -10px; animation-delay: 0s;
+            top: -10px; left: -14px; animation-delay: 0s;
         }}
         .st-key-open_country_potion.st-key-open_country_potion button::after {{
-            top: 62%; left: 82%; animation-delay: .6s;
+            top: 58%; left: 80%; animation-delay: .6s;
         }}
         @keyframes sparkle-twinkle {{
-            0%, 100% {{ opacity: .15; transform: scale(.7) rotate(0deg); }}
+            0%, 100% {{ opacity: .35; transform: scale(.7) rotate(0deg); }}
             50%      {{ opacity: 1;   transform: scale(1.2) rotate(20deg); }}
         }}
         @media (prefers-reduced-motion: reduce) {{
