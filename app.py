@@ -1128,6 +1128,18 @@ def inject_theme():
     .st-key-char_basic_tab .stButton button {
         font-size: 1.1rem !important;
     }
+
+    /* 캐릭터 만들기 페이지 — 전체를 살짝 위로 올리고, 상단 탭(기본/옷장/취향) 글씨 확대 */
+    .st-key-character_page {
+        margin-top: -2.2rem !important;
+    }
+    .st-key-character_page .stTabs [data-baseweb="tab"] p {
+        font-size: 1.2rem !important;
+        font-weight: 700 !important;
+    }
+    .st-key-character_page .stTabs [data-baseweb="tab"] {
+        padding: 0.6rem 1rem !important;
+    }
     </style>
     """
     clouds = ['<div class="sky-layer">']
@@ -2169,7 +2181,7 @@ def skin_tone_row():
             selected = draft.get("skin_tone") == tone["hex"]
             ring = "4px solid #ff6fb8" if selected else "3px solid rgba(0,0,0,.08)"
             html_block(
-                f'<div style="width:100%;aspect-ratio:1;border-radius:12px;'
+                f'<div style="width:100%;aspect-ratio:2.6/1;border-radius:12px;'
                 f'background:{tone["hex"]};border:{ring};box-shadow:0 3px 8px rgba(0,0,0,.12);"></div>'
             )
             if st.button(tone["label"], key=f"chip_tone_{tone['id']}", use_container_width=True):
@@ -2199,6 +2211,11 @@ def closet_link_row(title, cat_key, bucket):
 
 
 def render_character():
+    with st.container(key="character_page"):
+        _render_character_body()
+
+
+def _render_character_body():
     st.title("👤 캐릭터 만들기")
 
     draft = st.session_state.char_draft
@@ -2316,93 +2333,68 @@ def render_closet():
 
 def _map_globe_gate():
     """지도 화면 1단계 — 홈 화면의 자전하는 지구를 그대로 가져오되, 살짝 더 입체적으로
-    (고정된 축 기울기 rotateX + 그림자/하이라이트를 조금 더 진하게). 누르면 세계지도가
-    펼쳐진다. 홈 화면 자체의 애니메이션(render_home)은 그대로 두고 별도로 복사해서 씀."""
+    (그림자/하이라이트를 조금 더 진하게). 누르면 세계지도가 펼쳐진다. 홈 화면 자체의
+    애니메이션(render_home)은 그대로 두고 별도로 복사해서 씀.
+
+    처음엔 지구 그림을 html_block으로 따로 그리고 그 위에 투명 버튼을 겹쳐서 클릭을
+    받으려 했는데, 실제로는 안 눌리는 버그가 있었다(두 요소를 따로 겹치다 보니 위치/
+    높이 계산이 어긋난 것으로 추정). 그래서 여권 표지 버튼과 같이 이미 검증된 방식으로
+    바꿈 — 버튼 자기 자신에 ::before/::after로 그림을 입혀서 "그림 = 버튼"이 되게
+    하면 겹침 문제 자체가 생길 수 없다."""
     earth = asset_data_uri("earth_map.webp", "image/webp")
-    with st.container(key="map_globe_area"):
-        html_block(
-            f"""
-            <style>
-            .map-globe-stage {{ position: relative; width: 100%; height: min(58vh, 460px); }}
-            .map-globe-stage .earth {{
-                position: absolute; left: 50%; top: 50%;
-                width: clamp(220px,46vw,360px); height: clamp(220px,46vw,360px);
-                border-radius: 50%; overflow: hidden; z-index: 3;
-                box-shadow:
-                    inset 0 0 32px 7px rgba(170,220,255,.55),
-                    0 0 24px 5px rgba(255,255,255,.4),
-                    0 0 64px 16px rgba(120,190,255,.72),
-                    0 40px 68px rgba(20,40,90,.62);
-                animation: map-earth-float 7s ease-in-out infinite;
-            }}
-            .map-globe-stage .tex {{
-                position: absolute; inset: 0; border-radius: 50%;
-                background-image: url('{earth}');
-                background-size: 720px 360px; background-repeat: repeat-x;
-                background-position: 0 center;
-                filter: brightness(1.3) contrast(1.16) saturate(1.26);
-                animation: spin-earth-map 30s linear infinite;
-            }}
-            @keyframes spin-earth-map {{ from{{background-position:0 center;}} to{{background-position:-720px center;}} }}
-            @keyframes map-earth-float {{
-                0%,100%  {{ transform: translate(-50%,-50%) rotateX(-10deg) translateY(0); }}
-                50%      {{ transform: translate(-50%,-50%) rotateX(-10deg) translateY(-14px); }}
-            }}
-            .map-globe-stage .shade {{
-                position: absolute; inset: 0; border-radius: 50%; z-index: 2; pointer-events: none;
-                background:
-                    radial-gradient(circle at 28% 24%, rgba(255,255,255,.78) 0%, rgba(255,255,255,.26) 11%, rgba(255,255,255,0) 27%),
-                    radial-gradient(circle at 70% 76%, rgba(0,0,0,0) 20%, rgba(2,6,24,.5) 55%, rgba(1,3,16,.97) 100%),
-                    radial-gradient(circle at 50% 50%, rgba(3,8,28,0) 42%, rgba(3,8,28,.4) 80%, rgba(1,3,14,.86) 100%);
-            }}
-            .map-globe-stage .gloss {{
-                position: absolute; inset: 0; border-radius: 50%; z-index: 3; pointer-events: none;
-                box-shadow:
-                    inset 9px 9px 28px rgba(210,238,255,.72),
-                    inset -6px -8px 24px rgba(110,175,255,.46),
-                    inset 0 0 44px rgba(255,255,255,.18);
-                background:
-                    radial-gradient(ellipse 34% 20% at 31% 21%, rgba(255,255,255,.96) 0%, rgba(255,255,255,.42) 36%, rgba(255,255,255,0) 66%),
-                    radial-gradient(ellipse 60% 44% at 76% 80%, rgba(50,110,220,.46) 0%, rgba(50,110,220,0) 68%);
-                mix-blend-mode: screen;
-            }}
-            .map-globe-stage .earth-shadow {{
-                position: absolute; left: 50%; top: 84%;
-                width: clamp(150px,26vw,250px); height: 22px; transform: translateX(-50%);
-                border-radius: 50%;
-                background: radial-gradient(ellipse, rgba(60,50,110,.44) 0%, rgba(60,50,110,0) 72%);
-            }}
-            .map-globe-hint {{
-                position: absolute; left: 50%; bottom: 4%; transform: translateX(-50%);
-                font-family: 'Jua', sans-serif; font-size: 1.05rem; color: #5a4a7a;
-                background: rgba(255,255,255,.78); padding: 7px 18px; border-radius: 999px;
-                white-space: nowrap; pointer-events: none;
-            }}
-            @media (prefers-reduced-motion: reduce) {{
-                .map-globe-stage .earth, .map-globe-stage .tex {{ animation: none !important; }}
-            }}
-            .st-key-map_globe_area {{ position: relative; }}
-            .st-key-open_world_map {{ position: absolute !important; inset: 0 !important; z-index: 5 !important; }}
-            .st-key-open_world_map button {{
-                width: 100% !important; height: 100% !important;
-                background: transparent !important; border: none !important; box-shadow: none !important;
-                color: transparent !important; font-size: 0 !important; cursor: pointer !important;
-            }}
-            </style>
-            <div class="map-globe-stage">
-                <div class="earth-shadow"></div>
-                <div class="earth">
-                    <div class="tex"></div>
-                    <div class="shade"></div>
-                    <div class="gloss"></div>
-                </div>
-                <div class="map-globe-hint">🌍 지구를 눌러 세계지도를 펼쳐보세요</div>
-            </div>
-            """
-        )
-        if st.button(" ", key="open_world_map", use_container_width=True):
-            st.session_state.map_globe_opened = True
-            st.rerun()
+    html_block(
+        f"""
+        <style>
+        .map-globe-hint {{
+            text-align: center; font-family: 'Jua', sans-serif; font-size: 1.05rem;
+            color: #5a4a7a; margin: 4px 0 6px;
+        }}
+        .st-key-open_world_map.st-key-open_world_map button {{
+            position: relative !important;
+            width: clamp(330px,69vw,540px) !important; height: clamp(330px,69vw,540px) !important;
+            min-width: 0 !important; max-width: none !important;
+            border-radius: 50% !important; border: none !important; padding: 0 !important;
+            margin: 14px auto 6px !important; display: block !important;
+            background: transparent !important; overflow: hidden !important;
+            box-shadow:
+                inset 0 0 32px 7px rgba(170,220,255,.55),
+                0 0 24px 5px rgba(255,255,255,.4),
+                0 0 64px 16px rgba(120,190,255,.72),
+                0 40px 68px rgba(20,40,90,.62);
+            animation: map-earth-float 7s ease-in-out infinite;
+            transition: transform .15s ease;
+            cursor: pointer;
+        }}
+        .st-key-open_world_map.st-key-open_world_map button:hover {{ transform: scale(1.04); }}
+        .st-key-open_world_map.st-key-open_world_map button:active {{ transform: scale(.97); }}
+        .st-key-open_world_map.st-key-open_world_map button::before {{
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background-image: url('{earth}');
+            background-size: 720px 360px; background-repeat: repeat-x;
+            background-position: 0 center;
+            filter: brightness(1.3) contrast(1.16) saturate(1.26);
+            animation: spin-earth-map 30s linear infinite;
+        }}
+        .st-key-open_world_map.st-key-open_world_map button::after {{
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background:
+                radial-gradient(circle at 28% 24%, rgba(255,255,255,.8) 0%, rgba(255,255,255,.28) 11%, rgba(255,255,255,0) 27%),
+                radial-gradient(circle at 70% 76%, rgba(2,6,24,0) 18%, rgba(2,6,24,.55) 54%, rgba(1,3,16,.98) 100%);
+            mix-blend-mode: multiply;
+        }}
+        @keyframes spin-earth-map {{ from{{background-position:0 center;}} to{{background-position:-720px center;}} }}
+        @keyframes map-earth-float {{ 0%,100%{{transform:translateY(0);}} 50%{{transform:translateY(-14px);}} }}
+        @media (prefers-reduced-motion: reduce) {{
+            .st-key-open_world_map.st-key-open_world_map button,
+            .st-key-open_world_map.st-key-open_world_map button::before {{ animation: none !important; }}
+        }}
+        </style>
+        <div class="map-globe-hint">🌍 지구를 눌러 세계지도를 펼쳐보세요</div>
+        """
+    )
+    if st.button(" ", key="open_world_map"):
+        st.session_state.map_globe_opened = True
+        st.rerun()
 
 
 def _render_world_map_with_pins():
