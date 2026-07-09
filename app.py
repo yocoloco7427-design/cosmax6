@@ -2387,7 +2387,7 @@ def _map_globe_gate():
             background-image: url('{earth}');
             background-size: {tex_w}px {tex_h}px; background-repeat: repeat-x;
             background-position: 0 center;
-            filter: brightness(1.32) contrast(1.22) saturate(1.28);
+            filter: brightness(1.55) contrast(1.22) saturate(1.28);
             animation: spin-earth-map 30s linear infinite;
         }}
         /* mix-blend-mode: multiply를 쓰면 흰색 하이라이트가 곱연산으로 사라져버려
