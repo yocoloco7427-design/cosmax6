@@ -420,7 +420,7 @@ def _passport_bio_fields(char):
     rows = ['<div class="p-field"><span class="p-label">NATIONALITY · 국적</span>'
             '<span class="p-value">Republic of Cosmax</span></div>']
     for key, label in PASSPORT_FIELD_LABELS.items():
-        value = char.get(key) or "-"
+        value = html.escape(str(char.get(key) or "-"))
         rows.append(f'<div class="p-field"><span class="p-label">{label}</span>'
                     f'<span class="p-value">{value}</span></div>')
 
@@ -449,12 +449,6 @@ def _passport_stamps_html(saved):
     )
 
 
-def _passport_tips_html(notes):
-    if not notes:
-        return '<div class="tip-empty">아직 적은 꿀팁이 없어요 — 맨 아래 칸에 적어보세요 ✎</div>'
-    return "".join(f'<div class="tip-entry">🩷 {html.escape(n)}</div>' for n in notes)
-
-
 def _passport_dialog_css():
     html_block(
         """
@@ -473,10 +467,14 @@ def _passport_dialog_css():
            직접 확인한 실제 속성. */
         div[data-testid="stDialog"] [slot="title"] { display: none !important; }
         .p-body { padding-top: 2px; }
-        /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자 */
-        div[data-testid="stDialog"] .page {
+        /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자.
+           오른쪽은 꿀팁 삭제 버튼이 필요해서 실제 st.container(key="page_right_card")로
+           바꿨다 — 그래서 .page 대신 그 키 클래스에도 똑같이 페이지 박스 스타일을 준다.
+           왼쪽보다 짧아 보이던 문제는, 두 페이지 모두 같은 넉넉한 최소 높이로 맞춰서 해결 */
+        div[data-testid="stDialog"] .page,
+        div[data-testid="stDialog"] .st-key-page_right_card {
             background: #fffaf3 !important; padding: 20px 20px 14px;
-            min-height: 380px; box-sizing: border-box; border-style: solid !important;
+            min-height: 620px; box-sizing: border-box; border-style: solid !important;
             box-shadow: 0 18px 36px rgba(120,40,90,.34), inset 0 0 0 2px rgba(255,255,255,.55) !important;
         }
         /* 위/왼쪽은 밝은 핑크(빛을 받는 쪽), 아래/바깥쪽은 진한 로즈(그늘)로
@@ -491,7 +489,7 @@ def _passport_dialog_css():
                 inset 0 3px 0 rgba(255,255,255,.6),
                 0 18px 36px rgba(120,40,90,.34) !important;
         }
-        div[data-testid="stDialog"] .page-right {
+        div[data-testid="stDialog"] .st-key-page_right_card {
             border-width: 6px !important;
             border-color: #ffcfe8 #b81862 #b81862 #ffcfe8 !important; /* top right bottom left */
             border-left: none !important; border-radius: 0 18px 18px 0;
@@ -499,6 +497,10 @@ def _passport_dialog_css():
                 inset 18px 0 28px -12px rgba(30,5,30,.45),
                 inset 0 3px 0 rgba(255,255,255,.6),
                 0 18px 36px rgba(120,40,90,.34) !important;
+        }
+        /* 컨테이너 안 요소(스탬프/제목/꿀팁 줄)끼리 기본 여백이 너무 헐렁해서 좁힘 */
+        div[data-testid="stDialog"] .st-key-page_right_card div[data-testid="stVerticalBlock"] {
+            gap: 6px !important;
         }
         @keyframes passport-reveal {
             0%   { opacity: 0; transform: translateY(-10px); }
@@ -535,13 +537,24 @@ def _passport_dialog_css():
         .stamp-flag { font-size: 1.6rem; }
         .stamp-name { font-family: 'Jua', sans-serif; font-size: .8rem; color: #9c2f5c; margin-top: 2px; }
         .stamp-empty { font-family: 'Jua', sans-serif; font-size: 1.05rem; color: #a06; opacity: .8; }
-        /* 나만의 여행 꿀팁 — 적립된 항목들을 목록으로 */
-        .tips-list { display: flex; flex-direction: column; gap: 6px; }
+        /* 나만의 여행 꿀팁 — 적립된 항목 한 줄 + 옆의 ✕ 삭제 버튼 */
         .tip-entry {
             font-family: 'Gaegu', cursive; font-size: 1rem; color: #6a3d55;
             background: rgba(255,143,192,.08); border-radius: 8px; padding: 6px 10px;
+            margin-bottom: 6px;
         }
         .tip-empty { font-family: 'Jua', sans-serif; font-size: .95rem; color: #a06; opacity: .8; }
+        /* 꿀팁 삭제(✕) 버튼 — key가 del_tip_0, del_tip_1... 로 매번 달라지므로
+           부분일치 선택자로 전부 한 번에 스타일 준다 */
+        div[data-testid="stDialog"] div[class*="st-key-del_tip_"] button {
+            min-width: 0 !important; width: 30px !important; height: 30px !important;
+            padding: 0 !important; border-radius: 50% !important; margin-top: 2px !important;
+            background: rgba(255,111,184,.15) !important; border: 1.5px solid #ff8fc0 !important;
+            color: #b23a6e !important; font-size: .85rem !important; line-height: 1 !important;
+        }
+        div[data-testid="stDialog"] div[class*="st-key-del_tip_"] button:hover {
+            background: rgba(255,111,184,.32) !important;
+        }
         /* 여권 맨 아래에 붙는 한 줄 입력창 — 책의 일부처럼 핑크 테두리로 마감 */
         .st-key-tip_input_row { margin-top: -4px !important; margin-bottom: 10px !important; }
         .st-key-tip_input_row input {
@@ -605,10 +618,8 @@ def _beauty_passport_dialog():
         return
 
     doll_svg = character_doll_svg(char) if char else ""
-    reveal_rule = (
-        "animation: passport-reveal .4s ease both;"
-        if st.session_state.just_opened_passport_page else ""
-    )
+    just_opened = st.session_state.just_opened_passport_page
+    reveal_rule = "animation: passport-reveal .4s ease both;" if just_opened else ""
     st.session_state.just_opened_passport_page = False
 
     # 펼친 여권 — 왼쪽 신원 페이지 / 오른쪽 스탬프+꿀팁 페이지, 책처럼 나란히
@@ -631,16 +642,31 @@ def _beauty_passport_dialog():
         )
 
     with right_page:
-        html_block(
-            f"""
-            <div class="page page-right" style="{reveal_rule}">
+        # 오른쪽은 꿀팁마다 ✕ 삭제 버튼이 있어야 해서, 문자열 HTML 한 덩어리가
+        # 아니라 실제 st.container(위/아래 왼쪽 페이지와 똑같은 여권 박스로
+        # CSS에서 스타일링)로 만들고 그 안에 진짜 버튼들을 넣는다.
+        if just_opened:
+            html_block('<style>.st-key-page_right_card{animation: passport-reveal .4s ease both;}</style>')
+        with st.container(key="page_right_card"):
+            html_block(
+                f"""
                 <div class="p-section-title">✈ VISA STAMPS</div>
                 <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
                 <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
-                <div class="tips-list">{_passport_tips_html(st.session_state.passport_notes)}</div>
-            </div>
-            """
-        )
+                """
+            )
+            notes = st.session_state.passport_notes
+            if not notes:
+                html_block('<div class="tip-empty">아직 적은 꿀팁이 없어요 — 맨 아래 칸에 적어보세요 ✎</div>')
+            else:
+                for i, note in enumerate(notes):
+                    tip_col, del_col = st.columns([6, 1], gap="small", vertical_alignment="center")
+                    with tip_col:
+                        html_block(f'<div class="tip-entry">🩷 {html.escape(note)}</div>')
+                    with del_col:
+                        if st.button("✕", key=f"del_tip_{i}", help="이 꿀팁 삭제"):
+                            st.session_state.passport_notes.pop(i)
+                            st.rerun()
 
     # 여권 맨 아래에 붙는 한 줄 입력창 — 여기 적고 Enter 치면 위 '나만의 여행
     # 꿀팁' 목록에 새 줄로 쌓인다. key를 매번 바꿔서(tip_input_counter)
