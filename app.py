@@ -290,8 +290,6 @@ if "bubble_specs" not in st.session_state:
     st.session_state.bubble_specs = None
 if "show_passport" not in st.session_state:
     st.session_state.show_passport = False
-if "just_opened_passport" not in st.session_state:
-    st.session_state.just_opened_passport = False
 if "passport_page_open" not in st.session_state:
     st.session_state.passport_page_open = False
 if "just_opened_passport_page" not in st.session_state:
@@ -327,10 +325,11 @@ def render_back_button():
     parent = PARENT_VIEW.get(st.session_state.view)
     if not parent:
         return
-    st.markdown(
+    html_block(
         """
         <style>
         .st-key-back_btn button {
+            position: relative !important; z-index: 999999 !important;
             width: 46px !important; height: 46px !important;
             min-width: 46px !important; max-width: 46px !important;
             min-height: 46px !important; max-height: 46px !important;
@@ -342,10 +341,9 @@ def render_back_button():
         }
         .st-key-back_btn button:hover { transform: translateY(-2px) scale(1.05); }
         .st-key-back_btn button:active { transform: translateY(1px) scale(.97); }
-        .st-key-back_btn { margin: -0.5rem 0 .5rem 0; }
+        .st-key-back_btn { position: relative; z-index: 999999; margin: -0.5rem 0 .5rem 0; }
         </style>
-        """,
-        unsafe_allow_html=True,
+        """
     )
     if st.button("←", key="back_btn", help="뒤로 가기"):
         goto(parent)
@@ -354,18 +352,20 @@ def render_back_button():
 
 def render_top_icons():
     """홈을 제외한 모든 화면 우상단에 떠 있는 아이콘들 — 회색 사이드바 대신
-    쓰는 내비게이션. 뷰티 패스포트는 누르면 큰 애니메이션으로 펼쳐진다."""
+    쓰는 내비게이션. 뷰티 패스포트는 누르면 st.dialog로 크게 뜬다.
+
+    각 버튼은 자기 key로 생기는 .st-key-<key> 클래스에 바로 position:fixed를
+    건다 (예전엔 st.container(key=...)로 한 번 더 감쌌었는데, 그 감싸는
+    컨테이너 안에서는 fixed의 기준점이 뷰포트가 아니게 되는 문제가 있어서
+    컨테이너 없이 버튼 자체에 직접 건다)."""
     if st.session_state.view == "home":
         return
-    st.markdown(
+    html_block(
         f"""
         <style>
-        .st-key-top_icons {{
-            position: fixed !important; top: 64px !important; right: 16px !important;
-            z-index: 99997 !important; display: flex !important; gap: 9px !important;
-        }}
-        .st-key-top_icons .stButton {{ flex: 0 0 auto !important; }}
-        .st-key-top_icons .stButton button {{
+        .st-key-nav_map_icon button, .st-key-open_passport_icon button {{
+            position: fixed !important; top: 64px !important;
+            z-index: 99997 !important;
             width: 46px !important; height: 46px !important;
             min-width: 46px !important; max-width: 46px !important;
             min-height: 46px !important; max-height: 46px !important;
@@ -374,29 +374,31 @@ def render_top_icons():
             font-size: 1.35rem !important; box-shadow: 0 4px 10px rgba(120,40,90,.25);
             transition: transform .12s ease;
         }}
-        .st-key-top_icons .stButton button:hover {{ transform: translateY(-2px) scale(1.06); }}
-        .st-key-top_icons .stButton button:active {{ transform: translateY(1px) scale(.96); }}
+        .st-key-nav_map_icon button {{ right: 72px !important; }}
+        .st-key-open_passport_icon button {{ right: 16px !important; }}
+        .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover {{
+            transform: translateY(-2px) scale(1.06);
+        }}
+        .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active {{
+            transform: translateY(1px) scale(.96);
+        }}
         /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 */
-        .st-key-passport_icon_btn .stButton button {{
+        .st-key-open_passport_icon button {{
             background-image: url('{PASSPORT_ICON_URI}') !important;
             background-size: 155% 155% !important; background-position: center 42% !important;
             background-repeat: no-repeat !important; background-color: #fff8fb !important;
             color: transparent !important; font-size: 0 !important; overflow: hidden !important;
         }}
         </style>
-        """,
-        unsafe_allow_html=True,
+        """
     )
-    with st.container(key="top_icons"):
-        if st.button("🗺️", key="nav_map_icon", help="여행지 지도"):
-            goto("map" if get_character() else "character")
-            st.rerun()
-        with st.container(key="passport_icon_btn"):
-            if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
-                st.session_state.show_passport = True
-                st.session_state.just_opened_passport = True
-                st.session_state.passport_page_open = False
-                st.rerun()
+    if st.button("🗺️", key="nav_map_icon", help="여행지 지도"):
+        goto("map" if get_character() else "character")
+        st.rerun()
+    if st.button("📔", key="open_passport_icon", help="뷰티 패스포트"):
+        st.session_state.show_passport = True
+        st.session_state.passport_page_open = False
+        st.rerun()
 
 
 PASSPORT_FIELD_LABELS = {
@@ -444,151 +446,120 @@ def _passport_stamps_html(saved):
     )
 
 
-def render_passport_modal():
-    """뷰티 패스포트 모달 — 2단계로 열린다.
-    1) 아이콘 클릭 -> 아이콘이 그대로 커지는 애니메이션으로 '닫힌 표지'가 화면
-       중앙에 크게 뜬다 (passport-pop, just_opened_passport 1회성).
-    2) 그 표지를 누르면 -> 표지 아래로 정보 페이지가 펼쳐진다 (passport-reveal,
-       just_opened_passport_page 1회성).
-    """
-    if not st.session_state.show_passport:
+def _passport_dialog_css():
+    html_block(
+        """
+        <style>
+        .p-body { padding-top: 2px; }
+        @keyframes passport-reveal {
+            0%   { opacity: 0; transform: translateY(-10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+        .p-photo-row { display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }
+        .p-photo-box {
+            width: 66px; height: 82px; flex: 0 0 auto; border-radius: 8px;
+            background: linear-gradient(160deg,#3b3f7a,#171933);
+            display: flex; align-items: center; justify-content: center; overflow: hidden;
+            border: 2px solid #ff6fb8;
+        }
+        .p-photo-box svg { width: 92%; height: auto; }
+        .p-name-big { font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.3rem; color: #9c2f5c; }
+        .p-passport-no { font-family: 'Jua', sans-serif; font-size: .75rem; color: #b26; letter-spacing: 1px; }
+        .p-field {
+            display: flex; justify-content: space-between; gap: 10px;
+            padding: 4px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
+            font-family: 'Jua', sans-serif; font-size: .8rem;
+        }
+        .p-label { color: #b23a6e; flex: 0 0 42%; }
+        .p-value { color: #4a2035; font-weight: 700; text-align: right; flex: 1; }
+        .p-section-title {
+            font-family: 'Gaegu', cursive; font-weight: 700; color: #9c2f5c;
+            font-size: 1.05rem; margin: 12px 0 6px;
+        }
+        .stamps-grid { display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 2px; }
+        .stamp {
+            width: 64px; text-align: center; padding: 5px 3px;
+            border: 2px dashed #ff8fc0; border-radius: 10px;
+            transform: rotate(-4deg); background: rgba(255,143,192,.06);
+        }
+        .stamp:nth-child(even) { transform: rotate(3deg); }
+        .stamp-flag { font-size: 1.3rem; }
+        .stamp-name { font-family: 'Jua', sans-serif; font-size: .64rem; color: #9c2f5c; margin-top: 1px; }
+        .stamp-empty { font-family: 'Jua', sans-serif; font-size: .85rem; color: #a06; opacity: .8; }
+        /* 닫힌 표지: 표지 그림 자체가 버튼 — 다른 글씨/버튼 없이 그림만 크게, 누르면 펼쳐짐 */
+        .st-key-open_passport_cover button {
+            width: 100% !important; height: 300px !important; padding: 0 !important;
+            border: none !important; border-radius: 14px !important;
+            background-color: #fff0f6 !important;
+            background-image: url('__PASSPORT_URI__') !important;
+            background-size: auto 92% !important; background-position: center !important;
+            background-repeat: no-repeat !important;
+            color: transparent !important; font-size: 0 !important;
+            transition: transform .15s ease;
+        }
+        .st-key-open_passport_cover button:hover { transform: scale(1.02); }
+        .st-key-open_passport_cover button:active { transform: scale(.98); }
+        </style>
+        """.replace("__PASSPORT_URI__", PASSPORT_ICON_URI)
+    )
+
+
+@st.dialog("Beauty Passport", width="small", icon="📔")
+def _beauty_passport_dialog():
+    _passport_dialog_css()
+    char = get_character() or {}
+
+    if not st.session_state.passport_page_open:
+        # 닫힌 표지 — 그림 자체를 누르면 펼쳐진다 (별도 안내 문구/버튼 없음)
+        if st.button(" ", key="open_passport_cover"):
+            st.session_state.passport_page_open = True
+            st.session_state.just_opened_passport_page = True
+            st.rerun()
         return
 
-    char = get_character() or {}
     doll_svg = character_doll_svg(char) if char else ""
-    is_open = st.session_state.passport_page_open
-
-    play_pop = st.session_state.just_opened_passport
-    st.session_state.just_opened_passport = False
-    pop_rule = (
-        "animation: passport-pop .55s cubic-bezier(.2,1.55,.3,1) both;" if play_pop else ""
-    )
-
-    play_reveal = st.session_state.just_opened_passport_page
-    st.session_state.just_opened_passport_page = False
     reveal_rule = (
-        "animation: passport-reveal .45s ease both;" if play_reveal else ""
+        "animation: passport-reveal .4s ease both;"
+        if st.session_state.just_opened_passport_page else ""
     )
+    st.session_state.just_opened_passport_page = False
 
-    with st.container(key="passport_backdrop"):
-        with st.container(key="passport_book"):
-            html_block(
-                f"""
-                <style>
-                .st-key-passport_backdrop {{
-                    position: fixed !important; inset: 0 !important; z-index: 99998 !important;
-                    background: rgba(45,15,50,.58) !important;
-                    display: flex !important; align-items: center !important; justify-content: center !important;
-                    padding: 2.5vh 3vw !important; overflow-y: auto !important;
-                }}
-                .st-key-passport_book {{
-                    max-width: 460px !important; width: 100% !important; max-height: 88vh !important;
-                    overflow-y: auto !important; background: #fff8fb !important;
-                    border-radius: 22px !important; border: 5px solid #ff6fb8 !important;
-                    box-shadow: 0 24px 60px rgba(0,0,0,.4) !important;
-                    padding: 0 !important; margin: auto !important; {pop_rule}
-                }}
-                @keyframes passport-pop {{
-                    0%   {{ transform: translate(calc(50vw - 40px), calc(40px - 50vh)) scale(.05); opacity: .3; }}
-                    55%  {{ opacity: 1; }}
-                    100% {{ transform: translate(0,0) scale(1); opacity: 1; }}
-                }}
-                .p-cover {{
-                    position: relative; padding: 14px 30px 8px;
-                    background: #fff0f6;
-                    border-radius: 17px 17px 0 0; text-align: center; overflow: hidden;
-                }}
-                .p-cover svg {{ width: 100%; max-width: 190px; height: auto; }}
-                .p-body {{ padding: 10px 20px 4px; {reveal_rule} }}
-                @keyframes passport-reveal {{
-                    0%   {{ opacity: 0; transform: translateY(-10px); }}
-                    100% {{ opacity: 1; transform: translateY(0); }}
-                }}
-                .p-photo-row {{ display: flex; gap: 12px; align-items: center; margin-bottom: 4px; }}
-                .p-photo-box {{
-                    width: 66px; height: 82px; flex: 0 0 auto; border-radius: 8px;
-                    background: linear-gradient(160deg,#3b3f7a,#171933);
-                    display: flex; align-items: center; justify-content: center; overflow: hidden;
-                    border: 2px solid #ff6fb8;
-                }}
-                .p-photo-box svg {{ width: 92%; height: auto; }}
-                .p-name-big {{
-                    font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.3rem; color: #9c2f5c;
-                }}
-                .p-passport-no {{ font-family: 'Jua', sans-serif; font-size: .75rem; color: #b26; letter-spacing: 1px; }}
-                .p-field {{
-                    display: flex; justify-content: space-between; gap: 10px;
-                    padding: 4px 2px; border-bottom: 1.5px dashed rgba(178,58,110,.3);
-                    font-family: 'Jua', sans-serif; font-size: .76rem;
-                }}
-                .p-label {{ color: #b23a6e; flex: 0 0 42%; }}
-                .p-value {{ color: #4a2035; font-weight: 700; text-align: right; flex: 1; }}
-                .p-section-title {{
-                    font-family: 'Gaegu', cursive; font-weight: 700; color: #9c2f5c;
-                    font-size: 1.02rem; margin: 10px 0 5px;
-                }}
-                .stamps-grid {{ display: flex; flex-wrap: wrap; gap: 7px; padding-bottom: 2px; }}
-                .stamp {{
-                    width: 62px; text-align: center; padding: 5px 3px;
-                    border: 2px dashed #ff8fc0; border-radius: 10px;
-                    transform: rotate(-4deg); background: rgba(255,143,192,.06);
-                }}
-                .stamp:nth-child(even) {{ transform: rotate(3deg); }}
-                .stamp-flag {{ font-size: 1.3rem; }}
-                .stamp-name {{
-                    font-family: 'Jua', sans-serif; font-size: .62rem; color: #9c2f5c; margin-top: 1px;
-                }}
-                .stamp-empty {{
-                    font-family: 'Jua', sans-serif; font-size: .85rem; color: #a06; opacity: .8;
-                }}
-                /* 닫힌 표지일 때: 표지 바로 아래에 붙는 '펼치기' 버튼 (표지의 일부처럼 보이게) */
-                .st-key-passport_book .stButton {{ width: 100% !important; margin: 0 !important; }}
-                .st-key-passport_book .stButton button {{
-                    width: 100% !important; border: none !important; border-radius: 0 0 19px 19px !important;
-                    background: linear-gradient(160deg,#ff8fc8,#e8489a) !important;
-                    color: #fff !important; font-family: 'Jua', sans-serif !important; font-size: 1rem !important;
-                    padding: 14px 0 !important; box-shadow: none !important;
-                    animation: p-nudge 1.8s ease-in-out infinite;
-                }}
-                @keyframes p-nudge {{ 0%,100% {{ transform: translateY(0); }} 50% {{ transform: translateY(3px); }} }}
-                </style>
+    html_block(
+        f"""
+        <div class="p-body" style="{reveal_rule}">
+            <div class="p-photo-row">
+                <div class="p-photo-box">{doll_svg}</div>
+                <div>
+                    <div class="p-name-big">{char.get("name") or "여행자"}</div>
+                    <div class="p-passport-no">NO. COSMAX-0001</div>
+                </div>
+            </div>
+            {_passport_field_rows(char)}
+            <div class="p-section-title">✈ VISA STAMPS</div>
+            <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
+            <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
+        </div>
+        """
+    )
+    st.session_state.passport_notes = st.text_area(
+        "나만의 여행 꿀팁", value=st.session_state.passport_notes,
+        key="passport_notes_input", height=90, label_visibility="collapsed",
+        placeholder="여행하면서 알게 된 나만의 꿀팁을 적어보세요 ...",
+    )
+    if st.button("✕ 닫기", key="close_passport_btn", use_container_width=True):
+        st.session_state.show_passport = False
+        st.session_state.passport_page_open = False
+        st.rerun()
 
-                <div class="p-cover">{PASSPORT_ICON_SVG}</div>
-                """
-            )
 
-            if not is_open:
-                if st.button("톡톡 눌러서 펼치기 ✨", key="open_passport_page_btn"):
-                    st.session_state.passport_page_open = True
-                    st.session_state.just_opened_passport_page = True
-                    st.rerun()
-            else:
-                html_block(
-                    f"""
-                    <div class="p-body">
-                        <div class="p-photo-row">
-                            <div class="p-photo-box">{doll_svg}</div>
-                            <div>
-                                <div class="p-name-big">{char.get("name") or "여행자"}</div>
-                                <div class="p-passport-no">NO. COSMAX-0001</div>
-                            </div>
-                        </div>
-                        {_passport_field_rows(char)}
-                        <div class="p-section-title">✈ VISA STAMPS</div>
-                        <div class="stamps-grid">{_passport_stamps_html(get_passport())}</div>
-                        <div class="p-section-title">✏️ 나만의 여행 꿀팁</div>
-                    </div>
-                    """
-                )
-                st.session_state.passport_notes = st.text_area(
-                    "나만의 여행 꿀팁", value=st.session_state.passport_notes,
-                    key="passport_notes_input", height=90, label_visibility="collapsed",
-                    placeholder="여행하면서 알게 된 나만의 꿀팁을 적어보세요 ...",
-                )
-                if st.button("✕ 닫기", key="close_passport_btn", use_container_width=True):
-                    st.session_state.show_passport = False
-                    st.session_state.passport_page_open = False
-                    st.rerun()
+def render_passport_modal():
+    """뷰티 패스포트 — Streamlit 공식 st.dialog로 구현 (뷰포트 중앙 고정,
+    배경 어둡게, ESC/바깥클릭 닫기까지 프레임워크가 처리해줘서 우리가
+    직접 만든 position:fixed 오버레이보다 훨씬 안정적이다).
+    show_passport가 True인 한 매 스크립트 실행마다 다이얼로그 함수를 다시
+    호출해야 열린 상태가 유지된다 (호출하지 않으면 다음 리런에 닫힘)."""
+    if st.session_state.show_passport:
+        _beauty_passport_dialog()
 
 
 BUBBLE_GRID_COLS = 18
