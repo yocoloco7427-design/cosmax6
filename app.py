@@ -355,7 +355,7 @@ def get_drugstore_cards(code):
     return cards
 
 
-# 헤어 아이콘에서 "3WAU 추천 및 구매 사이트로 이동" 버튼이 여는 실제 스토어 링크
+# 헤어 아이콘에서 "3WAAU 추천 및 구매 사이트로 이동" 버튼이 여는 실제 스토어 링크
 THREE_WAU_STORE_URL = (
     "https://3waau.com/?utm_medium=search&utm_source=Naver&utm_campaign=240311_cpc_brandname_pc"
     "&NaPm=ct%3Dmrd6nxqn%7Cci%3DER7fb8525b%2D7b67%2D11f1%2Dbff5%2Dc2fa024ff2a0%7Ctr%3Dsa"
@@ -5366,7 +5366,7 @@ def _render_country_sheet_body(kind, country, char, code):
 
     elif kind == "hair":
         st.write(country["hair_tip"])
-        st.link_button("3WAU에서 추천 제품 보러 가기 →", THREE_WAU_STORE_URL, use_container_width=True)
+        st.link_button("3WAAU에서 추천 제품 보러 가기 →", THREE_WAU_STORE_URL, use_container_width=True)
 
     elif kind == "carrier":
         _render_carrier_packing(country)
