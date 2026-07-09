@@ -11,6 +11,7 @@ import re
 import time
 from pathlib import Path
 
+import plotly.graph_objects as go
 import requests
 import streamlit as st
 import streamlit.components.v1 as components
@@ -217,6 +218,43 @@ COUNTRIES = {
         "drugstores": ["올리브영 명동점", "롭스 홍대점", "다이소 강남점"],
     },
 }
+
+# ----------------------------------------------------------------------
+# 포스트잇 "유의사항" — 국가/도시별 피부 리스크. COUNTRIES와 별도 표로 관리해서
+# 나라가 늘어나도 COUNTRIES 항목을 안 건드리고 이 표에 한 줄만 추가하면 되게 한다.
+# linked_to에 실시간 지표 이름("aqi")을 넣어두면, 그 지표가 실제로 나쁜 날에는
+# 포스트잇에서 이 문구를 강조 표시한다(get_air_quality로 그날 값을 확인).
+# 아직 이 표에 없는 나라는 COUNTRIES의 기존 trouble 필드를 그대로 쓴다.
+# ----------------------------------------------------------------------
+SKIN_RISK_NOTES = {
+    "kr": {"text": "간절기·환절기 등 계절이 바뀔 때 피부 균형이 쉽게 무너져요", "linked_to": "aqi"},
+    "au": {"text": "강한 자외선으로 피부암 발병률이 높아요 — 자외선 차단제는 꼭 챙기세요", "linked_to": None},
+    "cn": {"text": "미세먼지로 인한 트러블·모공 막힘에 주의하세요", "linked_to": "aqi"},
+}
+
+
+def get_skin_risk_note(code, country):
+    """국가별 피부 유의사항 — SKIN_RISK_NOTES에 있으면 그걸, 없으면 COUNTRIES의
+    기존 trouble 필드로 대체한다(아직 별도 표로 옮기지 않은 나라용)."""
+    return SKIN_RISK_NOTES.get(code) or {"text": country["trouble"], "linked_to": None}
+
+
+def _is_aqi_severe(country):
+    """이 나라의 실시간 미세먼지(AQI)가 '나쁨'(101 이상) 수준인지 확인한다.
+    토큰이 없거나 조회가 실패하면 판단할 수 없으니 강조하지 않는다(False)."""
+    feed_path = country.get("aqi_station") or (
+        f"geo:{country['geo']}" if country.get("geo") else None
+    )
+    if not feed_path:
+        return False
+    aq = get_air_quality(feed_path)
+    if not aq or aq.get("aqi") in (None, "-"):
+        return False
+    try:
+        return int(aq["aqi"]) >= 101
+    except (TypeError, ValueError):
+        return False
+
 
 # 헤어 아이콘에서 "3WAU 추천 및 구매 사이트로 이동" 버튼이 여는 실제 스토어 링크
 THREE_WAU_STORE_URL = (
@@ -460,6 +498,39 @@ PASSPORT_ICON_SVG = """
 """
 PASSPORT_ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(PASSPORT_ICON_SVG.strip().encode()).decode()
 
+# 피부 궁합 진단 입구 아이콘 — 사용자가 준 참고 사진(유리 플라스크 + 빨간 액체 +
+# 코르크 마개)을 재현한 SVG. 작은 상단 아이콘과 진단 화면의 큰 버튼에 그대로 재사용.
+POTION_ICON_SVG = """
+<svg viewBox="0 0 100 130" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="potionLiquid" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ff8a7a"/>
+      <stop offset="55%" stop-color="#f23b3b"/>
+      <stop offset="100%" stop-color="#c81e2c"/>
+    </linearGradient>
+    <linearGradient id="potionCork" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f0d49a"/>
+      <stop offset="100%" stop-color="#c99a5c"/>
+    </linearGradient>
+  </defs>
+  <path d="M42,6 L58,6 L61,22 L39,22 Z" fill="url(#potionCork)" stroke="#7a5a30" stroke-width="2.4"/>
+  <line x1="45" y1="10" x2="50" y2="18" stroke="#a97c40" stroke-width="1.4" opacity=".6"/>
+  <line x1="52" y1="9" x2="56" y2="17" stroke="#a97c40" stroke-width="1.4" opacity=".6"/>
+  <rect x="40" y="21" width="20" height="8" rx="2" fill="#cdeffb" stroke="#5a7d8a" stroke-width="1.8"/>
+  <path d="M40,28 L38,41 Q14,53 14,79 Q14,109 50,109 Q86,109 86,79 Q86,53 62,41 L60,28 Z"
+        fill="#eaf7fb" stroke="#3a2a1a" stroke-width="3.4" opacity=".95"/>
+  <path d="M18,69 Q18,103 50,103 Q82,103 82,69 Q82,59 74,51 L26,51 Q18,59 18,69 Z" fill="url(#potionLiquid)"/>
+  <ellipse cx="50" cy="52" rx="24" ry="4" fill="#ff9a8d" opacity=".7"/>
+  <circle cx="40" cy="73" r="4.2" fill="#ffb3a3" opacity=".55"/>
+  <circle cx="61" cy="87" r="3.2" fill="#ffb3a3" opacity=".5"/>
+  <circle cx="34" cy="91" r="2.6" fill="#ffcfc4" opacity=".6"/>
+  <path d="M26,53 Q20,70 24,94" stroke="#ffffff" stroke-width="4.5" fill="none"
+        stroke-linecap="round" opacity=".55"/>
+  <circle cx="30" cy="47" r="3.4" fill="#ffffff" opacity=".7"/>
+</svg>
+"""
+POTION_ICON_URI = "data:image/svg+xml;base64," + base64.b64encode(POTION_ICON_SVG.strip().encode()).decode()
+
 AFTERCARE_ADVICE = {
     "트러블": {
         "pack": "티트리 진정 팩",
@@ -522,6 +593,12 @@ if "just_saved_country_sparkle" not in st.session_state:
     st.session_state.just_saved_country_sparkle = False
 if "just_entered_country_scene" not in st.session_state:
     st.session_state.just_entered_country_scene = False  # 지도->캐릭터 장면 전환 시 팝인 애니메이션 1회용
+if "diagnosis_stage" not in st.session_state:
+    st.session_state.diagnosis_stage = "select"  # "select" | "brewing" | "result"
+if "diagnosis_country" not in st.session_state:
+    st.session_state.diagnosis_country = None
+if "diagnosis_result" not in st.session_state:
+    st.session_state.diagnosis_result = None
 
 
 def get_character():
@@ -543,10 +620,125 @@ def get_skin_profile(char):
     return {
         "skin_type": skin_type,
         "extras": extras,
+        "skin_tone": char.get("skin_tone") or SKIN_TONES[0]["hex"],
         "badge_emoji": type_badge["emoji"],
         "badge_text": type_badge["text"],
         "extra_badges": extra_badges,
     }
+
+
+# ----------------------------------------------------------------------
+# 피부 궁합 진단 — 규칙 기반 계산. 데이터 출처(환경 데이터)와 계산 로직(궁합
+# 점수)을 서로 다른 함수로 분리해뒀다: get_destination_environment_data()는
+# 지금은 더미 데이터를 돌려주지만, 나중에 실제 기상/수질 API로 교체할 때 이
+# 함수 안쪽만 바꾸면 되고 calculate_skin_compatibility() 쪽은 손댈 필요가
+# 없다.
+# ----------------------------------------------------------------------
+# COUNTRIES의 자유서술형 문구(예: "평균 65% (한국보다 다소 높음)")와 실제
+# 값이 어긋나지 않도록, 각 나라 설명에 이미 적힌 숫자를 그대로 옮겨 적었다.
+_DESTINATION_ENV_DUMMY = {
+    "jp": {"humidity_pct": 65, "uv_index": 8, "water_hardness": "soft"},
+    "fr": {"humidity_pct": 40, "uv_index": 4, "water_hardness": "hard"},
+    "th": {"humidity_pct": 75, "uv_index": 10, "water_hardness": "hard"},
+    "ae": {"humidity_pct": 25, "uv_index": 11, "water_hardness": "hard"},
+    "is": {"humidity_pct": 75, "uv_index": 2, "water_hardness": "soft"},
+    "us": {"humidity_pct": 45, "uv_index": 8, "water_hardness": "hard"},
+    "au": {"humidity_pct": 65, "uv_index": 11, "water_hardness": "soft"},
+    "cn": {"humidity_pct": 75, "uv_index": 9, "water_hardness": "hard"},
+    "kr": {"humidity_pct": 65, "uv_index": 8, "water_hardness": "soft"},
+}
+
+
+def get_destination_environment_data(country_code):
+    """목적지의 기후(습도)·자외선·수질 데이터를 반환한다. 지금은 COUNTRIES의
+    문구에서 그대로 옮긴 더미 값이지만, 실제 기상/수질 API로 교체할 지점을
+    한곳으로 모아두기 위해 별도 함수로 분리했다."""
+    return dict(_DESTINATION_ENV_DUMMY.get(country_code, _DESTINATION_ENV_DUMMY["kr"]))
+
+
+def _is_light_skin_tone(skin_tone_hex):
+    return (skin_tone_hex or "").upper() == SKIN_TONES[0]["hex"].upper()
+
+
+def calculate_skin_compatibility(user_skin_profile, environment_data):
+    """피부타입 x 환경 조건을 규칙 기반으로 계산해 기후/자외선/물 3개 항목과
+    그 평균(overall) 궁합 점수(0~100)를 반환한다.
+
+    규칙:
+    - 건성 + 습도 30% 이하 -> 기후 궁합 크게 낮음 (건성 + 45% 이하는 약하게)
+    - 지성/트러블 + 습도 75% 이상 -> 기후 궁합 낮음 (유분·모공 트러블 위험)
+    - 민감성 + 경수 -> 물 궁합 크게 낮음 (건성+경수도 약하게 감점)
+    - 자외선지수 8 이상 + 밝은 피부톤 -> 자외선 궁합 크게 낮음
+    """
+    skin_type = user_skin_profile.get("skin_type")
+    extras = user_skin_profile.get("extras") or []
+    skin_tone = user_skin_profile.get("skin_tone")
+
+    humidity = environment_data["humidity_pct"]
+    uv = environment_data["uv_index"]
+    hardness = environment_data["water_hardness"]
+
+    climate = 85
+    if skin_type == "건성" and humidity <= 30:
+        climate -= 35
+    elif skin_type == "건성" and humidity <= 45:
+        climate -= 15
+    if (skin_type == "지성" or "트러블" in extras) and humidity >= 75:
+        climate -= 20
+    climate = max(5, min(100, climate))
+
+    water = 85
+    if hardness == "hard":
+        water -= 20
+        if "민감성" in extras:
+            water -= 25
+        elif skin_type == "건성":
+            water -= 10
+    water = max(5, min(100, water))
+
+    uv_score = 90
+    if uv >= 8:
+        uv_score -= 30
+        if _is_light_skin_tone(skin_tone):
+            uv_score -= 20
+    elif uv >= 6:
+        uv_score -= 15
+    uv_score = max(5, min(100, uv_score))
+
+    overall = round((climate + water + uv_score) / 3)
+    return {"climate": climate, "water": water, "uv": uv_score, "overall": overall}
+
+
+def _compatibility_band(pct):
+    """점수 구간별 (색, 한줄 문구)."""
+    if pct >= 80:
+        return {"color": "#3cb872", "bg": "#e6f8ee", "text": "완전 찰떡궁합!"}
+    if pct >= 50:
+        return {"color": "#e0982a", "bg": "#fff6e0", "text": "괜찮은 편, 주의 필요"}
+    return {"color": "#e0524a", "bg": "#fdeaea", "text": "케어를 단단히 준비해야 해요"}
+
+
+def _compat_card_line(kind, score, environment_data, user_skin_profile):
+    """상세 카드 한 줄 해석 문구."""
+    if kind == "climate":
+        if score >= 80:
+            return "습도가 잘 맞아서 큰 걱정 없이 지낼 수 있어요"
+        if score >= 50:
+            return "평소보다 살짝 신경 써서 보습/유수분 관리를 하면 좋아요"
+        return "습도 차이가 커서 각질·유분 트러블에 특히 대비해야 해요"
+    if kind == "water":
+        if score >= 80:
+            return "수질이 잘 맞아서 세안 자극이 적을 편이에요"
+        if score >= 50:
+            return "세안 후 당김이 있을 수 있으니 저자극 제품을 챙기세요"
+        return "경수 자극이 클 수 있어요 — 클렌징워터·킬레이팅 샴푸를 챙기세요"
+    if kind == "uv":
+        if score >= 80:
+            return "자외선 부담이 적은 지역이라 기본 차단만으로 충분해요"
+        if score >= 50:
+            return "자외선이 꽤 강해요 — 선크림 재도포를 잊지 마세요"
+        return "자외선이 매우 강해요 — 고자차 선크림과 애프터선 케어가 필수예요"
+    return ""
 
 
 def get_passport():
@@ -3223,6 +3415,8 @@ def _render_country_map_stage(country, char, code):
 
     zoom_uri = _country_zoom_crop_uri(code)
     tips = _quick_skin_tip(char, country)
+    risk = get_skin_risk_note(code, country)
+    risk_alert = risk["linked_to"] == "aqi" and _is_aqi_severe(country)
 
     html_block(
         f"""
@@ -3267,11 +3461,22 @@ def _render_country_map_stage(country, char, code):
         .note-title {{ font-weight: 700; font-size: 1.9rem; margin-bottom: 10px; }}
         .note-section {{ font-weight: 700; font-size: 1.25rem; margin: 14px 0 4px; color: #8a5a10; }}
         .note-line {{ font-size: 1.25rem; line-height: 1.5; margin: 0 0 4px; }}
+        .note-line.risk-alert {{
+            color: #c0392b; font-weight: 800; background: rgba(230,60,60,.14);
+            border-radius: 8px; padding: 6px 8px; margin: 0 -8px 4px;
+            animation: risk-alert-pulse 1.6s ease-in-out infinite;
+        }}
+        @keyframes risk-alert-pulse {{
+            0%, 100% {{ background: rgba(230,60,60,.14); }}
+            50% {{ background: rgba(230,60,60,.28); }}
+        }}
         </style>
         """
     )
 
     with st.container(key="country_stage_wrap"):
+        risk_class = "note-line risk-alert" if risk_alert else "note-line"
+        risk_text = ("🔴 오늘 미세먼지 나쁨 — " if risk_alert else "") + risk["text"]
         html_block(
             f"""
             <div class="country-sticky-note">
@@ -3284,7 +3489,7 @@ def _render_country_map_stage(country, char, code):
                 <div class="note-section">🧴 내 피부에 좋은 것</div>
                 {''.join(f'<div class="note-line">· {html.escape(t)}</div>' for t in tips)}
                 <div class="note-section">⚠ 유의사항</div>
-                <div class="note-line">{html.escape(country["trouble"])}</div>
+                <div class="{risk_class}">{html.escape(risk_text)}</div>
             </div>
             """
         )
@@ -3337,28 +3542,28 @@ def _render_country_scene_stage(country, char, code):
         }}
         .scene-landmark-bg {{
             position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-            font-size: min(60vw, 420px); opacity: .22; pointer-events: none; user-select: none;
+            font-size: min(60vw, 420px); opacity: .12; pointer-events: none; user-select: none;
         }}
         .scene-doll-box {{
             position: absolute; left: 50%; top: 52%; transform: translate(-50%,-50%);
-            width: min(46vw, 260px); pointer-events: none; z-index: 2;
+            width: min(46vw, 260px); pointer-events: none; z-index: 2; opacity: .55;
             filter: drop-shadow(0 18px 20px rgba(60,30,60,.28));
         }}
         .scene-doll-box svg {{ width: 100%; height: auto; display: block; }}
         .st-key-country_scene_stage div[class*="st-key-icn_"] {{
             position: absolute !important; z-index: 6 !important;
         }}
-        .st-key-icn_water {{ top: 6%; left: 13%; }}
-        .st-key-icn_lipstick {{ top: 6%; left: 77%; }}
-        .st-key-icn_shop {{ top: 42%; left: 3%; }}
-        .st-key-icn_hair {{ top: 42%; left: 87%; }}
-        .st-key-icn_carrier {{ top: 80%; left: 13%; }}
-        .st-key-icn_star {{ top: 80%; left: 77%; }}
+        .st-key-icn_water {{ top: 4%; left: 10%; }}
+        .st-key-icn_lipstick {{ top: 4%; left: 74%; }}
+        .st-key-icn_shop {{ top: 43%; left: 0%; }}
+        .st-key-icn_hair {{ top: 43%; left: 84%; }}
+        .st-key-icn_carrier {{ top: 84%; left: 10%; }}
+        .st-key-icn_star {{ top: 84%; left: 74%; }}
         div[class*="st-key-icn_"] button {{
-            width: 58px !important; height: 58px !important; min-width: 0 !important;
-            border-radius: 50% !important; padding: 0 !important; font-size: 1.6rem !important;
-            background: #ffffff !important; border: 3px solid #ff9fd8 !important;
-            box-shadow: 0 6px 12px rgba(120,40,90,.3) !important;
+            width: 84px !important; height: 84px !important; min-width: 0 !important;
+            border-radius: 50% !important; padding: 0 !important; font-size: 2.3rem !important;
+            background: #ffffff !important; border: 4px solid #ff9fd8 !important;
+            box-shadow: 0 8px 18px rgba(120,40,90,.35) !important;
             transition: transform .12s ease;
         }}
         div[class*="st-key-icn_"] button:hover {{ transform: scale(1.12) translateY(-2px); }}
@@ -3460,96 +3665,168 @@ def _bottom_sheet_css():
             from { transform: translate(-50%, 100%); }
             to   { transform: translate(-50%, 0); }
         }
-        .st-key-country_sheet_card {
+        /* 위 "div[data-testid='stDialog'] div"가 태그 2개짜리라 명시도가
+           (0,1,2)라서 클래스 하나뿐인 규칙(0,1,0)로는 못 이긴다 — 뷰티 패스포트의
+           .page 규칙과 동일하게 dialog 속성 선택자를 앞에 한 번 더 붙여 명시도를
+           (0,2,1)로 올려야 실제로 크림색이 보인다. */
+        div[data-testid="stDialog"] .st-key-country_sheet_card {
             background: #fffaf3 !important; border-radius: 22px 22px 0 0 !important;
-            padding: 22px 22px 26px !important; box-shadow: 0 -10px 30px rgba(120,40,90,.22) !important;
-            min-height: 240px;
+            padding: 0 !important; box-shadow: 0 -10px 30px rgba(120,40,90,.22) !important;
+            min-height: 240px; overflow: hidden;
         }
+        /* 여행 컨셉에 맞춰 항공권(보딩패스) 느낌으로 — 색상 헤더(칩 아이콘 + 제목 +
+           나라 스탬프) 아래 점선 절취선을 두고, 본문은 그 밑에 붙는 티켓 하단부처럼.
+           그라데이션은 아이콘마다 달라서 인라인 style로 못 박을 수 없어 CSS 변수로
+           건네받는데, 그 값을 실제로 칠하는 background 선언은 위 카드와 같은 이유로
+           dialog 속성 선택자를 붙여 명시도를 올려야 인라인이 아니라 진짜로 먹는다. */
+        div[data-testid="stDialog"] .sheet-ticket-header {
+            position: relative; padding: 22px 26px 18px; color: #fff;
+            border-radius: 22px 22px 0 0;
+            display: flex; align-items: center; gap: 14px;
+            background: var(--ticket-accent) !important;
+        }
+        .sheet-ticket-icon {
+            font-size: 2.4rem; line-height: 1;
+            filter: drop-shadow(0 3px 4px rgba(0,0,0,.28));
+        }
+        .sheet-ticket-title {
+            font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.42rem;
+        }
+        .sheet-ticket-sub {
+            font-family: 'Jua', sans-serif; font-size: .78rem; opacity: .9;
+            letter-spacing: .5px; margin-top: 3px;
+        }
+        .sheet-ticket-stamp {
+            position: absolute; right: 22px; top: 16px; font-size: 1.9rem;
+            opacity: .55; transform: rotate(10deg);
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,.25));
+        }
+        .sheet-perf {
+            position: relative; height: 0; margin: 0 22px;
+            border-top: 3px dashed rgba(255,255,255,.6);
+        }
+        .sheet-perf::before, .sheet-perf::after {
+            content: ''; position: absolute; top: -11px; width: 22px; height: 22px;
+            border-radius: 50%; background: #fffaf3;
+        }
+        .sheet-perf::before { left: -33px; }
+        .sheet-perf::after { right: -33px; }
+        .sheet-body { padding: 20px 26px 26px; }
         .sheet-title {
             font-family: 'Gaegu', cursive; font-weight: 700; font-size: 1.4rem;
             color: #9c2f5c; margin-bottom: 10px;
+        }
+        .st-key-close_country_sheet button {
+            border-radius: 999px !important; font-family: 'Jua', sans-serif !important;
         }
         </style>
         """
     )
 
 
+_SHEET_THEME = {
+    "water":    {"accent": "linear-gradient(135deg, #3f9fd6 0%, #7cc6ec 100%)", "label": "CLIMATE PASS"},
+    "lipstick": {"accent": "linear-gradient(135deg, #ff5fa8 0%, #ff9ecb 100%)", "label": "BEAUTY PASS"},
+    "shop":     {"accent": "linear-gradient(135deg, #9b6bdb 0%, #c3a4ec 100%)", "label": "SHOPPING PASS"},
+    "hair":     {"accent": "linear-gradient(135deg, #2fb08a 0%, #7fd6b4 100%)", "label": "HAIR CARE PASS"},
+    "carrier":  {"accent": "linear-gradient(135deg, #ff9f43 0%, #ffc27a 100%)", "label": "PACKING PASS"},
+}
+
+
 @st.dialog("여행 정보", width="large", on_dismiss=_dismiss_country_sheet)
 def _country_action_sheet(country, char, code):
     _bottom_sheet_css()
     kind = st.session_state.active_country_sheet
+    icons = {"water": "💧", "lipstick": "💄", "shop": "🛍️", "hair": "💇", "carrier": "🎒"}
     titles = {
-        "water": "💧 기후 · 수질 정보",
-        "lipstick": "💄 피부 맞춤 추천",
-        "shop": "🛍️ 드럭스토어 & 추천템",
-        "hair": "💇 헤어 케어",
-        "carrier": "🎒 캐리어 담기",
+        "water": "기후 · 수질 정보",
+        "lipstick": "피부 맞춤 추천",
+        "shop": "드럭스토어 & 추천템",
+        "hair": "헤어 케어",
+        "carrier": "캐리어 담기",
     }
+    theme = _SHEET_THEME.get(kind, _SHEET_THEME["water"])
     with st.container(key="country_sheet_card"):
-        html_block(f'<div class="sheet-title">{titles.get(kind, "")}</div>')
-
-        if kind == "water":
-            skin_notes = char.get("skin_type_extra") or []
-            if country["water"] == "경수" and skin_notes:
-                st.warning(
-                    f"⚠ {', '.join(skin_notes)} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. "
-                    f"저자극 클렌징워터를 꼭 챙기세요."
-                )
-            st.metric("기후", country["climate"])
-            st.metric("습도", country["humidity"])
-            st.metric("자외선", country["uv"])
-            st.metric("수질", country["water"])
-            st.caption(country["water_note"])
-            feed_path = country.get("aqi_station") or (
-                f"geo:{country['geo']}" if country.get("geo") else None
-            )
-            aq = get_air_quality(feed_path) if feed_path else None
-            if aq and aq.get("aqi") not in (None, "-"):
-                try:
-                    aqi_val = int(aq["aqi"])
-                    st.metric("미세먼지 (AQI)", f"{aqi_val} · {_aqi_level_label(aqi_val)}")
-                    pm_parts = []
-                    if aq.get("pm25") is not None:
-                        pm_parts.append(f"PM2.5 {aq['pm25']}㎍/㎥")
-                    if aq.get("pm10") is not None:
-                        pm_parts.append(f"PM10 {aq['pm10']}㎍/㎥")
-                    if pm_parts:
-                        st.caption(" · ".join(pm_parts))
-                except (TypeError, ValueError):
-                    pass
-
-        elif kind == "lipstick":
-            with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
-                rec = get_ai_cosmetic_recommendation(char, code)
-            if rec:
-                st.markdown(rec)
-                st.caption("✨ AI가 피부타입과 현지 기후를 분석해 추천했어요")
-            else:
-                st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
-                for t in _quick_skin_tip(char, country):
-                    st.write(f"- {t}")
-
-        elif kind == "shop":
-            st.markdown("**🧳 필수 아이템**")
-            for item in country["essentials"]:
-                st.write(f"- {item}")
-            st.markdown("**📍 현지 드럭스토어**")
-            for store in country.get("drugstores") or []:
-                st.write(f"- {store}")
-            st.markdown("**🧴 내 피부에 맞는 추천**")
-            for t in _quick_skin_tip(char, country):
-                st.write(f"- {t}")
-
-        elif kind == "hair":
-            st.write(country["hair_tip"])
-            st.link_button("3WAU에서 추천 제품 보러 가기 →", THREE_WAU_STORE_URL, use_container_width=True)
-
-        elif kind == "carrier":
-            st.info("🧳 캐리어 담기 서비스는 준비 중이에요! 조금만 기다려주세요 ✨")
+        html_block(
+            f"""
+            <div class="sheet-ticket-header" style="--ticket-accent:{theme['accent']};">
+                <div class="sheet-ticket-icon">{icons.get(kind, "✈️")}</div>
+                <div>
+                    <div class="sheet-ticket-title">{titles.get(kind, "")}</div>
+                    <div class="sheet-ticket-sub">{theme['label']} · {html.escape(country['name'])}</div>
+                </div>
+                <div class="sheet-ticket-stamp">{country['flag']}</div>
+            </div>
+            <div class="sheet-perf"></div>
+            """
+        )
+        with st.container(key="sheet_body"):
+            _render_country_sheet_body(kind, country, char, code)
 
         if st.button("✕ 닫기", key="close_country_sheet", use_container_width=True):
             st.session_state.active_country_sheet = None
             st.rerun()
+
+
+def _render_country_sheet_body(kind, country, char, code):
+    if kind == "water":
+        skin_notes = char.get("skin_type_extra") or []
+        if country["water"] == "경수" and skin_notes:
+            st.warning(
+                f"⚠ {', '.join(skin_notes)} 피부는 이 지역의 경수 때문에 트러블 위험이 높아요. "
+                f"저자극 클렌징워터를 꼭 챙기세요."
+            )
+        st.metric("기후", country["climate"])
+        st.metric("습도", country["humidity"])
+        st.metric("자외선", country["uv"])
+        st.metric("수질", country["water"])
+        st.caption(country["water_note"])
+        feed_path = country.get("aqi_station") or (
+            f"geo:{country['geo']}" if country.get("geo") else None
+        )
+        aq = get_air_quality(feed_path) if feed_path else None
+        if aq and aq.get("aqi") not in (None, "-"):
+            try:
+                aqi_val = int(aq["aqi"])
+                st.metric("미세먼지 (AQI)", f"{aqi_val} · {_aqi_level_label(aqi_val)}")
+                pm_parts = []
+                if aq.get("pm25") is not None:
+                    pm_parts.append(f"PM2.5 {aq['pm25']}㎍/㎥")
+                if aq.get("pm10") is not None:
+                    pm_parts.append(f"PM10 {aq['pm10']}㎍/㎥")
+                if pm_parts:
+                    st.caption(" · ".join(pm_parts))
+            except (TypeError, ValueError):
+                pass
+
+    elif kind == "lipstick":
+        with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
+            rec = get_ai_cosmetic_recommendation(char, code)
+        if rec:
+            st.markdown(rec)
+            st.caption("✨ AI가 피부타입과 현지 기후를 분석해 추천했어요")
+        else:
+            st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
+            for t in _quick_skin_tip(char, country):
+                st.write(f"- {t}")
+
+    elif kind == "shop":
+        st.markdown("**🧳 필수 아이템**")
+        for item in country["essentials"]:
+            st.write(f"- {item}")
+        st.markdown("**📍 현지 드럭스토어**")
+        for store in country.get("drugstores") or []:
+            st.write(f"- {store}")
+        st.markdown("**🧴 내 피부에 맞는 추천**")
+        for t in _quick_skin_tip(char, country):
+            st.write(f"- {t}")
+
+    elif kind == "hair":
+        st.write(country["hair_tip"])
+        st.link_button("3WAU에서 추천 제품 보러 가기 →", THREE_WAU_STORE_URL, use_container_width=True)
+
+    elif kind == "carrier":
+        st.info("🧳 캐리어 담기 서비스는 준비 중이에요! 조금만 기다려주세요 ✨")
 
 
 def render_aftercare():
