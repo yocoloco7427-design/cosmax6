@@ -4443,8 +4443,11 @@ def _render_country_scene_stage(country, char, code):
         .st-key-icn_star button {{
             {"filter: drop-shadow(0 0 14px rgba(255,190,60,.95)) !important;" if already_saved else ""}
         }}
+        /* 저장 애니메이션이 없는 평소에도 opacity 기본값이 1이라 이 노란
+           글로우가 캐릭터 위에 늘 얹혀서 색이 계속 뿌옇게 바래 보이던 버그가
+           있었다 — 저장 순간 반짝일 때만 보이게 기본값을 0으로 둔다. */
         .scene-sparkle {{
-            position: absolute; inset: 0; pointer-events: none; z-index: 8;
+            position: absolute; inset: 0; pointer-events: none; z-index: 8; opacity: 0;
             background: radial-gradient(circle at 50% 52%, rgba(255,240,150,.9) 0%, rgba(255,240,150,0) 55%);
             {sparkle_rule}
         }}
