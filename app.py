@@ -1654,9 +1654,10 @@ def render_top_icons():
             width: 62px !important; height: 62px !important;
             min-width: 62px !important; max-width: 62px !important;
             min-height: 62px !important; max-height: 62px !important;
-            border-radius: 50% !important; padding: 0 !important;
-            background: #ffffff !important; border: 3px solid #ff6fb8 !important;
-            font-size: 1.8rem !important; box-shadow: 0 4px 10px rgba(120,40,90,.25);
+            border-radius: 0 !important; padding: 0 !important;
+            background: transparent !important; border: none !important;
+            font-size: 3.6rem !important; box-shadow: none !important;
+            filter: drop-shadow(0 4px 8px rgba(120,40,90,.35));
             transition: transform .12s ease;
         }}
         .st-key-nav_map_icon button {{ right: 92px !important; }}
@@ -1667,12 +1668,17 @@ def render_top_icons():
         .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active {{
             transform: translateY(1px) scale(.96);
         }}
-        /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 */
+        /* Streamlit이 버튼 글자를 <p>로 한 번 더 감싸는데 그 <p>가 자체 font-size를
+           갖고 있어서 button에 준 font-size가 상속되지 않는다 — <p>까지 직접 키운다 */
+        .st-key-nav_map_icon button p {{ font-size: 3.6rem !important; line-height: 1 !important; }}
+        /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 — 원형 배경/테두리 없이
+           그래픽 자체(이미 자체적으로 핑크색 여권 모양) 전체가 잘리지 않고
+           버튼 영역 안에 꽉 차게 contain으로 키운다 */
         .st-key-open_passport_icon button {{
             background-image: url('{PASSPORT_ICON_URI}') !important;
-            background-size: 155% 155% !important; background-position: center 42% !important;
-            background-repeat: no-repeat !important; background-color: #fff8fb !important;
-            color: transparent !important; font-size: 0 !important; overflow: hidden !important;
+            background-size: contain !important; background-position: center !important;
+            background-repeat: no-repeat !important; background-color: transparent !important;
+            color: transparent !important; font-size: 0 !important;
         }}
         </style>
         """
