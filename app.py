@@ -2903,12 +2903,22 @@ def inject_theme():
        튀지는 않게 절제한다. */
     .stButton > button[kind="secondary"] {
         font-family: 'Jua', sans-serif;
+        font-size: 1.15rem;
+        padding: 0.6rem 1rem;
         border-radius: 14px;
         border: 2px solid #ffd3ea;
         background: #ffffff;
         color: #6a4a6a;
         box-shadow: 0 3px 0 rgba(255,159,216,.35), 0 4px 10px rgba(120,60,110,.1);
         transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    }
+    /* Streamlit이 버튼 글자를 stMarkdownContainer > p로 한 번 더 감싸는데, 그 p에
+       자체 font-size(14px)가 실려 있어서 button에 준 font-size가 상속되지 않는다.
+       거기다 그 규칙도 !important라 일반 선택자로는 이길 수 없어서, 선택자를
+       구체적으로 두 번 반복해 명시도를 올려야 실제로 이긴다. */
+    div[data-testid="stButton"] button[kind="secondary"] [data-testid="stMarkdownContainer"] p,
+    div[data-testid="stButton"] button[kind="secondary"][kind="secondary"] p {
+        font-size: 1.15rem !important;
     }
     .stButton > button[kind="secondary"]:hover {
         border-color: #ff9fd8;
