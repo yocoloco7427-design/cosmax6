@@ -1793,8 +1793,8 @@ if "diagnosis_country" not in st.session_state:
     st.session_state.diagnosis_country = None
 if "diagnosis_result" not in st.session_state:
     st.session_state.diagnosis_result = None
-if "country_note_front" not in st.session_state:
-    st.session_state.country_note_front = "info"  # "info"(노란 포스트잇) | "warning"(분홍 포스트잇) — 어느 쪽을 눌러서 앞으로 가져왔는지
+if "expanded_country_note" not in st.session_state:
+    st.session_state.expanded_country_note = None  # None | "info"(노란 포스트잇) | "warning"(분홍 포스트잇) — 눌러서 크게 띄운 포스트잇
 if "recovery_stage" not in st.session_state:
     st.session_state.recovery_stage = "pick_trip"  # pick_trip|survey|concern_log|priority|analyzing|result
 if "recovery_trip_code" not in st.session_state:
@@ -3321,7 +3321,7 @@ def _title_letters():
     line1 = [("식", "#FF5D8F", -8), ("스", "#FF9E3D", 5), ("센", "#2FC4B5", -5), ("스", "#4EA8FF", 7)]
     line2 = [("T", "#FF5D8F", -6), ("r", "#FF8A3D", 5), ("a", "#FFC13B", -7),
              ("v", "#2FC4B5", 6), ("e", "#A66BFF", -5), ("l", "#2FB4FF", 9),
-             (" ", "#2FB4FF", 0), ("M", "#FF5D8F", -6), ("a", "#FF8A3D", 5),
+             (" ", "#2FB4FF", 0), ("M", "#FF5D8F", -6), ("a", "#FF8A3D", 5),
              ("x", "#FFC13B", -7), ("+", "#2FC4B5", 6)]
     out = ['<span class="tline six">']
     d = 0.1
@@ -5596,6 +5596,75 @@ def _render_country_title_with_clock(country, live_weather, live_pollution):
             st.rerun()
 
 
+def _country_info_note_body(country, tips, risk_class, risk_text):
+    """안내(노란) 포스트잇의 내용 — 작은 카드와 크게 보기 다이얼로그가 그대로 재사용한다."""
+    return f"""
+    <div class="note-title">{country["flag"]} {country["name"]}</div>
+    <div class="note-section">🌡 환경</div>
+    <div class="note-line">기온 {html.escape(country["temp_diff"])}</div>
+    <div class="note-line">습도 {html.escape(country["humidity"])}</div>
+    <div class="note-line">자외선 {html.escape(country["uv"])}</div>
+    <div class="note-line">수질 {html.escape(country["water"])} · {html.escape(country["water_note"])}</div>
+    <div class="note-section">🧴 내 피부에 좋은 것</div>
+    {''.join(f'<div class="note-line">· {html.escape(t)}</div>' for t in tips)}
+    <div class="note-section">⚠ 유의사항</div>
+    <div class="{risk_class}">{html.escape(risk_text)}</div>
+    """
+
+
+def _country_warning_note_body(wp, wing, winfo):
+    """경고(분홍) 포스트잇의 내용 — 작은 카드와 크게 보기 다이얼로그가 그대로 재사용한다."""
+    return f"""
+    <div class="note-title">⚠️ 반입 주의</div>
+    <div class="note-line" style="font-weight:700;">{html.escape(wp["brand"])} · {html.escape(wp["name"])}</div>
+    <div class="note-line">성분: {html.escape(wing)}</div>
+    <div class="note-section">왜 주의해야 하나요?</div>
+    <div class="note-line">{html.escape(winfo["reason"])}</div>
+    <div class="note-section">출처</div>
+    <div class="note-line" style="font-size:1.05rem;opacity:.85;">{html.escape(winfo["source"])}</div>
+    """
+
+
+def _dismiss_expanded_country_note():
+    st.session_state.expanded_country_note = None
+
+
+@st.dialog(" ", width="large", on_dismiss=_dismiss_expanded_country_note)
+def _expanded_country_note_dialog(which, info_body, warning_body):
+    """포스트잇을 눌렀을 때 같은 내용을 화면 중앙에 훨씬 크게 띄운다 — 포스트잇
+    디자인/색은 그대로 두고 글자와 카드만 확대해서 겹쳐서 안 보이던 내용을
+    편하게 읽을 수 있게 한다."""
+    is_warning = which == "warning"
+    body = warning_body if is_warning else info_body
+    css_class = "country-warning-note" if is_warning else "country-sticky-note"
+    html_block(
+        f"""
+        <style>
+        div[data-testid="stDialog"] [slot="title"] {{ display: none !important; }}
+        div[data-testid="stDialog"] > div {{
+            max-width: min(94vw, 640px) !important; width: min(94vw, 640px) !important;
+        }}
+        .expanded-note-card {{
+            position: static !important; top: auto !important; right: auto !important;
+            width: auto !important; max-width: 100% !important;
+            padding: 34px 34px 26px; border-radius: 18px;
+            font-family: 'Gaegu', cursive; transform: none !important;
+            box-shadow: 0 20px 50px rgba(0,0,0,.4);
+        }}
+        .expanded-note-card.country-sticky-note {{ background: #fff7c2; color: #4a3a1a; }}
+        .expanded-note-card.country-warning-note {{ background: #ffe3df; color: #7a2020; }}
+        .expanded-note-card .note-title {{ font-size: 2.6rem; margin-bottom: 16px; }}
+        .expanded-note-card .note-section {{ font-size: 1.6rem; margin: 20px 0 6px; }}
+        .expanded-note-card .note-line {{ font-size: 1.6rem; line-height: 1.6; margin: 0 0 6px; }}
+        </style>
+        <div class="expanded-note-card {css_class}">{body}</div>
+        """
+    )
+    if st.button("✕ 닫기", key="close_expanded_note", use_container_width=True):
+        st.session_state.expanded_country_note = None
+        st.rerun()
+
+
 def _render_country_map_stage(country, char, code):
     """1단계 — 그 나라만 확대된 지도 + 옆에 붙은 포스트잇(환경/피부타입 추천/유의사항).
     지도 자체가 곧 버튼(다른 화면에서 이미 검증된 '그림=버튼' 방식) — 탭하면 2단계로."""
@@ -5611,16 +5680,20 @@ def _render_country_map_stage(country, char, code):
     risk = get_skin_risk_note(code, country)
     risk_alert = risk["linked_to"] == "aqi" and _is_aqi_severe(country)
 
-    # 노란/분홍 포스트잇이 겹칠 때 어느 쪽을 눌렀는지에 따라 그 포스트잇이 앞으로
-    # 오도록 z-index를 동적으로 뒤바꾼다. 실제 클릭은 각 노트와 같은 위치/크기의
-    # 투명 버튼(note_bring_info/note_bring_warning)이 받는다.
-    note_front = st.session_state.country_note_front
-    info_z, warn_z = (12, 6) if note_front == "info" else (6, 12)
-
     html_block(
         f"""
         <style>
         .st-key-country_stage_wrap {{ position: relative !important; }}
+        /* Streamlit이 html_block() 하나마다 만드는 stElementContainer 래퍼에
+           기본으로 position:relative를 주는데, 그 래퍼 자체는 높이가 0이라
+           (내용물인 포스트잇이 absolute라 정상 흐름에 안 잡힘) 포스트잇의
+           top:%가 이 래퍼(0px) 기준으로 계산돼 늘 0으로 뭉개지는 버그가 있었다.
+           :has()로 포스트잇을 담은 래퍼만 짚어 static으로 되돌려서, 포스트잇의
+           위치 기준이 진짜 원하는 조상(country_stage_wrap)이 되게 한다. */
+        .st-key-country_stage_wrap > div:has(.country-sticky-note),
+        .st-key-country_stage_wrap > div:has(.country-warning-note) {{
+            position: static !important;
+        }}
         .st-key-enter_country_scene {{ width: 100% !important; }}
         .st-key-enter_country_scene button {{
             position: relative !important; width: 100% !important;
@@ -5651,8 +5724,7 @@ def _render_country_map_stage(country, char, code):
             position: absolute; top: 4%; right: 2%; width: min(460px, 62%);
             background: #fff7c2; padding: 26px 26px 22px; border-radius: 6px 22px 22px 6px;
             box-shadow: 5px 10px 22px rgba(0,0,0,.32); transform: rotate(2deg);
-            font-family: 'Gaegu', cursive; color: #4a3a1a; pointer-events: none; z-index: {info_z};
-            transition: z-index 0s;
+            font-family: 'Gaegu', cursive; color: #4a3a1a; pointer-events: none; z-index: 5;
         }}
         .country-sticky-note::before {{
             content: '📌'; position: absolute; top: -20px; left: 20px; font-size: 2rem;
@@ -5678,29 +5750,14 @@ def _render_country_map_stage(country, char, code):
             position: absolute; top: 30%; right: 20%; width: min(480px, 66%);
             background: #ffe3df; padding: 26px 26px 22px; border-radius: 22px 6px 6px 22px;
             box-shadow: 6px 12px 26px rgba(0,0,0,.35); transform: rotate(-3deg);
-            font-family: 'Gaegu', cursive; color: #7a2020; pointer-events: none; z-index: {warn_z};
-            transition: z-index 0s;
+            font-family: 'Gaegu', cursive; color: #7a2020; pointer-events: none; z-index: 7;
         }}
-        /* 두 포스트잇을 눌러서 원하는 쪽을 앞으로 가져올 수 있게 하는 투명
-           버튼 — 각 포스트잇과 같은 위치/크기로 겹쳐두고, 포스트잇 자체와
-           같은 z-index + 1을 줘서 지금 앞에 있는 포스트잇 쪽만 클릭되게 한다
-           (뒤에 깔린 쪽은 삐져나온 부분만 클릭돼 앞으로 나온다). */
-        .st-key-note_bring_info {{
-            position: absolute !important; top: 4%; right: 2%; width: min(460px, 62%) !important;
-            height: 90% !important; z-index: {info_z + 1} !important;
-        }}
-        .st-key-note_bring_warning {{
-            position: absolute !important; top: 30%; right: 20%; width: min(480px, 66%) !important;
-            height: 90% !important; z-index: {warn_z + 1} !important;
-        }}
-        .st-key-note_bring_info button, .st-key-note_bring_warning button {{
-            width: 100% !important; height: 100% !important; min-width: 0 !important;
-            min-height: 0 !important; margin: 0 !important; padding: 0 !important;
-            background: transparent !important; border: none !important; box-shadow: none !important;
-            cursor: pointer !important;
-        }}
-        .st-key-note_bring_info > div, .st-key-note_bring_warning > div {{
-            width: 100% !important; height: 100% !important;
+        /* 포스트잇을 겹쳐 보이게 하는 CSS만으로는(위치/회전/래퍼 이슈) 클릭
+           영역을 안정적으로 맞추기 어려워서, 포스트잇 바로 아래 자연스러운
+           위치에 작고 눈에 보이는 버튼을 따로 둔다 — 겹침/좌표 계산 없이
+           항상 확실하게 눌린다. */
+        .st-key-note_open_info button, .st-key-note_open_warning button {{
+            font-family: 'Jua', sans-serif; font-size: 1rem;
         }}
         .country-warning-note::before {{
             content: '⚠️'; position: absolute; top: -20px; right: 24px; font-size: 2rem;
@@ -5769,46 +5826,18 @@ def _render_country_map_stage(country, char, code):
     )
 
     ingredient_warnings = _country_ingredient_warning_products(code)
+    risk_class = "note-line risk-alert" if risk_alert else "note-line"
+    risk_text = ("🔴 오늘 미세먼지 나쁨 — " if risk_alert else "") + risk["text"]
+    info_body = _country_info_note_body(country, tips, risk_class, risk_text)
+    warning_body = None
+    if ingredient_warnings:
+        wp, wing, winfo = ingredient_warnings[0]
+        warning_body = _country_warning_note_body(wp, wing, winfo)
+
     with st.container(key="country_stage_wrap"):
-        risk_class = "note-line risk-alert" if risk_alert else "note-line"
-        risk_text = ("🔴 오늘 미세먼지 나쁨 — " if risk_alert else "") + risk["text"]
-        html_block(
-            f"""
-            <div class="country-sticky-note">
-                <div class="note-title">{country["flag"]} {country["name"]}</div>
-                <div class="note-section">🌡 환경</div>
-                <div class="note-line">기온 {html.escape(country["temp_diff"])}</div>
-                <div class="note-line">습도 {html.escape(country["humidity"])}</div>
-                <div class="note-line">자외선 {html.escape(country["uv"])}</div>
-                <div class="note-line">수질 {html.escape(country["water"])} · {html.escape(country["water_note"])}</div>
-                <div class="note-section">🧴 내 피부에 좋은 것</div>
-                {''.join(f'<div class="note-line">· {html.escape(t)}</div>' for t in tips)}
-                <div class="note-section">⚠ 유의사항</div>
-                <div class="{risk_class}">{html.escape(risk_text)}</div>
-            </div>
-            """
-        )
-        if ingredient_warnings:
-            wp, wing, winfo = ingredient_warnings[0]
-            html_block(
-                f"""
-                <div class="country-warning-note">
-                    <div class="note-title">⚠️ 반입 주의</div>
-                    <div class="note-line" style="font-weight:700;">{html.escape(wp["brand"])} · {html.escape(wp["name"])}</div>
-                    <div class="note-line">성분: {html.escape(wing)}</div>
-                    <div class="note-section">왜 주의해야 하나요?</div>
-                    <div class="note-line">{html.escape(winfo["reason"])}</div>
-                    <div class="note-section">출처</div>
-                    <div class="note-line" style="font-size:1.05rem;opacity:.85;">{html.escape(winfo["source"])}</div>
-                </div>
-                """
-            )
-            if st.button(" ", key="note_bring_info", help="이 포스트잇을 앞으로"):
-                st.session_state.country_note_front = "info"
-                st.rerun()
-            if st.button(" ", key="note_bring_warning", help="이 포스트잇을 앞으로"):
-                st.session_state.country_note_front = "warning"
-                st.rerun()
+        html_block(f'<div class="country-sticky-note">{info_body}</div>')
+        if warning_body:
+            html_block(f'<div class="country-warning-note">{warning_body}</div>')
         if st.button(" ", key="open_country_potion", help="포션을 눌러 피부 궁합 확인하기"):
             st.session_state.diagnosis_country = code
             st.session_state.diagnosis_stage = "scan"
@@ -5820,9 +5849,25 @@ def _render_country_map_stage(country, char, code):
             st.session_state.just_entered_country_scene = True
             st.rerun()
 
+    note_btn_cols = st.columns(2) if warning_body else st.columns(1)
+    with note_btn_cols[0]:
+        if st.button("🔍 안내 포스트잇 크게 보기", key="note_open_info", use_container_width=True):
+            st.session_state.expanded_country_note = "info"
+            st.rerun()
+    if warning_body:
+        with note_btn_cols[1]:
+            if st.button("🔍 반입 주의 포스트잇 크게 보기", key="note_open_warning", use_container_width=True):
+                st.session_state.expanded_country_note = "warning"
+                st.rerun()
+
     if st.button("⬅ 지도로 돌아가기", key="back_to_world_map"):
         goto("map")
         st.rerun()
+
+    if st.session_state.expanded_country_note == "warning" and not warning_body:
+        st.session_state.expanded_country_note = None
+    if st.session_state.expanded_country_note:
+        _expanded_country_note_dialog(st.session_state.expanded_country_note, info_body, warning_body)
 
 
 def _render_country_scene_stage(country, char, code):
