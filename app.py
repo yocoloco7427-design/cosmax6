@@ -4189,13 +4189,11 @@ def closet_link_row(title, cat_key, bucket):
     item_id = (draft.get(bucket) or {}).get(cat_key)
     catalog = ALL_CATALOGS[cat_key]
     current_label = _catalog_label(cat_key, item_id) or "선택 안 함"
-    swatch_hex = _catalog_hex(cat_key, item_id) or "#eeeeee"
     col_sw, col_btn, col_off = st.columns([1, 3.3, 1])
     with col_sw:
         html_block(
-            f'<div style="width:100%;aspect-ratio:1;border-radius:10px;background:{swatch_hex};'
-            f'border:2px solid rgba(0,0,0,.1);display:flex;align-items:center;justify-content:center;'
-            f'font-size:1.3rem;">{catalog["icon"]}</div>'
+            f'<div style="width:100%;aspect-ratio:1;display:flex;align-items:center;'
+            f'justify-content:center;font-size:3rem;line-height:1;">{catalog["icon"]}</div>'
         )
     with col_btn:
         if st.button(f"{title} · {current_label}", key=f"open_closet_{cat_key}", use_container_width=True):
