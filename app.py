@@ -5846,9 +5846,7 @@ def _render_country_scene_stage(country, char, code):
         .st-key-country_scene_stage {{ position: relative !important; }}
         .scene-stage {{
             position: relative; width: 100%; height: clamp(420px, 74vh, 680px);
-            border-radius: 22px; overflow: hidden; margin-bottom: 10px;
-            background: linear-gradient(160deg, #ffd9ec 0%, #cfe8ff 55%, #fff3d6 100%);
-            box-shadow: inset 0 0 0 4px rgba(255,255,255,.6), 0 16px 32px rgba(120,60,90,.25);
+            margin-bottom: 10px;
             {pop_rule}
         }}
         @keyframes scene-pop-in {{
@@ -5895,10 +5893,10 @@ def _render_country_scene_stage(country, char, code):
            명시도가 더 높아서 이 규칙을 씹어버리는 문제가 있었다 -- 같은 트릭(속성
            선택자 반복)으로 명시도를 그보다 더 높여서 이겨야 실제로 커진다. */
         div[class*="st-key-icn_"] button[kind="secondary"][kind="secondary"] p {{
-            font-size: clamp(3.2rem, 6.2vw, 7.8rem) !important; line-height: 1 !important;
+            font-size: clamp(3.8rem, 7.4vw, 9.2rem) !important; line-height: 1 !important;
         }}
         div[class*="st-key-icn_"] button {{
-            width: clamp(76px, 12vw, 160px) !important; height: clamp(76px, 12vw, 160px) !important; min-width: 0 !important;
+            width: clamp(90px, 14vw, 190px) !important; height: clamp(90px, 14vw, 190px) !important; min-width: 0 !important;
             padding: 0 !important;
             background: transparent !important; border: none !important; box-shadow: none !important;
             filter: drop-shadow(0 6px 10px rgba(60,30,60,.35));
