@@ -1746,6 +1746,8 @@ if "diagnosis_country" not in st.session_state:
     st.session_state.diagnosis_country = None
 if "diagnosis_result" not in st.session_state:
     st.session_state.diagnosis_result = None
+if "country_note_front" not in st.session_state:
+    st.session_state.country_note_front = "info"  # "info"(노란 포스트잇) | "warning"(분홍 포스트잇) — 어느 쪽을 눌러서 앞으로 가져왔는지
 if "recovery_stage" not in st.session_state:
     st.session_state.recovery_stage = "pick_trip"  # pick_trip|survey|concern_log|priority|analyzing|result
 if "recovery_trip_code" not in st.session_state:
@@ -5558,6 +5560,12 @@ def _render_country_map_stage(country, char, code):
     risk = get_skin_risk_note(code, country)
     risk_alert = risk["linked_to"] == "aqi" and _is_aqi_severe(country)
 
+    # 노란/분홍 포스트잇이 겹칠 때 어느 쪽을 눌렀는지에 따라 그 포스트잇이 앞으로
+    # 오도록 z-index를 동적으로 뒤바꾼다. 실제 클릭은 각 노트와 같은 위치/크기의
+    # 투명 버튼(note_bring_info/note_bring_warning)이 받는다.
+    note_front = st.session_state.country_note_front
+    info_z, warn_z = (12, 6) if note_front == "info" else (6, 12)
+
     html_block(
         f"""
         <style>
@@ -5592,7 +5600,8 @@ def _render_country_map_stage(country, char, code):
             position: absolute; top: 4%; right: 2%; width: min(460px, 62%);
             background: #fff7c2; padding: 26px 26px 22px; border-radius: 6px 22px 22px 6px;
             box-shadow: 5px 10px 22px rgba(0,0,0,.32); transform: rotate(2deg);
-            font-family: 'Gaegu', cursive; color: #4a3a1a; pointer-events: none; z-index: 5;
+            font-family: 'Gaegu', cursive; color: #4a3a1a; pointer-events: none; z-index: {info_z};
+            transition: z-index 0s;
         }}
         .country-sticky-note::before {{
             content: '📌'; position: absolute; top: -20px; left: 20px; font-size: 2rem;
@@ -5618,7 +5627,24 @@ def _render_country_map_stage(country, char, code):
             position: absolute; top: 30%; right: 20%; width: min(480px, 66%);
             background: #ffe3df; padding: 26px 26px 22px; border-radius: 22px 6px 6px 22px;
             box-shadow: 6px 12px 26px rgba(0,0,0,.35); transform: rotate(-3deg);
-            font-family: 'Gaegu', cursive; color: #7a2020; pointer-events: none; z-index: 7;
+            font-family: 'Gaegu', cursive; color: #7a2020; pointer-events: none; z-index: {warn_z};
+            transition: z-index 0s;
+        }}
+        /* 두 포스트잇을 눌러서 원하는 쪽을 앞으로 가져올 수 있게 하는 투명
+           버튼 — 각 포스트잇과 같은 위치/크기로 겹쳐두고, 포스트잇 자체와
+           같은 z-index + 1을 줘서 지금 앞에 있는 포스트잇 쪽만 클릭되게 한다
+           (뒤에 깔린 쪽은 삐져나온 부분만 클릭돼 앞으로 나온다). */
+        .st-key-note_bring_info {{
+            position: absolute !important; top: 4%; right: 2%; width: min(460px, 62%) !important;
+            height: 46% !important; z-index: {info_z + 1} !important;
+        }}
+        .st-key-note_bring_warning {{
+            position: absolute !important; top: 30%; right: 20%; width: min(480px, 66%) !important;
+            height: 46% !important; z-index: {warn_z + 1} !important;
+        }}
+        .st-key-note_bring_info button, .st-key-note_bring_warning button {{
+            width: 100% !important; height: 100% !important; background: transparent !important;
+            border: none !important; box-shadow: none !important; cursor: pointer !important;
         }}
         .country-warning-note::before {{
             content: '⚠️'; position: absolute; top: -20px; right: 24px; font-size: 2rem;
@@ -5721,6 +5747,12 @@ def _render_country_map_stage(country, char, code):
                 </div>
                 """
             )
+            if st.button(" ", key="note_bring_info", help="이 포스트잇을 앞으로"):
+                st.session_state.country_note_front = "info"
+                st.rerun()
+            if st.button(" ", key="note_bring_warning", help="이 포스트잇을 앞으로"):
+                st.session_state.country_note_front = "warning"
+                st.rerun()
         if st.button(" ", key="open_country_potion", help="포션을 눌러 피부 궁합 확인하기"):
             st.session_state.diagnosis_country = code
             st.session_state.diagnosis_stage = "scan"
