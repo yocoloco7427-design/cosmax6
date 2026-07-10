@@ -72,7 +72,8 @@ COUNTRIES = {
         "water": "연수",
         "water_note": "한국과 비슷한 연수라 세안 시 큰 자극은 적은 편",
         "uv": "보통~강함 (여름 최고 8)",
-        "essentials": ["가벼운 젤 타입 자외선 차단제", "여름철 유분 조절 클렌징폼", "쿨링 미스트"],
+        "essentials": ["가벼운 젤 타입 자외선 차단제", "여름철 유분 조절 클렌징폼", "쿨링 미스트",
+                       "저자극 폼클렌저", "산뜻한 토너 패드", "가벼운 수분 로션"],
         "trouble": "여름철 높은 습도로 인한 유분·모공 트러블",
         "hair_tip": "쓰리와우 저자극 샴푸 (현지 드럭스토어 판매)",
         "drugstores": ["마츠모토키요시 신주쿠점", "돈키호테 신주쿠 히가시구치점", "웰시아 신주쿠"],
@@ -90,7 +91,8 @@ COUNTRIES = {
         "water": "경수",
         "water_note": "석회질이 많은 경수 지역 — 세안 후 당김·트러블 주의",
         "uv": "낮음~보통",
-        "essentials": ["고보습 크림", "미셀라 클렌징워터 (헹굼 불필요)", "립밤·핸드크림"],
+        "essentials": ["고보습 크림", "미셀라 클렌징워터 (헹굼 불필요)", "립밤·핸드크림",
+                       "고보습 세럼", "저자극 클렌징 밀크", "겨울용 페이스 오일"],
         "trouble": "경수로 인한 세안 후 당김, 두피 건조",
         "hair_tip": "경수 전용 킬레이팅 샴푸 추천",
         "drugstores": ["Monoprix 오페라점", "Marionnaud 샹젤리제점", "Sephora 샹젤리제 플래그십"],
@@ -108,7 +110,8 @@ COUNTRIES = {
         "water": "경수",
         "water_note": "지역별 편차 큼, 대체로 약경수 — 민감성은 생수 세안 권장",
         "uv": "매우 강함 (연중 9~11)",
-        "essentials": ["고자차 선크림 (SPF50+/PA++++)", "가벼운 워터 젤 로션", "쿨링 시트팩"],
+        "essentials": ["고자차 선크림 (SPF50+/PA++++)", "가벼운 워터 젤 로션", "쿨링 시트팩",
+                       "쿨링 바디 미스트", "유분 흡수 파우더", "저자극 폼클렌저"],
         "trouble": "강한 자외선 + 습도로 인한 색소침착, 트러블 동반",
         "hair_tip": "두피 쿨링 샴푸 (더위 대비)",
         "drugstores": ["Boots 시암파라곤점", "Watsons 아속점", "Eveandboy 센트럴월드점"],
@@ -126,7 +129,8 @@ COUNTRIES = {
         "water": "경수",
         "water_note": "석회질 매우 높은 경수 — 민감성 피부는 트러블 위험 높음",
         "uv": "매우 강함 (연중 10 이상)",
-        "essentials": ["고보습 앰플", "미네랄 워터 미스트", "고자차 선크림"],
+        "essentials": ["고보습 앰플", "미네랄 워터 미스트", "고자차 선크림",
+                       "고보습 립밤", "진정 수딩젤", "쿨링 아이패치"],
         "trouble": "극건조 + 강한 자외선 콤보로 인한 각질·자극",
         "hair_tip": "경수 대응 헤어 에센스 필수",
         "drugstores": ["Boots 두바이몰점", "Life Pharmacy 마리나몰점", "Sephora 두바이몰점"],
@@ -144,7 +148,8 @@ COUNTRIES = {
         "water": "연수 (미네랄 풍부 지열수)",
         "water_note": "지열수 특유의 유황 성분 — 극도 민감성은 자극 가능",
         "uv": "낮음",
-        "essentials": ["고영양 크림", "바람막이용 페이스 오일", "립밤"],
+        "essentials": ["고영양 크림", "바람막이용 페이스 오일", "립밤",
+                       "저자극 수분크림", "핸드크림", "진정 미스트"],
         "trouble": "강풍·저온으로 인한 피부 당김, 각질",
         "hair_tip": "지열수 미네랄 대응 헤어팩",
         "drugstores": ["Lyfja 레이캬비크 다운타운점", "Hagkaup 크링글안점"],
@@ -162,7 +167,8 @@ COUNTRIES = {
         "water": "경수",
         "water_note": "경수 지역 — 장기 체류 시 두피·피부 트러블 누적 가능",
         "uv": "강함 (연중 7~10)",
-        "essentials": ["데일리 선크림", "안티옥시던트 세럼", "샤워 필터(장기체류시)"],
+        "essentials": ["데일리 선크림", "안티옥시던트 세럼", "샤워 필터(장기체류시)",
+                       "고보습 크림", "저자극 클렌저", "립밤"],
         "trouble": "자외선 + 경수 복합 자극",
         "hair_tip": "샤워기 필터 또는 킬레이팅 샴푸",
         "drugstores": ["CVS 할리우드점", "Sephora 더그로브점", "Walgreens 산타모니카점"],
@@ -180,7 +186,8 @@ COUNTRIES = {
         "water": "연수",
         "water_note": "연수 지역이라 세안 자극은 적은 편, 자외선 대비가 훨씬 중요",
         "uv": "매우 강함 (연중 최고 11+, 오존층이 얇아 세계 최고 수준)",
-        "essentials": ["고자차 선크림 (SPF50+/PA++++)", "애프터선 케어 젤", "쿨링 미스트"],
+        "essentials": ["고자차 선크림 (SPF50+/PA++++)", "애프터선 케어 젤", "쿨링 미스트",
+                       "비타민C 세럼", "저자극 수딩크림", "핸드크림"],
         "trouble": "세계 최고 수준의 자외선으로 인한 광노화·색소침착",
         "hair_tip": "UV 프로텍트 헤어 미스트",
         "drugstores": ["Chemist Warehouse 시드니시티점", "Priceline Pharmacy 피트스트리트점", "Mecca 시드니 QVB점"],
@@ -198,7 +205,8 @@ COUNTRIES = {
         "water": "경수",
         "water_note": "석회질이 있는 경수 지역 — 세안 후 당김 주의, 높은 습도로 유분도 함께 관리",
         "uv": "강함 (여름 최고 9)",
-        "essentials": ["유분 조절 클렌징폼", "가벼운 워터 젤 선크림", "제습 헤어 에센스"],
+        "essentials": ["유분 조절 클렌징폼", "가벼운 워터 젤 선크림", "제습 헤어 에센스",
+                       "저자극 토너", "쿨링 시트마스크", "핸드크림"],
         "trouble": "고온다습으로 인한 유분·모공 트러블, 장마철 악화",
         "hair_tip": "습기 대비 볼륨 컨트롤 헤어 에센스",
         "drugstores": ["Watsons 난징동루점", "Sephora 화이하이루점", "Innisfree IAPM점"],
@@ -216,7 +224,8 @@ COUNTRIES = {
         "water": "연수 (아리수)",
         "water_note": "일반 연수라 자극은 적은 편, 미세먼지 노출 후 꼼꼼한 세안 필요",
         "uv": "보통~강함 (여름 최고 8)",
-        "essentials": ["미세먼지 딥클렌징폼", "환절기 보습 크림", "데일리 선크림"],
+        "essentials": ["미세먼지 딥클렌징폼", "환절기 보습 크림", "데일리 선크림",
+                       "저자극 진정 토너", "비타민C 세럼", "쿨링 아이크림"],
         "trouble": "환절기 급격한 건조·미세먼지로 인한 트러블",
         "hair_tip": "미세먼지 케어 헤어 클렌저",
         "drugstores": ["올리브영 명동점", "롭스 홍대점", "다이소 강남점"],
@@ -957,7 +966,26 @@ def get_air_quality(feed_path):
         return None
 
 
-@st.cache_data(show_spinner=False, ttl=1800)
+_LIVE_WEATHER_CACHE_TTL = 1800
+
+
+def _soft_cached_fetch(session_key, cache_key, fetch_fn):
+    """API 호출 결과를 세션별로 캐싱하되, 실패(None)는 절대 캐시에 남기지 않는다.
+    st.cache_data(ttl=1800)로 실패까지 그대로 캐싱했더니, 한 번 타임아웃/에러가 나면
+    새로고침 버튼을 눌러도 30분 동안 "--"만 보이는 문제가 있었다 — 실패하면 다음
+    호출(새로고침이든 재방문이든)에서 바로 재시도하고, 그 사이엔 마지막으로 성공한
+    값이라도 있으면 그걸 보여준다(완전히 비어 보이는 것보다 낫다)."""
+    cache = st.session_state.setdefault(session_key, {})
+    entry = cache.get(cache_key)
+    if entry and time.time() - entry["ts"] < _LIVE_WEATHER_CACHE_TTL:
+        return entry["data"]
+    fresh = fetch_fn()
+    if fresh is not None:
+        cache[cache_key] = {"data": fresh, "ts": time.time()}
+        return fresh
+    return entry["data"] if entry else None
+
+
 def get_live_weather(geo):
     """실시간 기온·습도·자외선 지수를 가져온다. geo는 COUNTRIES[code]["geo"] 형식의
     "lat;lon" 문자열. One Call API 3.0(/data/3.0/onecall)은 별도 유료 구독이 있어야만
@@ -966,60 +994,67 @@ def get_live_weather(geo):
     (/data/2.5/uvi)."""
     if not OPENWEATHER_API_KEY or not geo:
         return None
-    try:
-        lat, lon = geo.split(";")
-        weather_resp = requests.get(
-            "https://api.openweathermap.org/data/2.5/weather",
-            params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY, "units": "metric", "lang": "kr"},
-            timeout=5,
-        )
-        weather_data = weather_resp.json()
-        main = weather_data.get("main")
-        if not main:
+
+    def _fetch():
+        try:
+            lat, lon = geo.split(";")
+            weather_resp = requests.get(
+                "https://api.openweathermap.org/data/2.5/weather",
+                params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY, "units": "metric", "lang": "kr"},
+                timeout=5,
+            )
+            weather_data = weather_resp.json()
+            main = weather_data.get("main")
+            if not main:
+                return None
+            result = {
+                "temp": main.get("temp"),
+                "humidity": main.get("humidity"),
+                "uvi": None,
+                "description": ((weather_data.get("weather") or [{}])[0]).get("description", ""),
+            }
+            uvi_resp = requests.get(
+                "https://api.openweathermap.org/data/2.5/uvi",
+                params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY},
+                timeout=5,
+            )
+            if uvi_resp.status_code == 200:
+                result["uvi"] = uvi_resp.json().get("value")
+            return result
+        except (requests.RequestException, ValueError, KeyError):
             return None
-        result = {
-            "temp": main.get("temp"),
-            "humidity": main.get("humidity"),
-            "uvi": None,
-            "description": ((weather_data.get("weather") or [{}])[0]).get("description", ""),
-        }
-        uvi_resp = requests.get(
-            "https://api.openweathermap.org/data/2.5/uvi",
-            params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY},
-            timeout=5,
-        )
-        if uvi_resp.status_code == 200:
-            result["uvi"] = uvi_resp.json().get("value")
-        return result
-    except (requests.RequestException, ValueError, KeyError):
-        return None
+
+    return _soft_cached_fetch("_live_weather_cache", geo, _fetch)
 
 
-@st.cache_data(show_spinner=False, ttl=1800)
 def get_live_air_pollution(geo):
     """OpenWeatherMap 대기오염 API에서 실시간 미세먼지(PM2.5/PM10)·대기질 지수를 가져온다.
     geo는 COUNTRIES[code]["geo"] 형식의 "lat;lon" 문자열."""
     if not OPENWEATHER_API_KEY or not geo:
         return None
-    try:
-        lat, lon = geo.split(";")
-        resp = requests.get(
-            "https://api.openweathermap.org/data/2.5/air_pollution",
-            params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY},
-            timeout=5,
-        )
-        data = resp.json()
-        entry = (data.get("list") or [None])[0]
-        if not entry:
+
+    def _fetch():
+        try:
+            lat, lon = geo.split(";")
+            resp = requests.get(
+                "https://api.openweathermap.org/data/2.5/air_pollution",
+                params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY},
+                timeout=5,
+            )
+            data = resp.json()
+            entry = (data.get("list") or [None])[0]
+            if not entry:
+                return None
+            components = entry.get("components") or {}
+            return {
+                "aqi": (entry.get("main") or {}).get("aqi"),
+                "pm2_5": components.get("pm2_5"),
+                "pm10": components.get("pm10"),
+            }
+        except (requests.RequestException, ValueError, KeyError):
             return None
-        components = entry.get("components") or {}
-        return {
-            "aqi": (entry.get("main") or {}).get("aqi"),
-            "pm2_5": components.get("pm2_5"),
-            "pm10": components.get("pm10"),
-        }
-    except (requests.RequestException, ValueError, KeyError):
-        return None
+
+    return _soft_cached_fetch("_live_air_pollution_cache", geo, _fetch)
 
 
 SKIN_TYPES = ["건성", "지성", "복합성"]
@@ -5417,7 +5452,7 @@ def _country_zoom_crop_uri(country_code):
 
 
 def _render_live_stats_clock(live_weather, live_pollution):
-    """국가/도시 이름 바로 아래에 놓는 실시간 기온·습도·자외선·미세먼지 패널.
+    """국가/도시 이름 옆에 놓는 실시간 기온·습도·자외선·미세먼지 패널.
     사용자가 준 참고 사진(나무 프레임 안에 크림색으로 빛나는 7세그먼트 LED 디지털
     시계) 느낌을 내려고, 어두운 창 안에 따뜻한 크림색 글로우 숫자를 넣고 나무
     톤 프레임으로 감쌌다. 값을 못 가져온 자리는 "--"로 비워둔다."""
@@ -5436,15 +5471,27 @@ def _render_live_stats_clock(live_weather, live_pollution):
 
     cells = _cell("TEMP", temp_val) + _cell("HUMID", humidity_val) + _cell("UV", uv_val) + _cell("PM2.5", pm_val)
 
+    # 새로고침 버튼을 누른 직후 한 번만 시계 패널에 반짝이는 테두리 플래시를
+    # 준다 — "업데이트를 눌렀는데 포스트잇이 반짝인다"는 지적처럼, 업데이트
+    # 피드백은 실제로 갱신되는 시계 쪽에 있어야 한다(포스트잇의 유의사항 pulse는
+    # 미세먼지 경보용으로 항상 따로 도는 애니메이션이라 이것과는 무관하다).
+    just_refreshed = st.session_state.get("just_refreshed_live_clock", False)
+    st.session_state.just_refreshed_live_clock = False
+    flash_rule = "animation: live-clock-flash .7s ease;" if just_refreshed else ""
+
     with st.container(key="live_clock_wrap"):
         html_block(
             f"""
             <style>
             .live-clock-frame {{
                 display: inline-flex; gap: 10px; background: linear-gradient(160deg,#d8bd8e,#a9814f);
-                border-radius: 14px; padding: 12px 16px; margin: -6px 0 8px;
+                border-radius: 14px; padding: 12px 16px; margin: 2px 0 8px;
                 box-shadow: 0 8px 18px rgba(90,60,20,.35), inset 0 2px 0 rgba(255,255,255,.3);
-                border: 3px solid #8a6a3f;
+                border: 3px solid #8a6a3f; {flash_rule}
+            }}
+            @keyframes live-clock-flash {{
+                0%   {{ box-shadow: 0 0 0 7px rgba(255,255,255,.85), 0 8px 18px rgba(90,60,20,.35); }}
+                100% {{ box-shadow: 0 0 0 0 rgba(255,255,255,0), 0 8px 18px rgba(90,60,20,.35); }}
             }}
             .live-digit-cell {{
                 background: #26221e; border-radius: 8px; padding: 8px 14px 6px; text-align: center;
@@ -5477,22 +5524,25 @@ def _render_live_stats_clock(live_weather, live_pollution):
             """
         )
         if st.button("🔄", key="refresh_live_weather", help="실시간 정보 새로고침"):
-            get_live_weather.clear()
-            get_live_air_pollution.clear()
+            st.session_state["_live_weather_cache"] = {}
+            st.session_state["_live_air_pollution_cache"] = {}
+            st.session_state.just_refreshed_live_clock = True
             st.rerun()
 
 
 def _render_country_map_stage(country, char, code):
     """1단계 — 그 나라만 확대된 지도 + 옆에 붙은 포스트잇(환경/피부타입 추천/유의사항).
     지도 자체가 곧 버튼(다른 화면에서 이미 검증된 '그림=버튼' 방식) — 탭하면 2단계로."""
-    st.title(f"{country['flag']} {country['name']}")
-
-    # 국가/도시 이름 바로 아래에 복고풍 디지털시계 느낌의 패널로 실시간 기온·습도·
-    # 자외선·미세먼지를 보여준다(참고 사진의 나무 프레임 LED 시계 스타일). 포스트잇
-    # 팝업 쪽은 원래 문구 그대로 두고 건드리지 않는다.
-    live_weather = get_live_weather(country.get("geo"))
-    live_pollution = get_live_air_pollution(country.get("geo"))
-    _render_live_stats_clock(live_weather, live_pollution)
+    # 국가/도시 이름 옆에 복고풍 디지털시계 느낌의 패널로 실시간 기온·습도·자외선·
+    # 미세먼지를 보여준다(참고 사진의 나무 프레임 LED 시계 스타일). 포스트잇 팝업
+    # 쪽은 원래 문구 그대로 두고 건드리지 않는다.
+    title_col, clock_col = st.columns([3, 2], vertical_alignment="center")
+    with title_col:
+        st.title(f"{country['flag']} {country['name']}")
+    with clock_col:
+        live_weather = get_live_weather(country.get("geo"))
+        live_pollution = get_live_air_pollution(country.get("geo"))
+        _render_live_stats_clock(live_weather, live_pollution)
 
     zoom_uri = _country_zoom_crop_uri(code)
     tips = _quick_skin_tip(char, country)
@@ -5551,6 +5601,22 @@ def _render_country_map_stage(country, char, code):
             0%, 100% {{ background: rgba(230,60,60,.14); }}
             50% {{ background: rgba(230,60,60,.28); }}
         }}
+        /* 전략 미션(국가별 규제 충돌) — 반입 주의 경고 포스트잇. 기존 안내 포스트잇과
+           약 절반쯓 겹치도록 아래-왼쪽으로 offset을 줬고, 색을 빨간 계열로 달리해서
+           "경고"라는 걸 한눈에 구분할 수 있게 했다. 내용이 길어도 넘치지 않도록
+           기존 노트보다 폭을 조금 더 넓게 잡는다. */
+        .country-warning-note {{
+            position: absolute; top: 30%; right: 20%; width: min(480px, 66%);
+            background: #ffe3df; padding: 26px 26px 22px; border-radius: 22px 6px 6px 22px;
+            box-shadow: 6px 12px 26px rgba(0,0,0,.35); transform: rotate(-3deg);
+            font-family: 'Gaegu', cursive; color: #7a2020; pointer-events: none; z-index: 7;
+        }}
+        .country-warning-note::before {{
+            content: '⚠️'; position: absolute; top: -20px; right: 24px; font-size: 2rem;
+            transform: rotate(12deg);
+        }}
+        .country-warning-note .note-title {{ color: #c0392b; }}
+        .country-warning-note .note-section {{ color: #a83226; }}
         /* 화면 왼쪽에 크게 반짝이는 포션 버튼 — 지도 자체가 버튼(enter_country_scene)
            이라 그 위에 올라오도록 z-index를 확실히 더 높게 준다. 포션은 은은하게
            빛나는 글로우(potion-glow-pulse)로, 옆의 별들은 각기 다른 타이밍으로
@@ -5611,6 +5677,7 @@ def _render_country_map_stage(country, char, code):
         """
     )
 
+    ingredient_warnings = _country_ingredient_warning_products(code)
     with st.container(key="country_stage_wrap"):
         risk_class = "note-line risk-alert" if risk_alert else "note-line"
         risk_text = ("🔴 오늘 미세먼지 나쁨 — " if risk_alert else "") + risk["text"]
@@ -5630,6 +5697,21 @@ def _render_country_map_stage(country, char, code):
             </div>
             """
         )
+        if ingredient_warnings:
+            wp, wing, winfo = ingredient_warnings[0]
+            html_block(
+                f"""
+                <div class="country-warning-note">
+                    <div class="note-title">⚠️ 반입 주의</div>
+                    <div class="note-line" style="font-weight:700;">{html.escape(wp["brand"])} · {html.escape(wp["name"])}</div>
+                    <div class="note-line">성분: {html.escape(wing)}</div>
+                    <div class="note-section">왜 주의해야 하나요?</div>
+                    <div class="note-line">{html.escape(winfo["reason"])}</div>
+                    <div class="note-section">출처</div>
+                    <div class="note-line" style="font-size:1.05rem;opacity:.85;">{html.escape(winfo["source"])}</div>
+                </div>
+                """
+            )
         if st.button(" ", key="open_country_potion", help="포션을 눌러 피부 궁합 확인하기"):
             st.session_state.diagnosis_country = code
             st.session_state.diagnosis_stage = "scan"
