@@ -28,6 +28,7 @@ except ImportError:
 
 WAQI_TOKEN = st.secrets.get("WAQI_TOKEN", "")
 ANTHROPIC_API_KEY = st.secrets.get("ANTHROPIC_API_KEY", "")
+OPENWEATHER_API_KEY = st.secrets.get("OPENWEATHER_API_KEY", "")
 
 st.set_page_config(page_title="TravelMax+", page_icon="🧳", layout="wide")
 
@@ -902,6 +903,78 @@ def get_air_quality(feed_path):
             "pm25": (iaqi.get("pm25") or {}).get("v"),
             "pm10": (iaqi.get("pm10") or {}).get("v"),
             "station": (d.get("city") or {}).get("name", ""),
+        }
+    except (requests.RequestException, ValueError, KeyError):
+        return None
+
+
+def _ow_air_quality_label(aqi_1to5):
+    """OpenWeatherMap 대기질 지수(1~5, WAQI의 0~500 스케일과는 다름)를 한글 등급으로 변환."""
+    return {
+        1: "🟢 좋음", 2: "🟡 보통", 3: "🟠 민감군 주의", 4: "🔴 나쁨", 5: "🟣 매우 나쁨",
+    }.get(aqi_1to5, "정보 없음")
+
+
+@st.cache_data(show_spinner=False, ttl=1800)
+def get_live_weather(geo):
+    """실시간 기온·습도·자외선 지수를 가져온다. geo는 COUNTRIES[code]["geo"] 형식의
+    "lat;lon" 문자열. One Call API 3.0(/data/3.0/onecall)은 별도 유료 구독이 있어야만
+    쓸 수 있어서(무료 키는 401), 기본 키로도 되는 두 엔드포인트로 나눠 받는다 —
+    기온·습도는 현재 날씨 API(/data/2.5/weather), 자외선은 UV 인덱스 API
+    (/data/2.5/uvi)."""
+    if not OPENWEATHER_API_KEY or not geo:
+        return None
+    try:
+        lat, lon = geo.split(";")
+        weather_resp = requests.get(
+            "https://api.openweathermap.org/data/2.5/weather",
+            params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY, "units": "metric", "lang": "kr"},
+            timeout=5,
+        )
+        weather_data = weather_resp.json()
+        main = weather_data.get("main")
+        if not main:
+            return None
+        result = {
+            "temp": main.get("temp"),
+            "humidity": main.get("humidity"),
+            "uvi": None,
+            "description": ((weather_data.get("weather") or [{}])[0]).get("description", ""),
+        }
+        uvi_resp = requests.get(
+            "https://api.openweathermap.org/data/2.5/uvi",
+            params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY},
+            timeout=5,
+        )
+        if uvi_resp.status_code == 200:
+            result["uvi"] = uvi_resp.json().get("value")
+        return result
+    except (requests.RequestException, ValueError, KeyError):
+        return None
+
+
+@st.cache_data(show_spinner=False, ttl=1800)
+def get_live_air_pollution(geo):
+    """OpenWeatherMap 대기오염 API에서 실시간 미세먼지(PM2.5/PM10)·대기질 지수를 가져온다.
+    geo는 COUNTRIES[code]["geo"] 형식의 "lat;lon" 문자열."""
+    if not OPENWEATHER_API_KEY or not geo:
+        return None
+    try:
+        lat, lon = geo.split(";")
+        resp = requests.get(
+            "https://api.openweathermap.org/data/2.5/air_pollution",
+            params={"lat": lat, "lon": lon, "appid": OPENWEATHER_API_KEY},
+            timeout=5,
+        )
+        data = resp.json()
+        entry = (data.get("list") or [None])[0]
+        if not entry:
+            return None
+        components = entry.get("components") or {}
+        return {
+            "aqi": (entry.get("main") or {}).get("aqi"),
+            "pm2_5": components.get("pm2_5"),
+            "pm10": components.get("pm10"),
         }
     except (requests.RequestException, ValueError, KeyError):
         return None
@@ -5266,6 +5339,44 @@ def _render_country_map_stage(country, char, code):
     risk = get_skin_risk_note(code, country)
     risk_alert = risk["linked_to"] == "aqi" and _is_aqi_severe(country)
 
+    # OpenWeatherMap에서 실시간 기온/습도/자외선/미세먼지를 가져와 포스트잇에
+    # 얹는다 — 값을 못 가져오면(키 없음/타임아웃 등) 원래 있던 평소 문구만 보여준다.
+    live_weather = get_live_weather(country.get("geo"))
+    live_pollution = get_live_air_pollution(country.get("geo"))
+
+    if live_weather and live_weather.get("temp") is not None:
+        temp_line = (
+            f'현재 {live_weather["temp"]:.0f}°C <span class="note-live-tag">실시간</span> '
+            f'· 평소 {html.escape(country["temp_diff"])}'
+        )
+    else:
+        temp_line = html.escape(country["temp_diff"])
+
+    if live_weather and live_weather.get("humidity") is not None:
+        humidity_line = (
+            f'현재 {live_weather["humidity"]}% <span class="note-live-tag">실시간</span> '
+            f'· 평소 {html.escape(country["humidity"])}'
+        )
+    else:
+        humidity_line = html.escape(country["humidity"])
+
+    if live_weather and live_weather.get("uvi") is not None:
+        uv_line = (
+            f'현재 UV {live_weather["uvi"]:.0f} <span class="note-live-tag">실시간</span> '
+            f'· 평소 {html.escape(country["uv"])}'
+        )
+    else:
+        uv_line = html.escape(country["uv"])
+
+    dust_line = None
+    if live_pollution and live_pollution.get("pm2_5") is not None:
+        dust_label = _ow_air_quality_label(live_pollution.get("aqi"))
+        dust_line = (
+            f'{dust_label} · PM2.5 {live_pollution["pm2_5"]:.0f}㎍/㎥ '
+            f'· PM10 {(live_pollution.get("pm10") or 0):.0f}㎍/㎥ '
+            f'<span class="note-live-tag">실시간</span>'
+        )
+
     html_block(
         f"""
         <style>
@@ -5313,6 +5424,11 @@ def _render_country_map_stage(country, char, code):
             color: #c0392b; font-weight: 800; background: rgba(230,60,60,.14);
             border-radius: 8px; padding: 6px 8px; margin: 0 -8px 4px;
             animation: risk-alert-pulse 1.6s ease-in-out infinite;
+        }}
+        .note-live-tag {{
+            display: inline-block; font-size: .7rem; font-weight: 700; color: #fff;
+            background: #ff6fb8; border-radius: 999px; padding: 1px 8px; margin-left: 2px;
+            font-family: 'Jua', sans-serif; vertical-align: middle;
         }}
         @keyframes risk-alert-pulse {{
             0%, 100% {{ background: rgba(230,60,60,.14); }}
@@ -5386,10 +5502,11 @@ def _render_country_map_stage(country, char, code):
             <div class="country-sticky-note">
                 <div class="note-title">{country["flag"]} {country["name"]}</div>
                 <div class="note-section">🌡 환경</div>
-                <div class="note-line">기온 {html.escape(country["temp_diff"])}</div>
-                <div class="note-line">습도 {html.escape(country["humidity"])}</div>
-                <div class="note-line">자외선 {html.escape(country["uv"])}</div>
+                <div class="note-line">기온 {temp_line}</div>
+                <div class="note-line">습도 {humidity_line}</div>
+                <div class="note-line">자외선 {uv_line}</div>
                 <div class="note-line">수질 {html.escape(country["water"])} · {html.escape(country["water_note"])}</div>
+                {f'<div class="note-line">미세먼지 {dust_line}</div>' if dust_line else ''}
                 <div class="note-section">🧴 내 피부에 좋은 것</div>
                 {''.join(f'<div class="note-line">· {html.escape(t)}</div>' for t in tips)}
                 <div class="note-section">⚠ 유의사항</div>
@@ -5673,6 +5790,30 @@ def _bottom_sheet_css():
         }
         .st-key-sheet_body div[data-testid="stMarkdownContainer"] strong { font-size: 1.6rem !important; }
         .st-key-sheet_body div[data-testid="stCaptionContainer"] p { font-size: 1.3rem !important; }
+        /* 큐레이션 제품의 "~에서 보기" 링크 버튼 — 기본 흰 버튼이 양피지 배경과
+           안 어울려서 시트와 같은 가죽/브론즈 팔레트로 맞춘다 */
+        .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"],
+        .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"] {
+            background: linear-gradient(135deg, #a5713b 0%, #7a4a23 100%) !important;
+            border: 2px solid #5c3818 !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 10px rgba(60,30,10,.35), inset 0 1px 0 rgba(255,255,255,.25) !important;
+            transition: filter .15s ease, transform .15s ease;
+        }
+        .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"] p,
+        .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"] p {
+            color: #fff6e4 !important;
+            font-weight: 700 !important;
+        }
+        .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"]:hover,
+        .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"]:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+        }
+        .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"]:active,
+        .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"]:active {
+            filter: brightness(.95); transform: translateY(0);
+        }
         /* 기존 st.metric 스택은 라벨/숫자만 덜렁 나열돼 밋밋했다 — 아이콘 달린
            작은 통계 타일 그리드로 바꿔서 한눈에 훑어볼 수 있게 함 */
         .stat-grid {
