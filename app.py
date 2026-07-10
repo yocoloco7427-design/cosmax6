@@ -415,10 +415,119 @@ AU_PRODUCT_CATALOG = [
      "description": "저자극 올인원 멀티밤 — 로션 대신 얼굴 전체에 가볍게 겹겹이 발라도 좋아요."},
 ]
 
+# ----------------------------------------------------------------------
+# 중국 큐레이션 제품 (구매본부 자료, 26.7.10). 세포라 호주 자료와 달리 제품별
+# 구매 URL이 없고 브랜드별 유통 채널(공식몰/왓슨스/도우인 등)만 있어서, 각
+# 제품에 "url" 대신 "store_note"를 둔다 — 렌더링 쪽에서 url이 없으면 링크
+# 버튼 대신 이 채널 안내를 캡션으로 보여준다. 완미(玛丽艳)·완미日记(Perfect
+# Diary)는 일반 매장/세포라·왓슨스에 없다는 원자료의 경고를 store_note에
+# 그대로 남겨서 사용자가 오인하지 않게 한다. 이미지는 원본 PDF에서 직접
+# 추출한 실제 제품 사진(assets/cn_products/).
+# ----------------------------------------------------------------------
+CN_PRODUCT_CATALOG = [
+    {"id": "cn01", "brand": "Chando(자연당)", "name": "히말라야 빙하 보습 토너", "category": "토너",
+     "image": "cn_products/cn01_chando_himalaya_toner.png", "url": None,
+     "store_note": "왓슨스(중국)·苏宁易购·백화점 CS매장·도우인 라이브커머스 — 중국 내 오프라인 접근성 가장 좋음",
+     "key_ingredients": ["히말라야 빙하수"], "good_for": ["건성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "히말라야 빙하수로 산뜻하게 수분을 채워주는 토너예요."},
+    {"id": "cn02", "brand": "Chando(자연당)", "name": "미니 퍼플보틀 리페어 에센스 (7세대)", "category": "세럼",
+     "image": "cn_products/cn02_chando_purple_essence.png", "url": None,
+     "store_note": "왓슨스(중국)·苏宁易购·백화점 CS매장·도우인 라이브커머스",
+     "key_ingredients": ["기원 리페어 복합 성분"], "good_for": ["건성", "지성", "복합성"], "good_for_extras": ["트러블"],
+     "fragrance_free": None,
+     "description": "지친 피부 장벽을 회복하는 데 도움을 주는 리페어 에센스예요."},
+    {"id": "cn03", "brand": "Chando(자연당)", "name": "백금 콜라겐 리페어 크림", "category": "크림",
+     "image": "cn_products/cn03_chando_collagen_cream.png", "url": None,
+     "store_note": "왓슨스(중국)·苏宁易购·백화점 CS매장·도우인 라이브커머스",
+     "key_ingredients": ["콜라겐"], "good_for": ["건성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "콜라겐 성분으로 탄력과 리프팅감을 더해주는 크림이에요."},
+    {"id": "cn04", "brand": "Chando(자연당)", "name": "실크 선크림 (가벼운 워터리 타입)", "category": "선크림",
+     "image": "cn_products/cn04_chando_sunscreen.png", "url": None,
+     "store_note": "왓슨스(중국)·苏宁易购·백화점 CS매장·도우인 라이브커머스",
+     "key_ingredients": [], "good_for": ["건성", "지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "가볍고 산뜻하게 발리는 데일리 선크림이에요."},
+    {"id": "cn05", "brand": "Chando(자연당)", "name": "쥬송 안티에이징 여행용 4종 세트", "category": "기타",
+     "image": "cn_products/cn05_chando_travel_set.png", "url": None,
+     "store_note": "왓슨스(중국)·苏宁易购·백화점 CS매장·도우인 라이브커머스",
+     "key_ingredients": ["쥬송(시더) 오일"], "good_for": ["건성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "토너·세럼·크림·아이크림 4종 여행용 세트 — 안티에이징 라인을 한 번에 체험해볼 수 있어요."},
+    {"id": "cn06", "brand": "Marie Anne(완미)", "name": "자윤 토너", "category": "토너",
+     "image": "cn_products/cn06_marieanne_toner.png", "url": None,
+     "store_note": "⚠ 완미 공식몰에서만 구매 가능 — 일반 매장 판매 없음",
+     "key_ingredients": [], "good_for": ["건성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "촉촉하게 결을 정돈해주는 자윤 토너예요."},
+    {"id": "cn07", "brand": "Marie Anne(완미)", "name": "딥 모이스처 데이크림", "category": "크림",
+     "image": "cn_products/cn07_marieanne_daycream.png", "url": None,
+     "store_note": "⚠ 완미 공식몰에서만 구매 가능 — 일반 매장 판매 없음",
+     "key_ingredients": [], "good_for": ["건성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "낮 동안 깊은 보습감을 유지해주는 데이크림이에요."},
+    {"id": "cn08", "brand": "Marie Anne(완미)", "name": "화이트닝 클리어 선크림", "category": "선크림",
+     "image": "cn_products/cn08_marieanne_sunscreen.png", "url": None,
+     "store_note": "⚠ 완미 공식몰에서만 구매 가능 — 일반 매장 판매 없음",
+     "key_ingredients": [], "good_for": ["건성", "지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "화이트닝 케어와 자외선 차단을 함께 챙기는 선크림이에요."},
+    {"id": "cn09", "brand": "Perfect Diary(완미日记)", "name": "메이크업 전 보습 프라이머 크림", "category": "크림",
+     "image": "cn_products/cn09_perfectdiary_primer_cream.png", "url": None,
+     "store_note": "⚠ 세포라·왓슨스 미입점 — 자체 브랜드 매장/온라인몰에서만 구매 가능",
+     "key_ingredients": [], "good_for": ["지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "메이크업 전 산뜻하게 보습해주는 프라이머 크림이에요."},
+    {"id": "cn10", "brand": "Perfect Diary(완미日记)", "name": "청량 선크림 SPF50 (여름용)", "category": "선크림",
+     "image": "cn_products/cn10_perfectdiary_sunscreen.png", "url": None,
+     "store_note": "⚠ 세포라·왓슨스 미입점 — 자체 브랜드 매장/온라인몰에서만 구매 가능",
+     "key_ingredients": [], "good_for": ["지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "끈적임 없이 산뜻한 여름용 고자차 선크림이에요."},
+    {"id": "cn11", "brand": "Perfect Diary(완미日记)", "name": "「방생막」 정화 립스틱", "category": "기타",
+     "image": "cn_products/cn11_perfectdiary_lipstick.png", "url": None,
+     "store_note": "⚠ 세포라·왓슨스 미입점 — 자체 브랜드 매장/온라인몰에서만 구매 가능",
+     "key_ingredients": [], "good_for": ["건성", "지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "촉촉한 발림감의 틴트 립스틱 — 색조로 산뜻한 포인트를 더해줘요."},
+    {"id": "cn12", "brand": "OLEVA(오로페이)", "name": "수분 정수 토너 (습포용)", "category": "토너",
+     "image": "cn_products/cn12_oleva_toner.png", "url": "https://www.sephora.cn",
+     "store_note": "세포라 차이나(프리미엄 라인)·백화점 매장·CS전문점·天猫/JD 온라인몰",
+     "key_ingredients": [], "good_for": ["건성", "복합성"], "good_for_extras": ["민감성"],
+     "fragrance_free": None,
+     "description": "촉촉한 습포 타입으로 결을 가라앉혀주는 정수 토너예요."},
+    {"id": "cn13", "brand": "OLEVA(오로페이)", "name": "임팩트 부스팅 에센스", "category": "세럼",
+     "image": "cn_products/cn13_oleva_essence.png", "url": "https://www.sephora.cn",
+     "store_note": "세포라 차이나·백화점 매장·CS전문점·天猫/JD 온라인몰",
+     "key_ingredients": [], "good_for": ["건성", "지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "생기와 활력을 더해주는 부스팅 에센스예요."},
+    {"id": "cn14", "brand": "OLEVA(오로페이)", "name": "스킨 어피니티 모이스처라이징 크림", "category": "크림",
+     "image": "cn_products/cn14_oleva_cream.png", "url": "https://www.sephora.cn",
+     "store_note": "세포라 차이나·백화점 매장·CS전문점·天猫/JD 온라인몰",
+     "key_ingredients": [], "good_for": ["건성", "복합성"], "good_for_extras": ["민감성"],
+     "fragrance_free": None,
+     "description": "피부 친화적인 저자극 포뮬러로 촉촉함을 채워주는 크림이에요."},
+    {"id": "cn15", "brand": "OLEVA(오로페이)", "name": "라이트 텍스처 무자극 선크림", "category": "선크림",
+     "image": "cn_products/cn15_oleva_sunscreen.png", "url": "https://www.sephora.cn",
+     "store_note": "세포라 차이나·백화점 매장·CS전문점·天猫/JD 온라인몰",
+     "key_ingredients": [], "good_for": ["지성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "SPF50+/PA+++ 가벼운 텍스처로 부담 없이 매일 바를 수 있는 선크림이에요."},
+    {"id": "cn16", "brand": "OLEVA(오로페이)", "name": "금윤 안티에이징 아이크림", "category": "기타",
+     "image": "cn_products/cn16_oleva_eyecream.png", "url": "https://www.sephora.cn",
+     "store_note": "세포라 차이나·백화점 매장·CS전문점·天猫/JD 온라인몰",
+     "key_ingredients": [], "good_for": ["건성", "복합성"], "good_for_extras": [],
+     "fragrance_free": None,
+     "description": "눈가 주름과 탄력을 케어해주는 안티에이징 아이크림이에요."},
+]
+
 # 큐레이션 카탈로그가 있는 나라만 등록 — 국가 추가 시 이 표에 한 줄만 추가하면
 # get_curated_product_recommendation()이 자동으로 그 나라 페이지에서만 동작한다.
 COUNTRY_PRODUCT_CATALOGS = {
     "au": AU_PRODUCT_CATALOG,
+    "cn": CN_PRODUCT_CATALOG,
 }
 
 
@@ -468,7 +577,7 @@ def _rule_based_curated_picks(catalog, skin_type, extras):
         for e in extras:
             if e in p["good_for_extras"]:
                 s += 1
-            if e == "민감성" and not p["fragrance_free"]:
+            if e == "민감성" and p["fragrance_free"] is False:
                 s -= 5
         return s
 
@@ -1662,15 +1771,15 @@ def render_top_icons():
         }}
         .st-key-nav_map_icon button {{ right: 92px !important; }}
         .st-key-open_passport_icon button {{ right: 16px !important; }}
+        /* Streamlit이 버튼 글자를 <p>로 한 번 더 감싸는데 그 <p>가 자체 font-size를
+           갖고 있어서 button에 준 font-size가 상속되지 않는다 — <p>까지 직접 키운다 */
+        .st-key-nav_map_icon button p {{ font-size: 3.6rem !important; line-height: 1 !important; }}
         .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover {{
             transform: translateY(-2px) scale(1.06);
         }}
         .st-key-nav_map_icon button:active, .st-key-open_passport_icon button:active {{
             transform: translateY(1px) scale(.96);
         }}
-        /* Streamlit이 버튼 글자를 <p>로 한 번 더 감싸는데 그 <p>가 자체 font-size를
-           갖고 있어서 button에 준 font-size가 상속되지 않는다 — <p>까지 직접 키운다 */
-        .st-key-nav_map_icon button p {{ font-size: 3.6rem !important; line-height: 1 !important; }}
         /* 뷰티 패스포트 아이콘만 참고 사진 그래픽으로 교체 — 원형 배경/테두리 없이
            그래픽 자체(이미 자체적으로 핑크색 여권 모양) 전체가 잘리지 않고
            버튼 영역 안에 꽉 차게 contain으로 키운다 */
@@ -1935,11 +2044,33 @@ def _passport_dialog_css():
         /* 펼친 책의 왼쪽/오른쪽 페이지 — 크림색 종이 + 가운데 제본선 그림자.
            오른쪽은 꿀팁 삭제 버튼이 필요해서 실제 st.container(key="page_right_card")로
            바꿨다 — 그래서 .page 대신 그 키 클래스에도 똑같이 페이지 박스 스타일을 준다.
-           왼쪽보다 짧아 보이던 문제는, 두 페이지 모두 같은 넉넉한 최소 높이로 맞춰서 해결 */
+           둘 중 짧은 쪽이 항상 긴 쪽 높이에 맞춰지도록(고정 min-height 대신) 컬럼
+           체인 전체를 flex로 늘려준다 — Streamlit이 각 컬럼 내부에
+           stColumn > stVerticalBlock > stLayoutWrapper 로 감싸는데, 이 LayoutWrapper가
+           flex-grow:0(auto)라서 바깥 컬럼이 이미 같은 높이로 늘어나 있어도 안쪽의
+           진짜 페이지 박스는 자기 내용물 높이만큼만 차지하고 멈춰 있었다. */
+        div[data-testid="stDialog"] div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stLayoutWrapper"] {
+            display: flex !important;
+            flex: 1 1 auto !important;
+            flex-direction: column !important;
+        }
+        /* 왼쪽 페이지(.page)는 st.container가 아니라 html_block(raw markdown)이라
+           stLayoutWrapper 대신 stElementContainer > stMarkdown > (익명 div) >
+           stMarkdownContainer 체인을 거친다 — 이쪽은 flex가 아니라 block 요소들이라
+           height:100%를 각 단계마다 명시해 위(stVerticalBlock, 이미 늘어나 있음)의
+           높이를 그대로 이어받게 한다. */
+        div[data-testid="stDialog"] div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"],
+        div[data-testid="stDialog"] div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"] > div[data-testid="stMarkdown"],
+        div[data-testid="stDialog"] div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"] > div[data-testid="stMarkdown"] > div,
+        div[data-testid="stDialog"] div[data-testid="stColumn"] > div[data-testid="stVerticalBlock"] > div[data-testid="stElementContainer"] > div[data-testid="stMarkdown"] > div > div[data-testid="stMarkdownContainer"] {
+            height: 100% !important;
+            box-sizing: border-box !important;
+        }
         div[data-testid="stDialog"] .page,
         div[data-testid="stDialog"] .st-key-page_right_card {
             background: #fffaf3 !important; padding: 20px 20px 14px;
-            min-height: 620px; box-sizing: border-box; border-style: solid !important;
+            flex: 1 1 auto !important; height: 100%; min-height: 200px;
+            box-sizing: border-box; border-style: solid !important;
             box-shadow: 0 18px 36px rgba(120,40,90,.34), inset 0 0 0 2px rgba(255,255,255,.55) !important;
         }
         /* 위/왼쪽은 밝은 핑크(빛을 받는 쪽), 아래/바깥쪽은 진한 로즈(그늘)로
@@ -5653,8 +5784,11 @@ def _render_country_sheet_body(kind, country, char, code):
                     </div>
                     """
                 )
-                st.link_button(f"{p['brand']} {p['name']} 보러 가기 →", p["url"],
-                                use_container_width=True, key=f"curated_link_{p['id']}")
+                if p.get("url"):
+                    st.link_button(f"{p['brand']} {p['name']} 보러 가기 →", p["url"],
+                                    use_container_width=True, key=f"curated_link_{p['id']}")
+                elif p.get("store_note"):
+                    st.caption(f"🛍️ 구매 채널: {p['store_note']}")
         else:
             with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
                 rec = get_ai_cosmetic_recommendation(char, code)
