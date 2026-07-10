@@ -5451,11 +5451,19 @@ def _country_zoom_crop_uri(country_code):
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
-def _render_live_stats_clock(live_weather, live_pollution):
-    """국가/도시 이름 옆에 놓는 실시간 기온·습도·자외선·미세먼지 패널.
+def _render_country_title_with_clock(country, live_weather, live_pollution):
+    """국가/도시 이름 바로 옆(같은 줄)에 놓는 실시간 기온·습도·자외선·미세먼지 패널.
     사용자가 준 참고 사진(나무 프레임 안에 크림색으로 빛나는 7세그먼트 LED 디지털
     시계) 느낌을 내려고, 어두운 창 안에 따뜻한 크림색 글로우 숫자를 넣고 나무
-    톤 프레임으로 감쌌다. 값을 못 가져온 자리는 "--"로 비워둔다."""
+    톤 프레임으로 감쌌다. 값을 못 가져온 자리는 "--"로 비워둔다.
+
+    st.title()을 st.columns로 옆에 나란히 놓으면 컬럼이 나라 이름 글자 수와 무관하게
+    항상 화면 폭의 고정 비율을 차지해서, 이름이 짧은 나라(예: "한국 · 서울")에서는
+    시계가 이름과 한참 떨어진 오른쪽 끝에 붙어 보이는 문제가 있었다 — 그래서 제목
+    글자 자체도 st.title 대신 이 함수 안에서 커스텀 <h1>으로 그려서, 시계와 같은
+    flex row 안에 넣어 항상 글자 바로 옆에 붙게 만들었다(폭은 내용에 맞춰 줄어듦).
+    <h1> 스타일은 Streamlit 기본 st.title의 실측 스타일(44px/700/#31333F)을 그대로
+    옮겨서 원래 제목과 똑같아 보이게 했다."""
     temp_val = f'{live_weather["temp"]:.0f}°' if live_weather and live_weather.get("temp") is not None else "--"
     humidity_val = f'{live_weather["humidity"]}%' if live_weather and live_weather.get("humidity") is not None else "--"
     uv_val = f'{live_weather["uvi"]:.0f}' if live_weather and live_weather.get("uvi") is not None else "--"
@@ -5483,9 +5491,15 @@ def _render_live_stats_clock(live_weather, live_pollution):
         html_block(
             f"""
             <style>
+            .st-key-live_clock_wrap {{ margin-bottom: 6px; }}
+            .country-title-row {{ display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }}
+            .country-title-text {{
+                font-family: "Source Sans", sans-serif; font-size: 44px; font-weight: 700;
+                color: rgb(49, 51, 63); margin: 0; line-height: 52.8px;
+            }}
             .live-clock-frame {{
                 display: inline-flex; gap: 10px; background: linear-gradient(160deg,#d8bd8e,#a9814f);
-                border-radius: 14px; padding: 12px 16px; margin: 2px 0 8px;
+                border-radius: 14px; padding: 12px 16px;
                 box-shadow: 0 8px 18px rgba(90,60,20,.35), inset 0 2px 0 rgba(255,255,255,.3);
                 border: 3px solid #8a6a3f; {flash_rule}
             }}
@@ -5506,21 +5520,20 @@ def _render_live_stats_clock(live_weather, live_pollution):
                 font-family: 'Jua', sans-serif; font-size: .58rem; color: #cbb98a;
                 margin-top: 2px; letter-spacing: .5px;
             }}
-            /* 새로고침 버튼 — 시계 패널 바로 아래에 작은 원형 버튼으로 붙인다
-               (절대좌표로 모서리에 겹치려던 시도는 Streamlit이 감싸는 컨테이너를
-               항상 전체 너비로 렌더링해서 시계 박스와 멀리 떨어져 보이는 버그가
-               있었다). */
             .st-key-refresh_live_weather button {{
                 width: 34px !important; height: 34px !important; min-width: 0 !important;
                 border-radius: 50% !important; padding: 0 !important; font-size: 1rem !important;
                 background: #fff !important; border: 2px solid #ff9fd8 !important;
                 box-shadow: 0 3px 8px rgba(120,60,110,.28) !important; color: #ff6fb8 !important;
-                transition: transform .2s ease; margin-bottom: 10px;
+                transition: transform .2s ease; margin-top: 6px;
             }}
             .st-key-refresh_live_weather button:hover {{ transform: rotate(90deg) scale(1.08); }}
             .st-key-refresh_live_weather button:active {{ transform: rotate(180deg) scale(.92); }}
             </style>
-            <div class="live-clock-frame">{cells}</div>
+            <div class="country-title-row">
+                <h1 class="country-title-text">{html.escape(country['flag'])} {html.escape(country['name'])}</h1>
+                <div class="live-clock-frame">{cells}</div>
+            </div>
             """
         )
         if st.button("🔄", key="refresh_live_weather", help="실시간 정보 새로고침"):
@@ -5533,16 +5546,12 @@ def _render_live_stats_clock(live_weather, live_pollution):
 def _render_country_map_stage(country, char, code):
     """1단계 — 그 나라만 확대된 지도 + 옆에 붙은 포스트잇(환경/피부타입 추천/유의사항).
     지도 자체가 곧 버튼(다른 화면에서 이미 검증된 '그림=버튼' 방식) — 탭하면 2단계로."""
-    # 국가/도시 이름 옆에 복고풍 디지털시계 느낌의 패널로 실시간 기온·습도·자외선·
-    # 미세먼지를 보여준다(참고 사진의 나무 프레임 LED 시계 스타일). 포스트잇 팝업
-    # 쪽은 원래 문구 그대로 두고 건드리지 않는다.
-    title_col, clock_col = st.columns([3, 2], vertical_alignment="center")
-    with title_col:
-        st.title(f"{country['flag']} {country['name']}")
-    with clock_col:
-        live_weather = get_live_weather(country.get("geo"))
-        live_pollution = get_live_air_pollution(country.get("geo"))
-        _render_live_stats_clock(live_weather, live_pollution)
+    # 국가/도시 이름 바로 옆에 복고풍 디지털시계 느낌의 패널로 실시간 기온·습도·
+    # 자외선·미세먼지를 보여준다(참고 사진의 나무 프레임 LED 시계 스타일). 포스트잇
+    # 팝업 쪽은 원래 문구 그대로 두고 건드리지 않는다.
+    live_weather = get_live_weather(country.get("geo"))
+    live_pollution = get_live_air_pollution(country.get("geo"))
+    _render_country_title_with_clock(country, live_weather, live_pollution)
 
     zoom_uri = _country_zoom_crop_uri(code)
     tips = _quick_skin_tip(char, country)
