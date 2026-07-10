@@ -1007,11 +1007,13 @@ def get_live_weather(geo):
             main = weather_data.get("main")
             if not main:
                 return None
+            weather0 = (weather_data.get("weather") or [{}])[0]
             result = {
                 "temp": main.get("temp"),
                 "humidity": main.get("humidity"),
                 "uvi": None,
-                "description": ((weather_data.get("weather") or [{}])[0]).get("description", ""),
+                "condition": weather0.get("main", ""),
+                "description": weather0.get("description", ""),
             }
             uvi_resp = requests.get(
                 "https://api.openweathermap.org/data/2.5/uvi",
@@ -3319,10 +3321,8 @@ HEART_BUTTON_URI = _pixel_heart_uri(6, "#b23a6e", "#fff0f6")
 def _title_letters():
     """자유분방하게 — 글자마다 색·기울기 다르게, 순차 등장."""
     line1 = [("식", "#FF5D8F", -8), ("스", "#FF9E3D", 5), ("센", "#2FC4B5", -5), ("스", "#4EA8FF", 7)]
-    line2 = [("T", "#FF5D8F", -6), ("r", "#FF8A3D", 5), ("a", "#FFC13B", -7),
-             ("v", "#2FC4B5", 6), ("e", "#A66BFF", -5), ("l", "#2FB4FF", 9),
-             (" ", "#2FB4FF", 0), ("M", "#FF5D8F", -6), ("a", "#FF8A3D", 5),
-             ("x", "#FFC13B", -7), ("+", "#2FC4B5", 6)]
+    line2 = [("트", "#FF5D8F", -6), ("래", "#FF8A3D", 5), ("블", "#FFC13B", -7),
+             ("맥", "#2FC4B5", 6), ("스", "#A66BFF", -5), ("+", "#2FB4FF", 9)]
     out = ['<span class="tline six">']
     d = 0.1
     for ch, color, rot in line1:
@@ -5504,6 +5504,26 @@ def _country_zoom_crop_uri(country_code):
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def _weather_condition_emoji(condition_main):
+    """OpenWeatherMap의 weather[0].main(영문 대분류)을 날씨 이모지로 변환."""
+    return {
+        "Clear": "☀️", "Clouds": "⛅", "Rain": "🌧️", "Drizzle": "🌦️",
+        "Thunderstorm": "⛈️", "Snow": "❄️", "Mist": "🌫️", "Fog": "🌫️",
+        "Haze": "🌫️", "Dust": "🌫️", "Sand": "🌫️", "Smoke": "🌫️", "Tornado": "🌪️",
+    }.get(condition_main, "🌡️")
+
+
+def _pm_grade(aqi_1to5):
+    """OpenWeatherMap 대기질 지수(1~5)를 좋음/보통/나쁨 3단계 + 색 이모지로 단순화."""
+    if aqi_1to5 in (1, 2):
+        return "🟢", "좋음"
+    if aqi_1to5 == 3:
+        return "🟡", "보통"
+    if aqi_1to5 in (4, 5):
+        return "🔴", "나쁨"
+    return "", ""
+
+
 def _render_country_title_with_clock(country, live_weather, live_pollution):
     """국가/도시 이름 바로 옆(같은 줄)에 놓는 실시간 기온·습도·자외선·미세먼지 패널.
     사용자가 준 참고 사진(나무 프레임 안에 크림색으로 빛나는 7세그먼트 LED 디지털
@@ -5523,14 +5543,25 @@ def _render_country_title_with_clock(country, live_weather, live_pollution):
     pm_val = (
         f'{live_pollution["pm2_5"]:.0f}' if live_pollution and live_pollution.get("pm2_5") is not None else "--"
     )
+    weather_emoji = _weather_condition_emoji(live_weather.get("condition")) if live_weather else "🌡️"
+    weather_desc = (live_weather.get("description") or "--") if live_weather else "--"
+    pm_emoji, pm_label = _pm_grade(live_pollution.get("aqi")) if live_pollution else ("", "")
 
-    def _cell(label, value):
+    def _cell(label, value, sub=None):
+        sub_html = f'<div class="live-digit-sub">{html.escape(sub)}</div>' if sub else ""
         return (
             f'<div class="live-digit-cell"><div class="live-digit-value">{html.escape(str(value))}</div>'
+            f'{sub_html}'
             f'<div class="live-digit-label">{html.escape(label)}</div></div>'
         )
 
-    cells = _cell("TEMP", temp_val) + _cell("HUMID", humidity_val) + _cell("UV", uv_val) + _cell("PM2.5", pm_val)
+    cells = (
+        _cell("날씨", weather_emoji, sub=weather_desc)
+        + _cell("TEMP", temp_val)
+        + _cell("HUMID", humidity_val)
+        + _cell("UV", uv_val)
+        + _cell("PM2.5", pm_val, sub=(f"{pm_emoji} {pm_label}" if pm_label else None))
+    )
 
     # 새로고침 버튼을 누른 직후 한 번만 시계 패널에 반짝이는 테두리 플래시를
     # 준다 — "업데이트를 눌렀는데 포스트잇이 반짝인다"는 지적처럼, 업데이트
@@ -5568,6 +5599,10 @@ def _render_country_title_with_clock(country, live_weather, live_pollution):
                 font-family: 'Share Tech Mono', monospace; font-size: 1.6rem; font-weight: 700;
                 color: #f5f1e0; text-shadow: 0 0 6px rgba(245,241,224,.85), 0 0 16px rgba(245,241,224,.5);
                 letter-spacing: 1px; line-height: 1.1;
+            }}
+            .live-digit-sub {{
+                font-family: 'Jua', sans-serif; font-size: .68rem; color: #f5f1e0;
+                margin-top: 2px; white-space: nowrap;
             }}
             .live-digit-label {{
                 font-family: 'Jua', sans-serif; font-size: .58rem; color: #cbb98a;
