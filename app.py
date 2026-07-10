@@ -6060,7 +6060,7 @@ def _recovery_ranking_card_html(ranking):
         <div class="recovery-rank-row">
             <div class="recovery-rank-head">{badge_html}<span class="recovery-rank-name">{html.escape(r['issue'])}</span>
                 <span class="recovery-rank-score">{r['score']}점 (빈도{r['frequency']}×심각도{r['severity']})</span></div>
-            <div class="recovery-rank-track"><div class="recovery-rank-fill" style="width:{pct}%;background:{bar_color} !important;"></div></div>
+            <div class="recovery-rank-track"><div class="recovery-rank-fill" style="width:{pct}%;background-color:{bar_color};"></div></div>
         </div>"""
     return f'{_RECOVERY_RANK_CARD_CSS}<div class="recovery-rank-card">{rows_html}</div>'
 
