@@ -6028,14 +6028,14 @@ def _render_recovery_concern_log():
 
 _RECOVERY_RANK_CARD_CSS = """
 <style>
-.recovery-rank-card { background:#131a2b; border-radius:18px; padding:22px 24px; margin:8px 0 20px; }
-.recovery-rank-row { margin-bottom:18px; }
+.recovery-rank-card { background:#131a2b; border-radius:18px; padding:24px 26px; margin:8px 0 20px; }
+.recovery-rank-row { margin-bottom:20px; }
 .recovery-rank-row:last-child { margin-bottom:0; }
-.recovery-rank-head { display:flex; align-items:center; gap:10px; color:#eef1fb; font-size:1.05rem;
-    margin-bottom:8px; flex-wrap:wrap; }
+.recovery-rank-head { display:flex; align-items:center; gap:10px; color:#eef1fb; font-size:1.3rem;
+    margin-bottom:9px; flex-wrap:wrap; }
 .recovery-rank-name { font-weight:700; }
-.recovery-rank-score { margin-left:auto; color:#9aa1b8; font-size:.85rem; }
-.recovery-badge { font-size:.72rem; font-weight:700; letter-spacing:.03em; padding:3px 9px; border-radius:6px; }
+.recovery-rank-score { margin-left:auto; color:#9aa1b8; font-size:1.02rem; }
+.recovery-badge { font-size:.85rem; font-weight:700; letter-spacing:.03em; padding:4px 10px; border-radius:6px; }
 .recovery-badge-primary { background:#3d3315; color:#f5c344; }
 .recovery-badge-secondary { background:#123329; color:#3ecf9e; }
 .recovery-rank-track { background:#232b40; border-radius:6px; height:8px; overflow:hidden; }
@@ -6070,19 +6070,19 @@ def _recovery_ranking_card_html(ranking):
 # 않게 한다.
 _RECOVERY_DAY_CARD_CSS = """
 <style>
-.recovery-day-card { background:#131a2b; border-radius:16px; padding:18px 22px; margin-bottom:14px; }
-.recovery-day-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+.recovery-day-card { background:#131a2b; border-radius:16px; padding:20px 24px; margin-bottom:16px; }
+.recovery-day-top { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:8px; }
 .recovery-day-num { background:#ff6fb8; color:#fff; font-weight:800; border-radius:8px;
-    padding:2px 10px; font-size:.9rem; }
-.recovery-day-label { color:#eef1fb; font-weight:700; font-size:1.05rem; }
-.recovery-day-badge { margin-left:auto; background:#2b2440; color:#c9a6ff; font-size:.75rem;
-    padding:2px 9px; border-radius:6px; }
-.recovery-product-name { color:#ffd9ec; font-weight:700; margin-top:4px; }
-.recovery-product-meta { color:#9aa1b8; font-size:.82rem; margin:2px 0 6px; }
-.recovery-product-desc { color:#d8dcec; font-size:.92rem; line-height:1.5; }
-.recovery-note { margin-top:10px; background:#3d3315; border-left:3px solid #f5c344;
-    padding:8px 12px; border-radius:8px; color:#f5c344; font-weight:600; font-size:.85rem; }
-.recovery-context { margin-top:6px; color:#f5c344; font-size:.82rem; }
+    padding:4px 12px; font-size:1.1rem; }
+.recovery-day-label { color:#eef1fb; font-weight:700; font-size:1.35rem; }
+.recovery-day-badge { margin-left:auto; background:#2b2440; color:#c9a6ff; font-size:.95rem;
+    padding:3px 11px; border-radius:6px; }
+.recovery-product-name { color:#ffd9ec; font-weight:700; margin-top:6px; font-size:1.15rem; }
+.recovery-product-meta { color:#9aa1b8; font-size:1rem; margin:3px 0 8px; }
+.recovery-product-desc { color:#d8dcec; font-size:1.1rem; line-height:1.6; }
+.recovery-note { margin-top:12px; background:#3d3315; border-left:3px solid #f5c344;
+    padding:10px 14px; border-radius:8px; color:#f5c344; font-weight:600; font-size:1.05rem; }
+.recovery-context { margin-top:8px; color:#f5c344; font-size:1rem; }
 </style>
 """
 
