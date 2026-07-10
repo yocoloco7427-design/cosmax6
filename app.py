@@ -2012,7 +2012,12 @@ def render_top_icons():
         .st-key-open_passport_icon button {{ right: 16px !important; }}
         /* Streamlit이 버튼 글자를 <p>로 한 번 더 감싸는데 그 <p>가 자체 font-size를
            갖고 있어서 button에 준 font-size가 상속되지 않는다 — <p>까지 직접 키운다 */
-        .st-key-nav_map_icon button p {{ font-size: 3.6rem !important; line-height: 1 !important; }}
+        /* 전역 보조 버튼 글씨 크기 규칙(button[kind="secondary"][kind="secondary"] p)이
+           명시도가 더 높아서 이 규칙을 씹어버리는 문제가 있었다 -- 같은 트릭(속성
+           선택자 반복)으로 명시도를 그보다 더 높여서 이겨야 실제로 커진다. */
+        .st-key-nav_map_icon.st-key-nav_map_icon button[kind="secondary"][kind="secondary"] p {{
+            font-size: 3.6rem !important; line-height: 1 !important;
+        }}
         .st-key-nav_map_icon button:hover, .st-key-open_passport_icon button:hover {{
             transform: translateY(-2px) scale(1.06);
         }}
@@ -5430,6 +5435,22 @@ def _render_country_map_stage(country, char, code):
             background: #ff6fb8; border-radius: 999px; padding: 1px 8px; margin-left: 2px;
             font-family: 'Jua', sans-serif; vertical-align: middle;
         }}
+        /* 포스트잇 자체는 pointer-events:none이라(뒤의 지도 버튼을 가리지 않으려고)
+           안에 진짜 버튼을 못 넣는다 — 그래서 포스트잇 바깥에 별도 버튼을 만들어
+           포스트잇 오른쪽 위 모서리에 절대좌표로 겹쳐 놓는다. */
+        .st-key-refresh_live_weather {{
+            position: absolute !important; top: 4%; right: 2%; z-index: 20 !important;
+            transform: translate(42%, -42%);
+        }}
+        .st-key-refresh_live_weather button {{
+            width: 40px !important; height: 40px !important; min-width: 0 !important;
+            border-radius: 50% !important; padding: 0 !important; font-size: 1.15rem !important;
+            background: #fff !important; border: 2px solid #ff9fd8 !important;
+            box-shadow: 0 3px 8px rgba(120,60,110,.28) !important; color: #ff6fb8 !important;
+            transition: transform .2s ease;
+        }}
+        .st-key-refresh_live_weather button:hover {{ transform: rotate(90deg) scale(1.08); }}
+        .st-key-refresh_live_weather button:active {{ transform: rotate(180deg) scale(.92); }}
         @keyframes risk-alert-pulse {{
             0%, 100% {{ background: rgba(230,60,60,.14); }}
             50% {{ background: rgba(230,60,60,.28); }}
@@ -5514,6 +5535,10 @@ def _render_country_map_stage(country, char, code):
             </div>
             """
         )
+        if st.button("🔄", key="refresh_live_weather", help="실시간 날씨·미세먼지 새로고침"):
+            get_live_weather.clear()
+            get_live_air_pollution.clear()
+            st.rerun()
         if st.button(" ", key="open_country_potion", help="포션을 눌러 피부 궁합 확인하기"):
             st.session_state.diagnosis_country = code
             st.session_state.diagnosis_stage = "scan"
@@ -5598,7 +5623,10 @@ def _render_country_scene_stage(country, char, code):
         /* Streamlit이 버튼 글자를 <p>로 한 번 더 감싸는데, 그 <p>에 자체
            font-size(14px)가 박혀 있어서 button에 준 font-size가 상속되지 않고
            씹혀버린다 — 실제 이모지를 담은 p 태그까지 직접 짚어서 키운다. */
-        div[class*="st-key-icn_"] button p {{
+        /* 전역 보조 버튼 글씨 크기 규칙(button[kind="secondary"][kind="secondary"] p)이
+           명시도가 더 높아서 이 규칙을 씹어버리는 문제가 있었다 -- 같은 트릭(속성
+           선택자 반복)으로 명시도를 그보다 더 높여서 이겨야 실제로 커진다. */
+        div[class*="st-key-icn_"] button[kind="secondary"][kind="secondary"] p {{
             font-size: clamp(3.2rem, 6.2vw, 7.8rem) !important; line-height: 1 !important;
         }}
         div[class*="st-key-icn_"] button {{
