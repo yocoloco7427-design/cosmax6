@@ -5790,29 +5790,33 @@ def _bottom_sheet_css():
         }
         .st-key-sheet_body div[data-testid="stMarkdownContainer"] strong { font-size: 1.6rem !important; }
         .st-key-sheet_body div[data-testid="stCaptionContainer"] p { font-size: 1.3rem !important; }
-        /* 큐레이션 제품의 "~에서 보기" 링크 버튼 — 기본 흰 버튼이 양피지 배경과
-           안 어울려서 시트와 같은 가죽/브론즈 팔레트로 맞춘다 */
+        /* 큐레이션 제품의 "~에서 보기" 링크 버튼 — 시트 안의 다른 기본 버튼
+           (예: 피부 스캔 버튼, .stButton > button[kind="secondary"])과 같은
+           흰 배경 + 핑크 테두리 필 스타일로 통일한다 */
         .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"],
         .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"] {
-            background: linear-gradient(135deg, #a5713b 0%, #7a4a23 100%) !important;
-            border: 2px solid #5c3818 !important;
-            border-radius: 10px !important;
-            box-shadow: 0 4px 10px rgba(60,30,10,.35), inset 0 1px 0 rgba(255,255,255,.25) !important;
-            transition: filter .15s ease, transform .15s ease;
+            font-family: 'Jua', sans-serif;
+            background: #ffffff !important;
+            border: 2px solid #ffd3ea !important;
+            border-radius: 14px !important;
+            box-shadow: 0 3px 0 rgba(255,159,216,.35), 0 4px 10px rgba(120,60,110,.1) !important;
+            transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
         }
         .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"] p,
         .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"] p {
-            color: #fff6e4 !important;
+            color: #6a4a6a !important;
             font-weight: 700 !important;
         }
         .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"]:hover,
         .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"]:hover {
-            filter: brightness(1.1);
+            border-color: #ff9fd8 !important;
             transform: translateY(-1px);
+            box-shadow: 0 4px 0 rgba(255,159,216,.45), 0 6px 14px rgba(120,60,110,.16) !important;
         }
         .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"]:active,
         .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"]:active {
-            filter: brightness(.95); transform: translateY(0);
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 rgba(255,159,216,.35), 0 2px 6px rgba(120,60,110,.1) !important;
         }
         /* 기존 st.metric 스택은 라벨/숫자만 덜렁 나열돼 밋밋했다 — 아이콘 달린
            작은 통계 타일 그리드로 바꿔서 한눈에 훑어볼 수 있게 함 */
