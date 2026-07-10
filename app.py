@@ -1006,9 +1006,6 @@ def get_live_weather(geo):
             weather_data = weather_resp.json()
             main = weather_data.get("main")
             if not main:
-                st.session_state["_live_weather_debug"] = (
-                    f"HTTP {weather_resp.status_code} · {weather_data.get('message', weather_data)}"
-                )
                 return None
             result = {
                 "temp": main.get("temp"),
@@ -1023,10 +1020,8 @@ def get_live_weather(geo):
             )
             if uvi_resp.status_code == 200:
                 result["uvi"] = uvi_resp.json().get("value")
-            st.session_state["_live_weather_debug"] = "OK"
             return result
-        except (requests.RequestException, ValueError, KeyError) as e:
-            st.session_state["_live_weather_debug"] = f"예외 · {type(e).__name__}: {e}"
+        except (requests.RequestException, ValueError, KeyError):
             return None
 
     return _soft_cached_fetch("_live_weather_cache", geo, _fetch)
@@ -5597,14 +5592,6 @@ def _render_country_title_with_clock(country, live_weather, live_pollution):
             st.session_state["_live_air_pollution_cache"] = {}
             st.session_state.just_refreshed_live_clock = True
             st.rerun()
-
-        # TEMP DEBUG — 배포 환경에서 실시간 정보가 계속 "--"로 뜨는 문제 원인 확인용.
-        # 원인 파악되면 이 블록은 지운다.
-        key_state = f"감지됨(앞 4자리 {OPENWEATHER_API_KEY[:4]})" if OPENWEATHER_API_KEY else "감지 안 됨(비어있음)"
-        st.caption(
-            f"🔧 DEBUG · OPENWEATHER_API_KEY: {key_state} · "
-            f"마지막 날씨 호출: {st.session_state.get('_live_weather_debug', '아직 호출 안 됨')}"
-        )
 
 
 def _render_country_map_stage(country, char, code):
