@@ -628,6 +628,116 @@ def get_curated_product_recommendation(char, country_code):
 
 
 # ----------------------------------------------------------------------
+# 피부 맞춤 추천 — "한국에서 이 나라로 떠나기 전에 챙겨가면 좋은 제품".
+# 위 COUNTRY_PRODUCT_CATALOGS(현지 판매 제품)와는 반대 방향으로, 실제 올리브영
+# 판매 제품(RECOVERY_PRODUCT_CATALOG, 7일 복귀 프로그램과 같은 표를 공유)
+# 중에서 여행자의 피부 프로필 + 목적지 기후 특성에 맞는 걸 고른다. 카탈로그
+# 자체가 국가와 무관하게 하나뿐이라 모든 국가 페이지에서 동작한다.
+# ----------------------------------------------------------------------
+def _travel_prep_catalog_prompt_block():
+    lines = []
+    for p in RECOVERY_PRODUCT_CATALOG:
+        lines.append(
+            f"- id:{p['id']} | {p['brand']} {p['name']} ({p['texture']}) | "
+            f"성분: {', '.join(p['key_ingredients']) or '해당없음'} | "
+            f"어울리는 고민: {', '.join(p['target_concern'])}"
+        )
+    return "\n".join(lines)
+
+
+@st.cache_data(show_spinner=False, ttl=86400)
+def _cached_travel_prep_recommendation(skin_type, extras_key, country_code):
+    country = COUNTRIES[country_code]
+    prompt = (
+        "너는 여행 뷰티 코디네이터야. 아래는 한국 올리브영에서 실제로 판매 중인 스킨케어 "
+        "제품 목록이야. 여행자가 이 목적지로 떠나기 전에 한국에서 미리 챙겨가면 좋은 제품을 "
+        "이 목록 '안에서만' 정확히 3개 골라줘. 목록에 없는 제품/브랜드/성분을 새로 지어내면 "
+        "안 돼.\n\n"
+        f"[제품 목록]\n{_travel_prep_catalog_prompt_block()}\n\n"
+        f"[여행자] 피부타입: {skin_type} / 피부 특이사항: {', '.join(extras_key) or '없음'}\n"
+        f"[목적지 기후] {country['name']} — {country['climate']} / 자외선: {country['uv']} / "
+        f"습도: {country['humidity']} / 수질: {country['water']} ({country['water_note']})\n\n"
+        '다른 설명 없이 순수 JSON 배열만 출력해: [{"id":"p1","reason":"추천 이유 한 문장"}, ...] '
+        "reason은 한국어로, 왜 이 여행자 피부와 이 목적지 여행 전에 챙겨가면 좋은지 한 문장으로 써."
+    )
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "".join(block.text for block in resp.content if block.type == "text").strip()
+
+
+def _travel_prep_concern_tags(skin_type, extras, country):
+    """여행자 피부 프로필 + 목적지 기후 특성을 RECOVERY_PRODUCT_CATALOG의
+    target_concern 태그로 변환한다(규칙 기반 대체 로직용)."""
+    tags = []
+    for e in extras:
+        if e == "민감성":
+            tags.append("자극/붉음")
+        if e == "트러블":
+            tags.append("트러블")
+    if skin_type == "건성":
+        tags.append("건조")
+    if "강함" in (country.get("uv") or ""):
+        tags.append("칙칙함/톤")
+    if (country.get("humidity") or "").startswith("평균 2") or "매우 건조" in (country.get("humidity") or ""):
+        tags.append("건조")
+    if country.get("water") == "경수":
+        tags.append("트러블")
+    if "매우 강함" in (country.get("uv") or "") or "매우 높은" in (country.get("water_note") or ""):
+        tags.append("자극/붉음")
+    if not tags:
+        tags.append("피로/장벽")
+    return tags
+
+
+def _rule_based_travel_prep_picks(skin_type, extras, country):
+    tags = _travel_prep_concern_tags(skin_type, extras, country)
+
+    def score(p):
+        return sum(1 for t in tags if t in p["target_concern"])
+
+    ranked = sorted(RECOVERY_PRODUCT_CATALOG, key=score, reverse=True)
+    picks, seen_textures = [], set()
+    for p in ranked:
+        if p["texture"] in seen_textures:
+            continue
+        picks.append({**p, "reason": f"{country['name']} 여행 전 챙겨가면 좋은 {p['texture']}로 골라봤어요."})
+        seen_textures.add(p["texture"])
+        if len(picks) == 3:
+            break
+    return picks
+
+
+def get_travel_prep_recommendation(char, country_code):
+    """한국 올리브영 제품(RECOVERY_PRODUCT_CATALOG) 중, 이 나라로 떠나기 전에
+    챙겨가면 좋은 제품을 추천한다 — 큐레이션 카탈로그 유무와 무관하게 모든
+    국가에서 동작한다."""
+    baseline = get_skin_baseline(char)
+    skin_type = baseline.get("skin_type") or SKIN_TYPES[0]
+    extras = baseline.get("extras") or []
+    country = COUNTRIES[country_code]
+    by_id = {p["id"]: p for p in RECOVERY_PRODUCT_CATALOG}
+
+    if ANTHROPIC_API_KEY and anthropic is not None:
+        try:
+            raw = _cached_travel_prep_recommendation(skin_type, tuple(sorted(extras)), country_code)
+            data = json.loads(raw)
+            picks = [
+                {**by_id[item["id"]], "reason": item.get("reason", "")}
+                for item in data if item.get("id") in by_id
+            ][:3]
+            if picks:
+                return picks
+        except Exception:
+            pass
+
+    return _rule_based_travel_prep_picks(skin_type, extras, country)
+
+
+# ----------------------------------------------------------------------
 # 드럭스토어 & 뷰티스토어 상세 리스트 — 국가/도시별로 급하게 화장품을 살 수
 # 있는 실제 매장. 로컬 브랜드는 현지어 표기를 병기하고("local" 필드), 지도
 # 검색 링크를 붙여서 "리스트만 보고 못 찾는" 문제를 방지한다. 아직 MVP라
@@ -2787,6 +2897,45 @@ def inject_theme():
         .cloud, .stButton > button[kind="primary"] { animation: none !important; }
     }
 
+    /* 보조(secondary) 버튼 — 선택 칩(성별/연령대/피부타입 등)과 "뒤로가기"류 액션
+       버튼이 회색 테두리의 기본 Streamlit 버튼 그대로였다. 앱 톤(핑크 테두리 +
+       Jua 폰트 + 살짝 뜨는 그림자)에 맞춰 카드형으로 바꾸되, primary 캡슐 버튼처럼
+       튀지는 않게 절제한다. */
+    .stButton > button[kind="secondary"] {
+        font-family: 'Jua', sans-serif;
+        border-radius: 14px;
+        border: 2px solid #ffd3ea;
+        background: #ffffff;
+        color: #6a4a6a;
+        box-shadow: 0 3px 0 rgba(255,159,216,.35), 0 4px 10px rgba(120,60,110,.1);
+        transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        border-color: #ff9fd8;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 0 rgba(255,159,216,.45), 0 6px 14px rgba(120,60,110,.16);
+    }
+    .stButton > button[kind="secondary"]:active {
+        transform: translateY(2px);
+        box-shadow: 0 1px 0 rgba(255,159,216,.35), 0 2px 6px rgba(120,60,110,.1);
+    }
+
+    /* 파일 업로더(여행 전/후 사진 비교) — 기본 회색 점선 박스 대신 앱 톤의
+       파스텔 점선 카드 + 둥근 업로드 버튼으로 */
+    [data-testid="stFileUploaderDropzone"] {
+        border-radius: 16px !important;
+        border: 2.5px dashed #ffb3d9 !important;
+        background: #fff6fb !important;
+    }
+    [data-testid="stFileUploaderDropzone"] button {
+        font-family: 'Jua', sans-serif !important;
+        border-radius: 999px !important;
+        border: 2px solid #ff9fd8 !important;
+        background: #ffffff !important;
+        color: #ff3d97 !important;
+        box-shadow: 0 2px 6px rgba(120,60,110,.15) !important;
+    }
+
     /* 캐릭터 만들기 · 기본 탭 — 이름/성별/연령대/피부타입 등 라벨·버튼 글씨 확대 */
     .st-key-char_basic_tab .stMarkdown p {
         font-size: 1.25rem !important;
@@ -4732,86 +4881,6 @@ def _quick_skin_tip(char, country):
     return tips
 
 
-@st.cache_data(show_spinner=False, ttl=86400)
-def _cached_ai_cosmetic_recommendation(skin_type, extras_key, prefs_key, country_code):
-    country = COUNTRIES[country_code]
-    prompt = (
-        "너는 여행 뷰티 코디네이터야. 아래 여행자 정보와 목적지 기후를 보고 "
-        "챙기면 좋은 화장품을 한국어로 짧게 추천해줘.\n\n"
-        f"[여행자] 피부타입: {skin_type} / 피부 특이사항: {', '.join(extras_key) or '없음'} / "
-        f"선호 화장품 특성: {', '.join(prefs_key) or '없음'}\n"
-        f"[목적지] {country['name']} — 기후: {country['climate']} / 습도: {country['humidity']} / "
-        f"자외선: {country['uv']} / 수질: {country['water']} ({country['water_note']}) / "
-        f"주의할 트러블: {country['trouble']}\n\n"
-        "형식: 제품 카테고리 3~4개를 각각 한 줄로, 필요한 이유를 짧게 붙여서 "
-        "'- '로 시작하는 불릿 리스트로만 답해. 다른 설명은 붙이지 마."
-    )
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    resp = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return "".join(block.text for block in resp.content if block.type == "text").strip()
-
-
-@st.cache_data(show_spinner=False, ttl=86400)
-def _cached_ai_cosmetic_recommendation_scan(
-    hydration, redness, pore_visibility, texture_evenness, oiliness, prefs_key, country_code
-):
-    country = COUNTRIES[country_code]
-    prompt = (
-        "너는 여행 뷰티 코디네이터야. 아래 여행자의 얼굴 스캔(정면+좌우) 분석 결과와 "
-        "목적지 기후를 보고 챙기면 좋은 화장품을 한국어로 짧게 추천해줘.\n\n"
-        f"[여행자 피부 스캔 결과 (0~100)] 수분감: {hydration} / 붉은기: {redness} / "
-        f"모공 가시성: {pore_visibility} / 결 균일도: {texture_evenness} / 유분감: {oiliness} / "
-        f"선호 화장품 특성: {', '.join(prefs_key) or '없음'}\n"
-        f"[목적지] {country['name']} — 기후: {country['climate']} / 습도: {country['humidity']} / "
-        f"자외선: {country['uv']} / 수질: {country['water']} ({country['water_note']}) / "
-        f"주의할 트러블: {country['trouble']}\n\n"
-        "형식: 제품 카테고리 3~4개를 각각 한 줄로, 필요한 이유를 짧게 붙여서 "
-        "'- '로 시작하는 불릿 리스트로만 답해. 다른 설명은 붙이지 마."
-    )
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-    resp = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    return "".join(block.text for block in resp.content if block.type == "text").strip()
-
-
-def get_ai_cosmetic_recommendation(char, country_code):
-    """AI 추천에 성공하면 텍스트를, 키가 없거나 호출이 실패하면 None을 반환한다
-    (호출부는 None이면 규칙 기반 _quick_skin_tip으로 대체 표시).
-    get_skin_baseline()의 baseline_source에 따라 카메라 스캔 5개 지표 또는
-    자가응답 피부타입/특이사항 중 하나를 입력값으로 써서 다른 추천 로직과
-    같은 판단 기준을 공유한다."""
-    if not ANTHROPIC_API_KEY or anthropic is None:
-        return None
-    baseline = get_skin_baseline(char)
-    prefs_key = tuple(sorted(char.get("cosmetic_prefs") or []))
-    try:
-        if baseline["baseline_source"] == "camera_scan":
-            return _cached_ai_cosmetic_recommendation_scan(
-                baseline["hydration"],
-                baseline["redness"],
-                baseline["pore_visibility"],
-                baseline["texture_evenness"],
-                baseline["oiliness"],
-                prefs_key,
-                country_code,
-            )
-        return _cached_ai_cosmetic_recommendation(
-            baseline["skin_type"],
-            tuple(sorted(baseline["extras"])),
-            prefs_key,
-            country_code,
-        )
-    except Exception:
-        return None
-
-
 def _render_skin_scan_section():
     """피부 맞춤 추천 시트 상단에 붙는 얼굴 스캔 UI. 정면→왼쪽→오른쪽 순서로
     한 장씩 st.camera_input()으로 촬영을 받는다(실시간 프레임 분석/자동 캡처는
@@ -5822,15 +5891,29 @@ def _render_country_sheet_body(kind, country, char, code):
     elif kind == "lipstick":
         _render_skin_scan_section()
         baseline = get_skin_baseline(char)
+        st.caption(f"✈️ {country['name']}로 떠나기 전, 한국에서 챙겨가면 좋은 제품이에요")
         with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
-            rec = get_ai_cosmetic_recommendation(char, code)
-        if rec:
-            st.markdown(rec)
-            st.caption("✨ AI가 피부 baseline과 현지 기후를 분석해 추천했어요")
-        else:
-            st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
-            for t in _quick_skin_tip(char, country):
-                st.write(f"- {t}")
+            travel_prep = get_travel_prep_recommendation(char, code)
+        for p in travel_prep:
+            img_uri = asset_data_uri(p["image"], "image/png")
+            html_block(
+                f"""
+                <div style="display:flex;gap:14px;align-items:center;background:#fff;
+                    border-radius:14px;padding:12px;margin-bottom:8px;
+                    box-shadow:0 2px 8px rgba(0,0,0,.08);">
+                    <img src="{img_uri}" style="width:72px;height:72px;object-fit:contain;
+                        border-radius:10px;background:#faf7f2;flex:0 0 auto;">
+                    <div style="flex:1;min-width:0;">
+                        <div style="font-weight:700;font-size:.95rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
+                        <div style="font-size:.78rem;color:#888;margin:2px 0;">{html.escape(p['texture'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
+                        <div style="font-size:.85rem;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
+                    </div>
+                </div>
+                """
+            )
+            st.link_button(f"🛍️ {p['brand']} {p['name']} 올리브영에서 보기 →", p["url"],
+                            use_container_width=True, key=f"travel_prep_link_{code}_{p['id']}")
+        st.caption("✨ 피부 baseline과 현지 기후를 분석해 골라봤어요")
         if baseline["baseline_source"] == "self_reported":
             st.caption("📝 자가 응답 기반 추천이라 스캔보다 정확도가 낮을 수 있어요")
 
