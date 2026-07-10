@@ -1307,6 +1307,8 @@ if "skin_scan_photos" not in st.session_state:
     st.session_state.skin_scan_photos = {}
 if "skin_scan_widget_key" not in st.session_state:
     st.session_state.skin_scan_widget_key = 0  # camera_input 리마운트(재촬영)용 카운터
+if "skin_scan_analyzing" not in st.session_state:
+    st.session_state.skin_scan_analyzing = False  # 3장 다 찍은 직후 "분석 중" 연출 표시 여부
 if "diagnosis_scan_cam_open" not in st.session_state:
     st.session_state.diagnosis_scan_cam_open = False  # 궁합 진단 얼굴 스캔 단계에서 카메라 위젯 노출 여부
 if "coins" not in st.session_state:
@@ -2045,7 +2047,7 @@ def _passport_dialog_css():
         div[data-testid="stDialog"] .recovery-badge-secondary { background: #123329 !important; }
         div[data-testid="stDialog"] .recovery-day-num { background: #ff6fb8 !important; }
         div[data-testid="stDialog"] .recovery-day-badge { background: #2b2440 !important; }
-        div[data-testid="stDialog"] .recovery-note { background: #20283d !important; }
+        div[data-testid="stDialog"] .recovery-note { background: #3d3315 !important; }
         /* 닫힌 표지: 표지 그림 자체가 버튼 — 다른 글씨/버튼 없이 그림만 크게, 누르면 펼쳐짐.
            이미지는 버튼 자신의 background가 아니라 ::before 가상요소에 얹는다 —
            하트 버튼에서 이미 검증된 방식으로, 버튼 자체의 background/width에 직접
@@ -4620,6 +4622,16 @@ def _render_skin_scan_section():
     한 장씩 st.camera_input()으로 촬영을 받는다(실시간 프레임 분석/자동 캡처는
     Streamlit이 지원하지 않아 매 각도마다 촬영 버튼을 누르는 방식). 스캔은
     선택 사항이라 하지 않아도 온보딩 자가응답 기반 추천은 항상 그대로 동작한다."""
+    if st.session_state.skin_scan_analyzing:
+        with st.spinner("🔍 피부 스캔 분석 중..."):
+            time.sleep(random.uniform(2.0, 3.0))
+            st.session_state.skin_scan = analyze_skin_scan(st.session_state.skin_scan_photos)
+        st.session_state.skin_scan_analyzing = False
+        st.session_state.skin_scan_ui_open = False
+        st.toast("✅ 3장 스캔 완료! 더 정확한 추천으로 갱신했어요")
+        st.rerun()
+        return
+
     if st.session_state.skin_scan:
         st.success("📸 카메라 스캔(정면·좌우) 기반으로 추천을 갱신했어요")
         if st.button("다시 스캔하기", key="skin_scan_retake_all"):
@@ -4668,9 +4680,7 @@ def _render_skin_scan_section():
                 st.session_state.skin_scan_step += 1
                 st.session_state.skin_scan_widget_key += 1
             else:
-                st.session_state.skin_scan = analyze_skin_scan(st.session_state.skin_scan_photos)
-                st.session_state.skin_scan_ui_open = False
-                st.toast("✅ 3장 스캔 완료! 더 정확한 추천으로 갱신했어요")
+                st.session_state.skin_scan_analyzing = True
             st.rerun()
     if st.button("취소", key="skin_scan_cancel_btn"):
         st.session_state.skin_scan_ui_open = False
@@ -5930,8 +5940,8 @@ _RECOVERY_DAY_CARD_CSS = """
 .recovery-product-name { color:#ffd9ec; font-weight:700; margin-top:4px; }
 .recovery-product-meta { color:#9aa1b8; font-size:.82rem; margin:2px 0 6px; }
 .recovery-product-desc { color:#d8dcec; font-size:.92rem; line-height:1.5; }
-.recovery-note { margin-top:10px; background:#20283d; border-left:3px solid #7c8bee;
-    padding:8px 12px; border-radius:8px; color:#cfd4ea; font-size:.85rem; }
+.recovery-note { margin-top:10px; background:#3d3315; border-left:3px solid #f5c344;
+    padding:8px 12px; border-radius:8px; color:#f5c344; font-weight:600; font-size:.85rem; }
 .recovery-context { margin-top:6px; color:#f5c344; font-size:.82rem; }
 </style>
 """
