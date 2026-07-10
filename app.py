@@ -2034,6 +2034,18 @@ def _passport_dialog_css():
         .st-key-tip_input_row input:focus {
             border-color: #ff6fb8 !important; box-shadow: 0 0 0 3px rgba(255,111,184,.25) !important;
         }
+        /* 저장된 "여행 후 복귀 프로그램" 페이지에서 쓰는 우선순위/7일 카드도
+           맨 위 블랭킷 규칙 때문에 배경이 날아가서 다시 살려준다. */
+        div[data-testid="stDialog"] .recovery-rank-card,
+        div[data-testid="stDialog"] .recovery-day-card {
+            background: #131a2b !important;
+        }
+        div[data-testid="stDialog"] .recovery-rank-track { background: #232b40 !important; }
+        div[data-testid="stDialog"] .recovery-badge-primary { background: #3d3315 !important; }
+        div[data-testid="stDialog"] .recovery-badge-secondary { background: #123329 !important; }
+        div[data-testid="stDialog"] .recovery-day-num { background: #ff6fb8 !important; }
+        div[data-testid="stDialog"] .recovery-day-badge { background: #2b2440 !important; }
+        div[data-testid="stDialog"] .recovery-note { background: #20283d !important; }
         /* 닫힌 표지: 표지 그림 자체가 버튼 — 다른 글씨/버튼 없이 그림만 크게, 누르면 펼쳐짐.
            이미지는 버튼 자신의 background가 아니라 ::before 가상요소에 얹는다 —
            하트 버튼에서 이미 검증된 방식으로, 버튼 자체의 background/width에 직접
@@ -2111,10 +2123,11 @@ def _beauty_passport_dialog():
                     <div class="p-section-title">🏠 여행 후 복귀 프로그램</div>
                     <div class="tip-entry">{html.escape(entry['trip_label'])}</div>
                     <div class="tip-entry" style="opacity:.65;">저장일 · {html.escape(entry['saved_at'])}</div>
+                    <div class="p-section-title">우선순위</div>
+                    {_recovery_ranking_card_html(entry['ranking'])}
                 </div>
                 """
             )
-            html_block(_recovery_ranking_card_html(entry["ranking"]))
         with right_page:
             if just_opened:
                 html_block('<style>.st-key-page_right_card{animation: passport-reveal .4s ease both;}</style>')
@@ -5897,7 +5910,7 @@ def _recovery_ranking_card_html(ranking):
         <div class="recovery-rank-row">
             <div class="recovery-rank-head">{badge_html}<span class="recovery-rank-name">{html.escape(r['issue'])}</span>
                 <span class="recovery-rank-score">{r['score']}점 (빈도{r['frequency']}×심각도{r['severity']})</span></div>
-            <div class="recovery-rank-track"><div class="recovery-rank-fill" style="width:{pct}%;background:{bar_color};"></div></div>
+            <div class="recovery-rank-track"><div class="recovery-rank-fill" style="width:{pct}%;background:{bar_color} !important;"></div></div>
         </div>"""
     return f'{_RECOVERY_RANK_CARD_CSS}<div class="recovery-rank-card">{rows_html}</div>'
 
