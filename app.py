@@ -1047,63 +1047,119 @@ AFTERCARE_ADVICE = {
 # 한다 — 이름/브랜드/성분/효능을 절대 새로 지어내지 않는다. 각 제품의
 # key_ingredients/description은 화장품법상 허용되는 범위의 표현만 쓴다
 # ("완화를 도와줄 수 있어요" 류) — "치료/제거/재생" 같은 의약품 오인 표현 금지.
-# 14개는 참고 프로토타입에 있던 것을 그대로 옮기고, 설문 문항이 요구하는데
-# 기존 14개로는 커버가 안 되는 두 가지(피부결/각질 탄력, AHA·BHA·LHA·PHA
-# 복합 필링)를 새로 추가했다(p15, p16).
+# 실제 올리브영 판매 제품(코스맥스 제조, oliveyoung_skincare_cosmax_images.csv
+# 기준, 26.7.10)으로 교체 — brand/image/url/price는 모두 그 자료에서 그대로
+# 가져왔고, texture/target_concern/key_ingredients는 제품명에 명시된 포뮬러
+# 이름을 근거로만 태깅했다(없는 효능 지어내지 않음). 카탈로그에 눈가 전용
+# 제품(다크서클)이 없어서 "다크서클" concern은 매칭되는 제품이 없을 수 있다.
 # ----------------------------------------------------------------------
 RECOVERY_PRODUCT_CATALOG = [
-    {"id": "p1", "name": "세라마이드 배리어 크림", "texture": "고밀도 크림",
-     "target_concern": ["피로/장벽", "건조"], "key_ingredients": ["세라마이드", "판테놀"],
-     "description": "손상되기 쉬운 피부 장벽을 채워주고 수분을 오래 붙잡아주는 데 도움을 줄 수 있는 고밀도 크림이에요."},
-    {"id": "p2", "name": "판테놀 진정 마스크", "texture": "시트 마스크",
-     "target_concern": ["자극/붉음", "피로/장벽"], "key_ingredients": ["판테놀", "병풀추출물"],
-     "description": "붉어지고 예민해진 피부에 수분과 진정감을 더해주는 데 도움을 줄 수 있는 시트 마스크예요."},
-    {"id": "p3", "name": "시카 수딩 앰플", "texture": "저점도 앰플",
-     "target_concern": ["자극/붉음", "트러블"], "key_ingredients": ["센텔라아시아티카(시카)", "마데카소사이드"],
-     "description": "자극받은 피부를 가볍게 가라앉히는 데 도움을 줄 수 있는 저점도 진정 앰플이에요."},
-    {"id": "p4", "name": "히알루론 딥 모이스처 세럼", "texture": "수분 세럼",
-     "target_concern": ["건조", "피로/장벽"], "key_ingredients": ["히알루론산", "베타글루칸"],
-     "description": "여러 분자량의 히알루론산이 결을 촉촉하게 채워주는 데 도움을 줄 수 있는 수분 세럼이에요."},
-    {"id": "p5", "name": "저자극 약산성 클렌저", "texture": "클렌징 폼",
-     "target_concern": ["자극/붉음", "트러블", "정상 루틴"], "key_ingredients": ["약산성 계면활성제", "판테놀"],
-     "description": "약산성으로 자극을 줄이면서 부드럽게 세정하는 데 도움을 줄 수 있는 클렌저예요."},
-    {"id": "p6", "name": "티트리 스팟 케어 젤", "texture": "스팟 젤",
-     "target_concern": ["트러블"], "key_ingredients": ["티트리오일", "살리실릭애씨드"],
-     "description": "트러블이 신경 쓰이는 부위에 부분적으로 발라 진정에 도움을 줄 수 있는 젤 타입 스팟 케어예요."},
-    {"id": "p7", "name": "나이아신아마이드 톤업 에센스", "texture": "에센스",
+    {"id": "p1", "brand": "브링그린", "name": "티트리 시카 수딩 토너", "texture": "토너",
+     "target_concern": ["자극/붉음", "트러블"], "key_ingredients": ["티트리오일", "시카(센텔라아시아티카)"],
+     "description": "예민하고 트러블이 신경 쓰이는 피부를 가볍게 가라앉히는 데 도움을 줄 수 있는 토너예요.",
+     "price": "27,000", "image": "oy_products/oy01_bringgreen_teatree_cica_toner.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000189181"},
+    {"id": "p2", "brand": "아비브", "name": "어성초 카밍 토너 스킨부스터", "texture": "토너",
+     "target_concern": ["자극/붉음"], "key_ingredients": ["어성초추출물"],
+     "description": "자극받아 예민해진 피부에 수분과 진정감을 더해주는 데 도움을 줄 수 있는 토너예요.",
+     "price": "23,000", "image": "oy_products/oy02_abib_hoja_calming_toner.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000146589"},
+    {"id": "p3", "brand": "파티온", "name": "노스카나인 트러블 클리어 토너", "texture": "토너",
+     "target_concern": ["트러블"], "key_ingredients": ["약산성 포뮬러"],
+     "description": "약산성으로 자극을 줄이면서 트러블이 신경 쓰이는 피부를 정돈하는 데 도움을 줄 수 있는 토너예요.",
+     "price": "23,000", "image": "oy_products/oy03_partion_noscanine_toner.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000182787"},
+    {"id": "p4", "brand": "더랩바이블랑두", "name": "올리고 히알루론산 딥 토너", "texture": "토너",
+     "target_concern": ["건조", "피로/장벽"], "key_ingredients": ["올리고 히알루론산"],
+     "description": "속보습이 필요한 건조한 피부에 수분을 채워주는 데 도움을 줄 수 있는 딥 토너예요.",
+     "price": "37,000", "image": "oy_products/oy04_thelab_oligo_hyaluron_toner.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000207054"},
+    {"id": "p5", "brand": "닥터디퍼런트", "name": "스케일링 토너 (지성용)", "texture": "토너",
+     "target_concern": ["모공", "피부결/각질"], "key_ingredients": ["각질 케어 포뮬러"],
+     "description": "묵은 각질과 모공 속 노폐물을 부드럽게 정돈하는 데 도움을 줄 수 있는 스케일링 토너예요.",
+     "price": "32,000", "image": "oy_products/oy05_drdifferent_scaling_toner.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000217777"},
+    {"id": "p6", "brand": "아누아", "name": "복숭아 나이아신아마이드 에센스 토너", "texture": "토너",
      "target_concern": ["칙칙함/톤", "피부 톤 불균일"], "key_ingredients": ["나이아신아마이드"],
-     "description": "칙칙해진 톤을 환하게 정돈하는 데 도움을 줄 수 있는 에센스예요."},
-    {"id": "p8", "name": "비타민C 브라이트닝 세럼", "texture": "세럼",
+     "description": "칙칙해진 톤을 환하게 정돈하는 데 도움을 줄 수 있는 에센스 토너예요.",
+     "price": "25,000", "image": "oy_products/oy06_anua_peach_niacinamide_toner.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000210050"},
+    {"id": "p7", "brand": "아비브", "name": "글루타치온좀 잡티 토너 스킨부스터", "texture": "토너",
+     "target_concern": ["기미"], "key_ingredients": ["글루타치온"],
+     "description": "또렷해진 잡티가 신경 쓰일 때 톤을 정돈하는 데 도움을 줄 수 있는 토너예요.",
+     "price": "23,000", "image": "oy_products/oy07_abib_glutathione_toner.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000227666"},
+    {"id": "p8", "brand": "메디힐", "name": "마데카소사이드 흔적 리페어 세럼", "texture": "세럼",
+     "target_concern": ["자극/붉음", "피부결/각질"], "key_ingredients": ["마데카소사이드"],
+     "description": "자극받은 흔적이 남은 피부결을 가볍게 가라앉히는 데 도움을 줄 수 있는 세럼이에요.",
+     "price": "36,900", "image": "oy_products/oy08_mediheal_madeca_serum.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000211119"},
+    {"id": "p9", "brand": "메디힐", "name": "비타민씨 브라이트닝 세럼", "texture": "세럼",
      "target_concern": ["칙칙함/톤", "피부 톤 불균일", "기미", "자극 성분 재도입"],
      "key_ingredients": ["비타민C(아스코르빈산)"],
-     "description": "톤 개선에 도움을 줄 수 있는 비타민C 세럼이에요. 자극감이 있을 수 있어 서서히 늘려가며 사용하는 걸 권해요."},
-    {"id": "p9", "name": "약산성 BHA 각질 케어 토너", "texture": "토너",
-     "target_concern": ["모공", "자극 성분 재도입"], "key_ingredients": ["BHA(살리실릭애씨드)"],
-     "description": "묵은 각질과 모공 속 노폐물을 부드럽게 정돈하는 데 도움을 줄 수 있는 약산성 토너예요."},
-    {"id": "p10", "name": "유수분 밸런스 로션", "texture": "로션",
-     "target_concern": ["정상 루틴", "건조"], "key_ingredients": ["스쿠알란", "판테놀"],
-     "description": "가볍게 수분과 유분 밸런스를 맞춰주는 데 도움을 줄 수 있는 데일리 로션이에요."},
-    {"id": "p11", "name": "카페인 다크서클 아이크림", "texture": "아이크림",
-     "target_concern": ["다크서클"], "key_ingredients": ["카페인", "펩타이드"],
-     "description": "눈가를 산뜩하게 케어하는 데 도움을 줄 수 있는 아이크림이에요."},
-    {"id": "p12", "name": "저분자 콜라겐 리커버리 크림", "texture": "크림",
-     "target_concern": ["피로/장벽", "정상 루틴"], "key_ingredients": ["저분자 콜라겐", "아데노신"],
-     "description": "지친 피부에 탄력과 활력을 더해주는 데 도움을 줄 수 있는 리커버리 크림이에요."},
-    {"id": "p13", "name": "무기자차 저자극 선크림", "texture": "선크림",
-     "target_concern": ["정상 루틴", "자극/붉음"], "key_ingredients": ["징크옥사이드", "티타늄디옥사이드"],
-     "description": "예민해진 피부도 부담 없이 쓸 수 있는 무기자차 선크림이에요."},
-    {"id": "p14", "name": "진정 수분 미스트", "texture": "미스트",
-     "target_concern": ["피로/장벽", "건조", "자극/붉음", "기미", "칙칙함/톤"],
-     "key_ingredients": ["판테놀", "알로에베라추출물"],
-     "description": "언제든 가볍게 뿌려 수분과 진정감을 더하는 데 도움을 줄 수 있는 미스트예요."},
-    {"id": "p15", "name": "아하바하라하파하 각질 필링 패드", "texture": "필링 패드",
-     "target_concern": ["피부결/각질", "모공", "자극 성분 재도입"],
-     "key_ingredients": ["AHA(글라이콜릭애씨드)", "BHA(살리실릭애씨드)", "LHA(캡릴로일살리실릭애씨드)", "PHA(글루코노락톤)"],
-     "description": "AHA·BHA·LHA·PHA 복합 각질 케어 성분이 담긴 필링 패드로, 묵은 각질을 부드럽게 정돈하는 데 도움을 줄 수 있어요. "
-                    "자극감이 있을 수 있으니 저녁에 소량부터 시작하는 걸 권해요."},
-    {"id": "p16", "name": "리페어 탄력 앰플", "texture": "앰플",
-     "target_concern": ["피부결/각질", "피로/장벽"], "key_ingredients": ["아데노신", "펩타이드"],
-     "description": "결이 거칠어졌을 때 탄력과 매끈함을 더하는 데 도움을 줄 수 있는 앰플이에요."},
+     "description": "톤 개선에 도움을 줄 수 있는 비타민C 세럼이에요. 자극감이 있을 수 있어 서서히 늘려가며 사용하는 걸 권해요.",
+     "price": "22,000", "image": "oy_products/oy09_mediheal_vitaminc_serum.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000192699"},
+    {"id": "p10", "brand": "파티온", "name": "노스카나인 트러블 세럼", "texture": "세럼",
+     "target_concern": ["트러블"], "key_ingredients": ["약산성 포뮬러"],
+     "description": "트러블이 신경 쓰이는 부위를 진정시키는 데 도움을 줄 수 있는 세럼이에요.",
+     "price": "38,000", "image": "oy_products/oy10_partion_noscanine_serum.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000219717"},
+    {"id": "p11", "brand": "일소", "name": "펩타이드 3엑스 모공톡스 탄력 앰플", "texture": "앰플",
+     "target_concern": ["모공", "피부결/각질"], "key_ingredients": ["펩타이드"],
+     "description": "넓어진 모공과 거칠어진 결을 정돈하는 데 도움을 줄 수 있는 탄력 앰플이에요.",
+     "price": "28,000", "image": "oy_products/oy11_ilso_peptide_pore_ampoule.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000258824"},
+    {"id": "p12", "brand": "퍼셀", "name": "픽셀바이옴 유산균 원액", "texture": "앰플",
+     "target_concern": ["피로/장벽"], "key_ingredients": ["유산균 발효 원액"],
+     "description": "지친 피부 장벽을 채워주는 데 도움을 줄 수 있는 장벽 강화 앰플이에요.",
+     "price": "28,000", "image": "oy_products/oy12_percell_biome_ampoule.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000208860"},
+    {"id": "p13", "brand": "이지듀", "name": "기미잡티앰플", "texture": "앰플",
+     "target_concern": ["기미"], "key_ingredients": [],
+     "description": "기미·잡티가 신경 쓰이는 부위를 집중 케어하는 데 도움을 줄 수 있는 앰플이에요.",
+     "price": "49,000", "image": "oy_products/oy13_easydew_pigment_ampoule.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000188493"},
+    {"id": "p14", "brand": "닥터자르트", "name": "시카페어 인텐시브 수딩 리페어 크림", "texture": "크림",
+     "target_concern": ["자극/붉음", "피로/장벽"], "key_ingredients": ["시카(센텔라아시아티카)"],
+     "description": "자극받아 지친 피부를 강도 높게 진정시키는 데 도움을 줄 수 있는 크림이에요.",
+     "price": "50,000", "image": "oy_products/oy14_drjart_cicapair_cream.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000218592"},
+    {"id": "p15", "brand": "아누아", "name": "피디알엔 히알루론산 100 수분 크림", "texture": "크림",
+     "target_concern": ["건조", "피로/장벽"], "key_ingredients": ["PDRN", "히알루론산"],
+     "description": "건조하고 지친 피부에 수분과 광채를 더해주는 데 도움을 줄 수 있는 크림이에요.",
+     "price": "32,000", "image": "oy_products/oy15_anua_pdrn_hyaluron_cream.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000222703"},
+    {"id": "p16", "brand": "파티온", "name": "노스카나인 트러블 크림", "texture": "크림",
+     "target_concern": ["트러블"], "key_ingredients": ["약산성 포뮬러"],
+     "description": "트러블이 신경 쓰이는 피부 장벽을 겹겹이 채워주는 데 도움을 줄 수 있는 크림이에요.",
+     "price": "32,000", "image": "oy_products/oy16_partion_noscanine_cream.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000219716"},
+    {"id": "p17", "brand": "바이오힐보", "name": "판테셀 리페어시카 크림", "texture": "크림",
+     "target_concern": ["자극/붉음", "피로/장벽"], "key_ingredients": ["판테놀", "시카(센텔라아시아티카)"],
+     "description": "예민하고 지친 피부를 진정시키며 채워주는 데 도움을 줄 수 있는 크림이에요.",
+     "price": "32,000", "image": "oy_products/oy17_biohealboh_pantheal_cica_cream.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000189248"},
+    {"id": "p18", "brand": "구달", "name": "어성초 히알루론 수딩 크림", "texture": "크림",
+     "target_concern": ["자극/붉음", "건조"], "key_ingredients": ["어성초추출물", "히알루론산"],
+     "description": "예민하고 건조해진 피부를 진정시키며 수분을 채워주는 데 도움을 줄 수 있는 크림이에요.",
+     "price": "30,000", "image": "oy_products/oy18_goodal_hoja_hyaluron_cream.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000257128"},
+    {"id": "p19", "brand": "라운드랩", "name": "1025 독도 로션", "texture": "로션",
+     "target_concern": ["정상 루틴", "건조"], "key_ingredients": ["자작나무 수액"],
+     "description": "저자극으로 매일 가볍게 수분을 채워주는 데 도움을 줄 수 있는 데일리 로션이에요.",
+     "price": "39,000", "image": "oy_products/oy19_roundlab_dokdo_lotion.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000161508"},
+    {"id": "p20", "brand": "아누아", "name": "어성초 77 히알루론산 수분 진정 로션", "texture": "로션",
+     "target_concern": ["건조", "자극/붉음", "정상 루틴"], "key_ingredients": ["어성초추출물", "히알루론산"],
+     "description": "건조하고 예민한 피부에 수분과 진정감을 함께 더해주는 데 도움을 줄 수 있는 로션이에요.",
+     "price": "28,000", "image": "oy_products/oy20_anua_hoja_hyaluron_lotion.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000248426"},
+    {"id": "p21", "brand": "닥터자르트", "name": "세라마이딘 스킨 베리어 모이스처라이징 밀키 로션", "texture": "로션",
+     "target_concern": ["피로/장벽", "정상 루틴"], "key_ingredients": ["세라마이드"],
+     "description": "지친 피부 장벽을 채워 72시간 보습감을 유지하는 데 도움을 줄 수 있는 로션이에요.",
+     "price": "50,000", "image": "oy_products/oy21_drjart_ceramidin_lotion.png",
+     "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000198090"},
 ]
 
 # 우선순위 규칙 — 숫자가 작을수록 먼저 케어(급함). 나중에 조정하고 싶으면
@@ -6077,7 +6133,11 @@ _RECOVERY_DAY_CARD_CSS = """
 .recovery-day-label { color:#eef1fb; font-weight:700; font-size:1.35rem; }
 .recovery-day-badge { margin-left:auto; background:#2b2440; color:#c9a6ff; font-size:.95rem;
     padding:3px 11px; border-radius:6px; }
-.recovery-product-name { color:#ffd9ec; font-weight:700; margin-top:6px; font-size:1.15rem; }
+.recovery-product-row { display:flex; gap:14px; align-items:center; margin-top:6px; }
+.recovery-product-img { width:72px; height:72px; object-fit:contain; border-radius:10px;
+    background:#fff; flex:0 0 auto; }
+.recovery-product-body { flex:1; min-width:0; }
+.recovery-product-name { color:#ffd9ec; font-weight:700; font-size:1.15rem; }
 .recovery-product-meta { color:#9aa1b8; font-size:1rem; margin:3px 0 8px; }
 .recovery-product-desc { color:#d8dcec; font-size:1.1rem; line-height:1.6; }
 .recovery-note { margin-top:12px; background:#3d3315; border-left:3px solid #f5c344;
@@ -6094,10 +6154,17 @@ def _recovery_day_card_html(d):
     product_html = ""
     if d["product"]:
         p = d["product"]
+        img_uri = asset_data_uri(p["image"], "image/png")
+        meta_bits = [p["texture"]] + list(p["key_ingredients"])
         product_html = f"""
-        <div class="recovery-product-name">🧴 {html.escape(p['name'])} · {html.escape(p['texture'])}</div>
-        <div class="recovery-product-meta">{' · '.join(html.escape(k) for k in p['key_ingredients'])}</div>
-        <div class="recovery-product-desc">{html.escape(p['description'])}</div>
+        <div class="recovery-product-row">
+            <img class="recovery-product-img" src="{img_uri}">
+            <div class="recovery-product-body">
+                <div class="recovery-product-name">🧴 {html.escape(p['brand'])} · {html.escape(p['name'])}</div>
+                <div class="recovery-product-meta">{' · '.join(html.escape(k) for k in meta_bits)}</div>
+                <div class="recovery-product-desc">{html.escape(p['description'])}</div>
+            </div>
+        </div>
         """
     note_html = f'<div class="recovery-note">💬 {html.escape(d["note"])}</div>' if d.get("note") else ""
     context_html = (
@@ -6212,6 +6279,10 @@ def _render_recovery_result():
         html_block(_RECOVERY_DAY_CARD_CSS)
         for d in program["days"]:
             html_block(_recovery_day_card_html(d))
+            if d["product"]:
+                p = d["product"]
+                st.link_button(f"🛍️ {p['brand']} {p['name']} 올리브영에서 보기 →", p["url"],
+                                use_container_width=True, key=f"recov_link_{d['day']}_{p['id']}")
             if d["day"] == 7 and not d["product"]:
                 st.checkbox("붉은기가 남아있나요?", key="recov_check_1")
                 st.checkbox("당김·건조함이 남아있나요?", key="recov_check_2")
