@@ -5698,15 +5698,20 @@ def _render_country_map_stage(country, char, code):
            (뒤에 깔린 쪽은 삐져나온 부분만 클릭돼 앞으로 나온다). */
         .st-key-note_bring_info {{
             position: absolute !important; top: 4%; right: 2%; width: min(460px, 62%) !important;
-            height: 46% !important; z-index: {info_z + 1} !important;
+            height: 90% !important; z-index: {info_z + 1} !important;
         }}
         .st-key-note_bring_warning {{
             position: absolute !important; top: 30%; right: 20%; width: min(480px, 66%) !important;
-            height: 46% !important; z-index: {warn_z + 1} !important;
+            height: 90% !important; z-index: {warn_z + 1} !important;
         }}
         .st-key-note_bring_info button, .st-key-note_bring_warning button {{
-            width: 100% !important; height: 100% !important; background: transparent !important;
-            border: none !important; box-shadow: none !important; cursor: pointer !important;
+            width: 100% !important; height: 100% !important; min-width: 0 !important;
+            min-height: 0 !important; margin: 0 !important; padding: 0 !important;
+            background: transparent !important; border: none !important; box-shadow: none !important;
+            cursor: pointer !important;
+        }}
+        .st-key-note_bring_info > div, .st-key-note_bring_warning > div {{
+            width: 100% !important; height: 100% !important;
         }}
         .country-warning-note::before {{
             content: '⚠️'; position: absolute; top: -20px; right: 24px; font-size: 2rem;
