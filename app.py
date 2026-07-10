@@ -2307,6 +2307,12 @@ def _beauty_passport_dialog():
 
     # 펼친 여권 — 왼쪽/오른쪽 페이지, 책처럼 나란히. 기본 페이지(신원+스탬프+꿀팁
     # 등)는 그대로 두고, 저장된 복귀 프로그램은 뒤에 별도 페이지로 넘겨서 본다.
+    # 오른쪽 페이지 팝인 애니메이션 스타일은 컬럼을 나누기 전에 한 번만 찍어둔다 —
+    # 컬럼 안(right_page)에서 조건부로 찍으면 별도의 stElementContainer 형제가
+    # 생겨서 그만큼 flex-grow 공간을 나눠 먹어가는 바람에 카드 높이가 짧아지는
+    # 버그가 있었다(양쪽 페이지 높이 안 맞던 문제의 원인 중 하나).
+    if just_opened:
+        html_block('<style>.st-key-page_right_card{animation: passport-reveal .4s ease both;}</style>')
     left_page, right_page = st.columns(2, gap=None)
 
     if current > 0:
@@ -2324,8 +2330,6 @@ def _beauty_passport_dialog():
                 """
             )
         with right_page:
-            if just_opened:
-                html_block('<style>.st-key-page_right_card{animation: passport-reveal .4s ease both;}</style>')
             with st.container(key="page_right_card"):
                 html_block('<div class="p-section-title">7일 여정표</div>')
                 html_block(_RECOVERY_DAY_CARD_CSS)
@@ -2356,8 +2360,6 @@ def _beauty_passport_dialog():
             # 오른쪽은 꿀팁마다 ✕ 삭제 버튼이 있어야 해서, 문자열 HTML 한 덩어리가
             # 아니라 실제 st.container(위/아래 왼쪽 페이지와 똑같은 여권 박스로
             # CSS에서 스타일링)로 만들고 그 안에 진짜 버튼들을 넣는다.
-            if just_opened:
-                html_block('<style>.st-key-page_right_card{animation: passport-reveal .4s ease both;}</style>')
             with st.container(key="page_right_card"):
                 html_block(
                     f"""
@@ -5964,7 +5966,7 @@ def _render_recovery_pick_trip():
         )
         st.session_state.recovery_trip_code = saved[labels.index(choice)]["code"]
     else:
-        st.info("아직 뷰티 패스포트에 즐겨찾기(⭐)한 여행이 없어요 — 설문 응답만으로 진행할게요.")
+        st.warning("먼저 지도에서 여행지를 ⭐ 즐겨찾기해야 설문을 시작할 수 있어요.")
         st.session_state.recovery_trip_code = None
 
     col1, col2 = st.columns(2)
@@ -5985,7 +5987,10 @@ def _render_recovery_pick_trip():
         "비행 시간(시간)", 0.0, 20.0, st.session_state.recovery_flight_hours, 0.5,
     )
     st.caption("비행시간이 3시간 이상이면 Day 1은 다른 고민보다 피로·장벽 회복을 먼저 배정해요.")
-    if st.button("설문 시작 →", type="primary", use_container_width=True):
+    if st.button(
+        "설문 시작 →", type="primary", use_container_width=True,
+        disabled=not st.session_state.recovery_trip_code,
+    ):
         st.session_state.recovery_answers = {}
         st.session_state.recovery_stage = "survey"
         st.rerun()
