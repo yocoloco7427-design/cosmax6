@@ -670,17 +670,58 @@ def _cached_travel_prep_recommendation(skin_type, extras_key, country_code):
     return "".join(block.text for block in resp.content if block.type == "text").strip()
 
 
-def _travel_prep_concern_tags(skin_type, extras, country):
+@st.cache_data(show_spinner=False, ttl=86400)
+def _cached_travel_prep_recommendation_scan(
+    hydration, redness, pore_visibility, texture_evenness, oiliness, country_code
+):
+    country = COUNTRIES[country_code]
+    prompt = (
+        "너는 여행 뷰티 코디네이터야. 아래는 한국 올리브영에서 실제로 판매 중인 스킨케어 "
+        "제품 목록이야. 여행자가 이 목적지로 떠나기 전에 한국에서 미리 챙겨가면 좋은 제품을 "
+        "이 목록 '안에서만' 정확히 3개 골라줘. 목록에 없는 제품/브랜드/성분을 새로 지어내면 "
+        "안 돼.\n\n"
+        f"[제품 목록]\n{_travel_prep_catalog_prompt_block()}\n\n"
+        f"[여행자 얼굴 스캔 결과 (0~100)] 수분감: {hydration} / 붉은기: {redness} / "
+        f"모공 가시성: {pore_visibility} / 결 균일도: {texture_evenness} / 유분감: {oiliness}\n"
+        f"[목적지 기후] {country['name']} — {country['climate']} / 자외선: {country['uv']} / "
+        f"습도: {country['humidity']} / 수질: {country['water']} ({country['water_note']})\n\n"
+        '다른 설명 없이 순수 JSON 배열만 출력해: [{"id":"p1","reason":"추천 이유 한 문장"}, ...] '
+        "reason은 한국어로, 왜 이 스캔 결과와 이 목적지 여행 전에 챙겨가면 좋은지 한 문장으로 써."
+    )
+    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return "".join(block.text for block in resp.content if block.type == "text").strip()
+
+
+def _travel_prep_concern_tags(baseline, country):
     """여행자 피부 프로필 + 목적지 기후 특성을 RECOVERY_PRODUCT_CATALOG의
-    target_concern 태그로 변환한다(규칙 기반 대체 로직용)."""
+    target_concern 태그로 변환한다(규칙 기반 대체 로직용). 카메라 스캔을 했으면
+    자가응답 피부타입/특이사항 대신 스캔 5개 지표를 우선한다 — 스캔 전후로
+    추천 제품이 달라지게 하는 핵심 분기."""
     tags = []
-    for e in extras:
-        if e == "민감성":
+    if baseline["baseline_source"] == "camera_scan":
+        if baseline["hydration"] <= 40:
+            tags.append("건조")
+        if baseline["redness"] >= 60:
             tags.append("자극/붉음")
-        if e == "트러블":
-            tags.append("트러블")
-    if skin_type == "건성":
-        tags.append("건조")
+        if baseline["oiliness"] >= 60:
+            tags.append("모공")
+        if baseline["pore_visibility"] >= 60 or baseline["texture_evenness"] <= 40:
+            tags.append("피부결/각질")
+    else:
+        skin_type = baseline.get("skin_type")
+        extras = baseline.get("extras") or []
+        for e in extras:
+            if e == "민감성":
+                tags.append("자극/붉음")
+            if e == "트러블":
+                tags.append("트러블")
+        if skin_type == "건성":
+            tags.append("건조")
     if "강함" in (country.get("uv") or ""):
         tags.append("칙칙함/톤")
     if (country.get("humidity") or "").startswith("평균 2") or "매우 건조" in (country.get("humidity") or ""):
@@ -694,8 +735,9 @@ def _travel_prep_concern_tags(skin_type, extras, country):
     return tags
 
 
-def _rule_based_travel_prep_picks(skin_type, extras, country):
-    tags = _travel_prep_concern_tags(skin_type, extras, country)
+def _rule_based_travel_prep_picks(baseline, country):
+    tags = _travel_prep_concern_tags(baseline, country)
+    reason_prefix = "스캔 결과에 맞춰" if baseline["baseline_source"] == "camera_scan" else "피부 프로필에 맞춰"
 
     def score(p):
         return sum(1 for t in tags if t in p["target_concern"])
@@ -705,7 +747,7 @@ def _rule_based_travel_prep_picks(skin_type, extras, country):
     for p in ranked:
         if p["texture"] in seen_textures:
             continue
-        picks.append({**p, "reason": f"{country['name']} 여행 전 챙겨가면 좋은 {p['texture']}로 골라봤어요."})
+        picks.append({**p, "reason": f"{reason_prefix} {country['name']} 여행 전 챙겨가면 좋은 {p['texture']}로 골라봤어요."})
         seen_textures.add(p["texture"])
         if len(picks) == 3:
             break
@@ -715,16 +757,23 @@ def _rule_based_travel_prep_picks(skin_type, extras, country):
 def get_travel_prep_recommendation(char, country_code):
     """한국 올리브영 제품(RECOVERY_PRODUCT_CATALOG) 중, 이 나라로 떠나기 전에
     챙겨가면 좋은 제품을 추천한다 — 큐레이션 카탈로그 유무와 무관하게 모든
-    국가에서 동작한다."""
+    국가에서 동작한다. 카메라 스캔을 했으면 자가응답 대신 스캔 5개 지표를
+    입력값으로 써서 스캔 전후로 추천 결과가 달라진다."""
     baseline = get_skin_baseline(char)
-    skin_type = baseline.get("skin_type") or SKIN_TYPES[0]
-    extras = baseline.get("extras") or []
     country = COUNTRIES[country_code]
     by_id = {p["id"]: p for p in RECOVERY_PRODUCT_CATALOG}
 
     if ANTHROPIC_API_KEY and anthropic is not None:
         try:
-            raw = _cached_travel_prep_recommendation(skin_type, tuple(sorted(extras)), country_code)
+            if baseline["baseline_source"] == "camera_scan":
+                raw = _cached_travel_prep_recommendation_scan(
+                    baseline["hydration"], baseline["redness"], baseline["pore_visibility"],
+                    baseline["texture_evenness"], baseline["oiliness"], country_code,
+                )
+            else:
+                skin_type = baseline.get("skin_type") or SKIN_TYPES[0]
+                extras = baseline.get("extras") or []
+                raw = _cached_travel_prep_recommendation(skin_type, tuple(sorted(extras)), country_code)
             data = json.loads(raw)
             picks = [
                 {**by_id[item["id"]], "reason": item.get("reason", "")}
@@ -735,7 +784,7 @@ def get_travel_prep_recommendation(char, country_code):
         except Exception:
             pass
 
-    return _rule_based_travel_prep_picks(skin_type, extras, country)
+    return _rule_based_travel_prep_picks(baseline, country)
 
 
 # ----------------------------------------------------------------------
@@ -906,13 +955,6 @@ def get_air_quality(feed_path):
         }
     except (requests.RequestException, ValueError, KeyError):
         return None
-
-
-def _ow_air_quality_label(aqi_1to5):
-    """OpenWeatherMap 대기질 지수(1~5, WAQI의 0~500 스케일과는 다름)를 한글 등급으로 변환."""
-    return {
-        1: "🟢 좋음", 2: "🟡 보통", 3: "🟠 민감군 주의", 4: "🔴 나쁨", 5: "🟣 매우 나쁨",
-    }.get(aqi_1to5, "정보 없음")
 
 
 @st.cache_data(show_spinner=False, ttl=1800)
@@ -2915,7 +2957,7 @@ CLOUD_LAYOUT = [
 def inject_theme():
     style = """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&family=Gamja+Flower&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Jua&family=Gaegu:wght@700&family=Gamja+Flower&family=Share+Tech+Mono&display=swap');
 
     /* 파스텔 하늘 그라데이션 (하늘색 → 라벤더 → 핑크) */
     .stApp {
@@ -5334,53 +5376,88 @@ def _country_zoom_crop_uri(country_code):
     return "data:image/png;base64," + base64.b64encode(buf.getvalue()).decode()
 
 
+def _render_live_stats_clock(live_weather, live_pollution):
+    """국가/도시 이름 바로 아래에 놓는 실시간 기온·습도·자외선·미세먼지 패널.
+    사용자가 준 참고 사진(나무 프레임 안에 크림색으로 빛나는 7세그먼트 LED 디지털
+    시계) 느낌을 내려고, 어두운 창 안에 따뜻한 크림색 글로우 숫자를 넣고 나무
+    톤 프레임으로 감쌌다. 값을 못 가져온 자리는 "--"로 비워둔다."""
+    temp_val = f'{live_weather["temp"]:.0f}°' if live_weather and live_weather.get("temp") is not None else "--"
+    humidity_val = f'{live_weather["humidity"]}%' if live_weather and live_weather.get("humidity") is not None else "--"
+    uv_val = f'{live_weather["uvi"]:.0f}' if live_weather and live_weather.get("uvi") is not None else "--"
+    pm_val = (
+        f'{live_pollution["pm2_5"]:.0f}' if live_pollution and live_pollution.get("pm2_5") is not None else "--"
+    )
+
+    def _cell(label, value):
+        return (
+            f'<div class="live-digit-cell"><div class="live-digit-value">{html.escape(str(value))}</div>'
+            f'<div class="live-digit-label">{html.escape(label)}</div></div>'
+        )
+
+    cells = _cell("TEMP", temp_val) + _cell("HUMID", humidity_val) + _cell("UV", uv_val) + _cell("PM2.5", pm_val)
+
+    with st.container(key="live_clock_wrap"):
+        html_block(
+            f"""
+            <style>
+            .live-clock-frame {{
+                display: inline-flex; gap: 10px; background: linear-gradient(160deg,#d8bd8e,#a9814f);
+                border-radius: 14px; padding: 12px 16px; margin: -6px 0 8px;
+                box-shadow: 0 8px 18px rgba(90,60,20,.35), inset 0 2px 0 rgba(255,255,255,.3);
+                border: 3px solid #8a6a3f;
+            }}
+            .live-digit-cell {{
+                background: #26221e; border-radius: 8px; padding: 8px 14px 6px; text-align: center;
+                box-shadow: inset 0 2px 6px rgba(0,0,0,.6); min-width: 62px;
+            }}
+            .live-digit-value {{
+                font-family: 'Share Tech Mono', monospace; font-size: 1.6rem; font-weight: 700;
+                color: #f5f1e0; text-shadow: 0 0 6px rgba(245,241,224,.85), 0 0 16px rgba(245,241,224,.5);
+                letter-spacing: 1px; line-height: 1.1;
+            }}
+            .live-digit-label {{
+                font-family: 'Jua', sans-serif; font-size: .58rem; color: #cbb98a;
+                margin-top: 2px; letter-spacing: .5px;
+            }}
+            /* 새로고침 버튼 — 시계 패널 바로 아래에 작은 원형 버튼으로 붙인다
+               (절대좌표로 모서리에 겹치려던 시도는 Streamlit이 감싸는 컨테이너를
+               항상 전체 너비로 렌더링해서 시계 박스와 멀리 떨어져 보이는 버그가
+               있었다). */
+            .st-key-refresh_live_weather button {{
+                width: 34px !important; height: 34px !important; min-width: 0 !important;
+                border-radius: 50% !important; padding: 0 !important; font-size: 1rem !important;
+                background: #fff !important; border: 2px solid #ff9fd8 !important;
+                box-shadow: 0 3px 8px rgba(120,60,110,.28) !important; color: #ff6fb8 !important;
+                transition: transform .2s ease; margin-bottom: 10px;
+            }}
+            .st-key-refresh_live_weather button:hover {{ transform: rotate(90deg) scale(1.08); }}
+            .st-key-refresh_live_weather button:active {{ transform: rotate(180deg) scale(.92); }}
+            </style>
+            <div class="live-clock-frame">{cells}</div>
+            """
+        )
+        if st.button("🔄", key="refresh_live_weather", help="실시간 정보 새로고침"):
+            get_live_weather.clear()
+            get_live_air_pollution.clear()
+            st.rerun()
+
+
 def _render_country_map_stage(country, char, code):
     """1단계 — 그 나라만 확대된 지도 + 옆에 붙은 포스트잇(환경/피부타입 추천/유의사항).
     지도 자체가 곧 버튼(다른 화면에서 이미 검증된 '그림=버튼' 방식) — 탭하면 2단계로."""
     st.title(f"{country['flag']} {country['name']}")
 
+    # 국가/도시 이름 바로 아래에 복고풍 디지털시계 느낌의 패널로 실시간 기온·습도·
+    # 자외선·미세먼지를 보여준다(참고 사진의 나무 프레임 LED 시계 스타일). 포스트잇
+    # 팝업 쪽은 원래 문구 그대로 두고 건드리지 않는다.
+    live_weather = get_live_weather(country.get("geo"))
+    live_pollution = get_live_air_pollution(country.get("geo"))
+    _render_live_stats_clock(live_weather, live_pollution)
+
     zoom_uri = _country_zoom_crop_uri(code)
     tips = _quick_skin_tip(char, country)
     risk = get_skin_risk_note(code, country)
     risk_alert = risk["linked_to"] == "aqi" and _is_aqi_severe(country)
-
-    # OpenWeatherMap에서 실시간 기온/습도/자외선/미세먼지를 가져와 포스트잇에
-    # 얹는다 — 값을 못 가져오면(키 없음/타임아웃 등) 원래 있던 평소 문구만 보여준다.
-    live_weather = get_live_weather(country.get("geo"))
-    live_pollution = get_live_air_pollution(country.get("geo"))
-
-    if live_weather and live_weather.get("temp") is not None:
-        temp_line = (
-            f'현재 {live_weather["temp"]:.0f}°C <span class="note-live-tag">실시간</span> '
-            f'· 평소 {html.escape(country["temp_diff"])}'
-        )
-    else:
-        temp_line = html.escape(country["temp_diff"])
-
-    if live_weather and live_weather.get("humidity") is not None:
-        humidity_line = (
-            f'현재 {live_weather["humidity"]}% <span class="note-live-tag">실시간</span> '
-            f'· 평소 {html.escape(country["humidity"])}'
-        )
-    else:
-        humidity_line = html.escape(country["humidity"])
-
-    if live_weather and live_weather.get("uvi") is not None:
-        uv_line = (
-            f'현재 UV {live_weather["uvi"]:.0f} <span class="note-live-tag">실시간</span> '
-            f'· 평소 {html.escape(country["uv"])}'
-        )
-    else:
-        uv_line = html.escape(country["uv"])
-
-    dust_line = None
-    if live_pollution and live_pollution.get("pm2_5") is not None:
-        dust_label = _ow_air_quality_label(live_pollution.get("aqi"))
-        dust_line = (
-            f'{dust_label} · PM2.5 {live_pollution["pm2_5"]:.0f}㎍/㎥ '
-            f'· PM10 {(live_pollution.get("pm10") or 0):.0f}㎍/㎥ '
-            f'<span class="note-live-tag">실시간</span>'
-        )
 
     html_block(
         f"""
@@ -5430,27 +5507,6 @@ def _render_country_map_stage(country, char, code):
             border-radius: 8px; padding: 6px 8px; margin: 0 -8px 4px;
             animation: risk-alert-pulse 1.6s ease-in-out infinite;
         }}
-        .note-live-tag {{
-            display: inline-block; font-size: .7rem; font-weight: 700; color: #fff;
-            background: #ff6fb8; border-radius: 999px; padding: 1px 8px; margin-left: 2px;
-            font-family: 'Jua', sans-serif; vertical-align: middle;
-        }}
-        /* 포스트잇 자체는 pointer-events:none이라(뒤의 지도 버튼을 가리지 않으려고)
-           안에 진짜 버튼을 못 넣는다 — 그래서 포스트잇 바깥에 별도 버튼을 만들어
-           포스트잇 오른쪽 위 모서리에 절대좌표로 겹쳐 놓는다. */
-        .st-key-refresh_live_weather {{
-            position: absolute !important; top: 4%; right: 2%; z-index: 20 !important;
-            transform: translate(42%, -42%);
-        }}
-        .st-key-refresh_live_weather button {{
-            width: 40px !important; height: 40px !important; min-width: 0 !important;
-            border-radius: 50% !important; padding: 0 !important; font-size: 1.15rem !important;
-            background: #fff !important; border: 2px solid #ff9fd8 !important;
-            box-shadow: 0 3px 8px rgba(120,60,110,.28) !important; color: #ff6fb8 !important;
-            transition: transform .2s ease;
-        }}
-        .st-key-refresh_live_weather button:hover {{ transform: rotate(90deg) scale(1.08); }}
-        .st-key-refresh_live_weather button:active {{ transform: rotate(180deg) scale(.92); }}
         @keyframes risk-alert-pulse {{
             0%, 100% {{ background: rgba(230,60,60,.14); }}
             50% {{ background: rgba(230,60,60,.28); }}
@@ -5523,11 +5579,10 @@ def _render_country_map_stage(country, char, code):
             <div class="country-sticky-note">
                 <div class="note-title">{country["flag"]} {country["name"]}</div>
                 <div class="note-section">🌡 환경</div>
-                <div class="note-line">기온 {temp_line}</div>
-                <div class="note-line">습도 {humidity_line}</div>
-                <div class="note-line">자외선 {uv_line}</div>
+                <div class="note-line">기온 {html.escape(country["temp_diff"])}</div>
+                <div class="note-line">습도 {html.escape(country["humidity"])}</div>
+                <div class="note-line">자외선 {html.escape(country["uv"])}</div>
                 <div class="note-line">수질 {html.escape(country["water"])} · {html.escape(country["water_note"])}</div>
-                {f'<div class="note-line">미세먼지 {dust_line}</div>' if dust_line else ''}
                 <div class="note-section">🧴 내 피부에 좋은 것</div>
                 {''.join(f'<div class="note-line">· {html.escape(t)}</div>' for t in tips)}
                 <div class="note-section">⚠ 유의사항</div>
@@ -5535,10 +5590,6 @@ def _render_country_map_stage(country, char, code):
             </div>
             """
         )
-        if st.button("🔄", key="refresh_live_weather", help="실시간 날씨·미세먼지 새로고침"):
-            get_live_weather.clear()
-            get_live_air_pollution.clear()
-            st.rerun()
         if st.button(" ", key="open_country_potion", help="포션을 눌러 피부 궁합 확인하기"):
             st.session_state.diagnosis_country = code
             st.session_state.diagnosis_stage = "scan"
@@ -5821,12 +5872,22 @@ def _bottom_sheet_css():
         /* 큐레이션 제품의 "~에서 보기" 링크 버튼 — 시트 안의 다른 기본 버튼
            (예: 피부 스캔 버튼, .stButton > button[kind="secondary"])과 같은
            흰 배경 + 핑크 테두리 필 스타일로 통일한다 */
+        .st-key-sheet_body [class*="st-key-travel_prep_link_"],
+        .st-key-sheet_body [class*="st-key-curated_link_"] {
+            width: auto !important; display: block !important; margin: 2px 0 10px !important;
+        }
+        .st-key-sheet_body [class*="st-key-travel_prep_link_"] [data-testid="stLinkButton"],
+        .st-key-sheet_body [class*="st-key-curated_link_"] [data-testid="stLinkButton"] {
+            width: auto !important;
+        }
         .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"],
         .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"] {
             font-family: 'Jua', sans-serif;
+            width: auto !important; min-width: 0 !important;
+            padding: .25rem .8rem !important;
             background: #ffffff !important;
             border: 2px solid #ffd3ea !important;
-            border-radius: 14px !important;
+            border-radius: 999px !important;
             box-shadow: 0 3px 0 rgba(255,159,216,.35), 0 4px 10px rgba(120,60,110,.1) !important;
             transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
         }
@@ -5834,6 +5895,7 @@ def _bottom_sheet_css():
         .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"] p {
             color: #6a4a6a !important;
             font-weight: 700 !important;
+            font-size: .85rem !important;
         }
         .st-key-sheet_body [class*="st-key-travel_prep_link_"] a[data-testid^="stBaseLinkButton"]:hover,
         .st-key-sheet_body [class*="st-key-curated_link_"] a[data-testid^="stBaseLinkButton"]:hover {
@@ -6094,8 +6156,7 @@ def _render_country_sheet_body(kind, country, char, code):
                 </div>
                 """
             )
-            st.link_button(f"🛍️ {p['brand']} {p['name']} 올리브영에서 보기 →", p["url"],
-                            use_container_width=True, key=f"travel_prep_link_{code}_{p['id']}")
+            st.link_button("올리브영에서 보기 →", p["url"], key=f"travel_prep_link_{code}_{p['id']}")
         st.caption("✨ 피부 baseline과 현지 기후를 분석해 골라봤어요")
         if baseline["baseline_source"] == "self_reported":
             st.caption("📝 자가 응답 기반 추천이라 스캔보다 정확도가 낮을 수 있어요")
@@ -6158,8 +6219,7 @@ def _render_country_sheet_body(kind, country, char, code):
                     """
                 )
                 if p.get("url"):
-                    st.link_button(f"🏪 {p['brand']} {p['name']} 여기서 사러 가기 →", p["url"],
-                                    use_container_width=True, key=f"curated_link_{p['id']}")
+                    st.link_button("사러 가기 →", p["url"], key=f"curated_link_{p['id']}")
                 elif p.get("store_note"):
                     st.caption(f"🏪 이 제품은 여기서: {p['store_note']}")
 
