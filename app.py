@@ -1006,6 +1006,9 @@ def get_live_weather(geo):
             weather_data = weather_resp.json()
             main = weather_data.get("main")
             if not main:
+                st.session_state["_live_weather_debug"] = (
+                    f"HTTP {weather_resp.status_code} · {weather_data.get('message', weather_data)}"
+                )
                 return None
             result = {
                 "temp": main.get("temp"),
@@ -1020,8 +1023,10 @@ def get_live_weather(geo):
             )
             if uvi_resp.status_code == 200:
                 result["uvi"] = uvi_resp.json().get("value")
+            st.session_state["_live_weather_debug"] = "OK"
             return result
-        except (requests.RequestException, ValueError, KeyError):
+        except (requests.RequestException, ValueError, KeyError) as e:
+            st.session_state["_live_weather_debug"] = f"예외 · {type(e).__name__}: {e}"
             return None
 
     return _soft_cached_fetch("_live_weather_cache", geo, _fetch)
@@ -1688,6 +1693,53 @@ def build_recovery_logged_issues(answers):
 
 
 # ----------------------------------------------------------------------
+# 출발 전 · 귀국 후 스캔 비교 — 설문 기록뿐 아니라 이 두 사진도 우선순위 분석에
+# 함께 반영한다. analyze_skin_scan()의 더미 규칙 기반 지표(수분감/붉은기/모공
+# 가시성/결 균일도/유분감, 0~100)를 여행 전/후 각각 구해서 변화량(after-before)을
+# 계산하고, 변화가 뚜렷한 지표만 골라 설문과 같은 issue/frequency/severity
+# 형태로 바꿔 logged_issues에 합친다.
+# ----------------------------------------------------------------------
+def compute_photo_comparison_deltas(before_image, after_image):
+    before = analyze_skin_scan({"front": before_image})
+    after = analyze_skin_scan({"front": after_image})
+    return {k: after[k] - before[k] for k in after}
+
+
+_PHOTO_DELTA_CONCERN_RULES = [
+    ("redness", "자극/붉음", lambda d: d >= 15),
+    ("hydration", "건조", lambda d: d <= -15),
+    ("oiliness", "모공", lambda d: d >= 15),
+    ("texture_evenness", "피부결/각질", lambda d: d <= -15),
+]
+
+
+def photo_deltas_to_logged_issues(deltas):
+    """사진 비교 변화량을 설문과 같은 형태의 logged_issues로 바꾼다. 변화가
+    뚜렷한(임계치 이상) 지표만 반영하고, 심각도는 변화 크기에 비례해 3~5로 잡는다."""
+    issues = []
+    for key, concern, is_significant in _PHOTO_DELTA_CONCERN_RULES:
+        d = deltas.get(key, 0)
+        if is_significant(d):
+            severity = min(5, max(3, round(abs(d) / 15) + 2))
+            issues.append({"issue": concern, "frequency": 2, "severity": severity})
+    return issues
+
+
+def merge_logged_issues(base_issues, extra_issues):
+    """같은 concern이면 frequency는 더하고 severity는 더 큰 쪽을 취해 합친다
+    (설문 기반 고민 기록에 사진 비교로 발견된 고민을 겹치지 않게 반영)."""
+    merged = {i["issue"]: dict(i) for i in base_issues}
+    for extra in extra_issues:
+        key = extra["issue"]
+        if key in merged:
+            merged[key]["frequency"] += extra["frequency"]
+            merged[key]["severity"] = max(merged[key]["severity"], extra["severity"])
+        else:
+            merged[key] = dict(extra)
+    return list(merged.values())
+
+
+# ----------------------------------------------------------------------
 # 세션 상태 초기화
 # ----------------------------------------------------------------------
 if "character" not in st.session_state:
@@ -1766,6 +1818,8 @@ if "recovery_minimal_ingredients" not in st.session_state:
     st.session_state.recovery_minimal_ingredients = False
 if "recovery_program" not in st.session_state:
     st.session_state.recovery_program = None
+if "recovery_used_photo_comparison" not in st.session_state:
+    st.session_state.recovery_used_photo_comparison = False  # 우선순위 계산에 사진 비교를 반영했는지
 if "skin_scan" not in st.session_state:
     st.session_state.skin_scan = None  # 카메라 스캔(정면+좌우 3장) 분석 결과, 없으면 자가응답 기반
 if "skin_scan_ui_open" not in st.session_state:
@@ -5544,6 +5598,14 @@ def _render_country_title_with_clock(country, live_weather, live_pollution):
             st.session_state.just_refreshed_live_clock = True
             st.rerun()
 
+        # TEMP DEBUG — 배포 환경에서 실시간 정보가 계속 "--"로 뜨는 문제 원인 확인용.
+        # 원인 파악되면 이 블록은 지운다.
+        key_state = f"감지됨(앞 4자리 {OPENWEATHER_API_KEY[:4]})" if OPENWEATHER_API_KEY else "감지 안 됨(비어있음)"
+        st.caption(
+            f"🔧 DEBUG · OPENWEATHER_API_KEY: {key_state} · "
+            f"마지막 날씨 호출: {st.session_state.get('_live_weather_debug', '아직 호출 안 됨')}"
+        )
+
 
 def _render_country_map_stage(country, char, code):
     """1단계 — 그 나라만 확대된 지도 + 옆에 붙은 포스트잇(환경/피부타입 추천/유의사항).
@@ -6594,6 +6656,23 @@ def _render_recovery_concern_log():
         st.rerun()
 
     st.divider()
+    st.markdown("### 출발 전 · 귀국 후 스캔 비교")
+    st.caption("두 장을 올리면 나란히 비교해보고, 우선순위 분석에도 함께 반영해요.")
+    up1, up2 = st.columns(2)
+    with up1:
+        before_photo = st.file_uploader("여행 전 사진", type=["png", "jpg", "jpeg"], key="recov_before_photo")
+        if before_photo:
+            st.image(before_photo, use_container_width=True)
+    with up2:
+        after_photo = st.file_uploader("귀국 후 사진", type=["png", "jpg", "jpeg"], key="recov_after_photo")
+        if after_photo:
+            st.image(after_photo, use_container_width=True)
+    st.caption(
+        "두 장 다 올리면 피부 변화를 추정해 설문 기록과 함께 우선순위 계산에 반영해요. "
+        "참고용 추정치이며 의학적 진단이 아니니, 트러블이나 붉음이 계속되면 피부과 상담을 받아보세요."
+    )
+
+    st.divider()
     nav1, nav2 = st.columns(2)
     with nav1:
         if st.button("⬅ 설문 다시 하기", use_container_width=True):
@@ -6601,6 +6680,15 @@ def _render_recovery_concern_log():
             st.rerun()
     with nav2:
         if st.button("우선순위 확인 →", type="primary", use_container_width=True, disabled=not issues):
+            if before_photo and after_photo:
+                before_img = Image.open(before_photo).convert("RGB")
+                after_img = Image.open(after_photo).convert("RGB")
+                deltas = compute_photo_comparison_deltas(before_img, after_img)
+                photo_issues = photo_deltas_to_logged_issues(deltas)
+                st.session_state.recovery_logged_issues = merge_logged_issues(issues, photo_issues)
+                st.session_state.recovery_used_photo_comparison = bool(photo_issues)
+            else:
+                st.session_state.recovery_used_photo_comparison = False
             st.session_state.recovery_stage = "priority"
             st.rerun()
 
@@ -6796,6 +6884,8 @@ def _render_recovery_result():
         st.success("여행 중 특별히 힘들었던 피부 고민이 없었네요! 평소 루틴을 가볍게 유지해보세요 ✨")
     else:
         st.markdown("### 우선순위")
+        if st.session_state.recovery_used_photo_comparison:
+            st.caption("📸 출발 전 · 귀국 후 사진 비교 결과도 함께 반영했어요")
         html_block(_recovery_ranking_card_html(program["ranking"]))
 
         st.markdown("### 7일 여정표")
@@ -6823,27 +6913,13 @@ def _render_recovery_result():
             recovery_page_no = save_recovery_program_to_passport(entry)
             st.success(f"뷰티 패스포트 {recovery_page_no + 1}페이지에 저장했어요! 📔 열어서 확인해보세요.")
 
-    st.markdown("### 출발 전 · 귀국 후 스캔 비교")
-    st.caption("두 장을 올리면 나란히 비교해볼 수 있어요.")
-    up1, up2 = st.columns(2)
-    with up1:
-        before_img = st.file_uploader("여행 전 사진", type=["png", "jpg", "jpeg"], key="recov_before_photo")
-        if before_img:
-            st.image(before_img, use_container_width=True)
-    with up2:
-        after_img = st.file_uploader("귀국 후 사진", type=["png", "jpg", "jpeg"], key="recov_after_photo")
-        if after_img:
-            st.image(after_img, use_container_width=True)
-    st.caption(
-        "이 비교는 두 사진의 밝기·색상 차이를 눈으로 보기 쉽게 보여주는 도구예요. "
-        "의학적 진단이 아니니, 트러블이나 붉음이 계속되면 피부과 상담을 받아보세요."
-    )
-
+    st.divider()
     nav1, nav2 = st.columns(2)
     with nav1:
         if st.button("🔁 설문 다시 하기", use_container_width=True):
             st.session_state.recovery_answers = {}
             st.session_state.recovery_logged_issues = []
+            st.session_state.recovery_used_photo_comparison = False
             st.session_state.recovery_stage = "survey"
             st.rerun()
     with nav2:
