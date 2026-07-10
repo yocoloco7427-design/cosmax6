@@ -3268,7 +3268,7 @@ HEART_BUTTON_URI = _pixel_heart_uri(6, "#b23a6e", "#fff0f6")
 def _title_letters():
     """자유분방하게 — 글자마다 색·기울기 다르게, 순차 등장."""
     line1 = [("식", "#FF5D8F", -8), ("스", "#FF9E3D", 5), ("센", "#2FC4B5", -5), ("스", "#4EA8FF", 7)]
-    line2 = [("트", "#FF5D8F", -6), ("레", "#FF8A3D", 5), ("블", "#FFC13B", -7),
+    line2 = [("트", "#FF5D8F", -6), ("래", "#FF8A3D", 5), ("블", "#FFC13B", -7),
              ("맥", "#2FC4B5", 6), ("스", "#A66BFF", -5), ("+", "#2FB4FF", 9)]
     out = ['<span class="tline six">']
     d = 0.1
