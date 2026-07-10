@@ -5822,41 +5822,15 @@ def _render_country_sheet_body(kind, country, char, code):
     elif kind == "lipstick":
         _render_skin_scan_section()
         baseline = get_skin_baseline(char)
-        curated = get_curated_product_recommendation(char, code)
-        if curated:
-            st.caption("✨ 이 여행지에서 실제로 구매할 수 있는 제품 중 피부 프로필에 맞는 걸 골라봤어요")
-            for p in curated:
-                img_uri = asset_data_uri(p["image"], "image/png")
-                html_block(
-                    f"""
-                    <div style="display:flex;gap:14px;align-items:center;background:#fff;
-                        border-radius:14px;padding:12px;margin-bottom:8px;
-                        box-shadow:0 2px 8px rgba(0,0,0,.08);">
-                        <img src="{img_uri}" style="width:72px;height:72px;object-fit:contain;
-                            border-radius:10px;background:#faf7f2;flex:0 0 auto;">
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;font-size:.95rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
-                            <div style="font-size:.78rem;color:#888;margin:2px 0;">{html.escape(p['category'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
-                            <div style="font-size:.85rem;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
-                        </div>
-                    </div>
-                    """
-                )
-                if p.get("url"):
-                    st.link_button(f"{p['brand']} {p['name']} 보러 가기 →", p["url"],
-                                    use_container_width=True, key=f"curated_link_{p['id']}")
-                elif p.get("store_note"):
-                    st.caption(f"🛍️ 구매 채널: {p['store_note']}")
+        with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
+            rec = get_ai_cosmetic_recommendation(char, code)
+        if rec:
+            st.markdown(rec)
+            st.caption("✨ AI가 피부 baseline과 현지 기후를 분석해 추천했어요")
         else:
-            with st.spinner("피부 맞춤 추천을 준비하고 있어요..."):
-                rec = get_ai_cosmetic_recommendation(char, code)
-            if rec:
-                st.markdown(rec)
-                st.caption("✨ AI가 피부 baseline과 현지 기후를 분석해 추천했어요")
-            else:
-                st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
-                for t in _quick_skin_tip(char, country):
-                    st.write(f"- {t}")
+            st.caption("AI 추천을 불러오지 못해 기본 추천으로 보여드려요")
+            for t in _quick_skin_tip(char, country):
+                st.write(f"- {t}")
         if baseline["baseline_source"] == "self_reported":
             st.caption("📝 자가 응답 기반 추천이라 스캔보다 정확도가 낮을 수 있어요")
 
@@ -5895,6 +5869,34 @@ def _render_country_sheet_body(kind, country, char, code):
         else:
             for store in country.get("drugstores") or []:
                 st.write(f"- {store}")
+
+        curated = get_curated_product_recommendation(char, code)
+        if curated:
+            st.markdown("**🛍️ 위 드럭스토어에서 만나볼 수 있는 추천 제품**")
+            st.caption("✨ 이 여행지에서 실제로 구매할 수 있는 제품 중 피부 프로필에 맞는 걸 골라봤어요")
+            for p in curated:
+                img_uri = asset_data_uri(p["image"], "image/png")
+                html_block(
+                    f"""
+                    <div style="display:flex;gap:14px;align-items:center;background:#fff;
+                        border-radius:14px;padding:12px;margin-bottom:8px;
+                        box-shadow:0 2px 8px rgba(0,0,0,.08);">
+                        <img src="{img_uri}" style="width:72px;height:72px;object-fit:contain;
+                            border-radius:10px;background:#faf7f2;flex:0 0 auto;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:.95rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
+                            <div style="font-size:.78rem;color:#888;margin:2px 0;">{html.escape(p['category'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
+                            <div style="font-size:.85rem;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
+                        </div>
+                    </div>
+                    """
+                )
+                if p.get("url"):
+                    st.link_button(f"🏪 {p['brand']} {p['name']} 여기서 사러 가기 →", p["url"],
+                                    use_container_width=True, key=f"curated_link_{p['id']}")
+                elif p.get("store_note"):
+                    st.caption(f"🏪 이 제품은 여기서: {p['store_note']}")
+
         st.markdown("**🧴 내 피부에 맞는 추천**")
         for t in _quick_skin_tip(char, country):
             st.write(f"- {t}")
