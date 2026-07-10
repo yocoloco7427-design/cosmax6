@@ -1387,6 +1387,48 @@ RECOVERY_PRODUCT_CATALOG = [
      "url": "https://www.oliveyoung.co.kr/store/goods/getGoodsDetail.do?goodsNo=A000000198090"},
 ]
 
+# ----------------------------------------------------------------------
+# 전략 미션 — 국가별 규제 충돌: 추천 제품의 특정 성분이 목적지 국가에서 반입 시
+# 별도 확인·주의가 필요한 경우를 안내한다. 지금은 중국만 채워져 있고, 나중에
+# 일본·미국·EU 등을 추가할 때는 이 dict에 국가 코드만 늘리면 된다. source는
+# 화면에 그대로 노출해서 규제 정보의 출처를 투명하게 보여준다(투명성 UI).
+# ----------------------------------------------------------------------
+COUNTRY_INGREDIENT_CAUTIONS = {
+    "cn": {
+        "PDRN": {
+            "reason": "연어 유래 DNA 추출물(생물유래 원료)이 포함돼 있어 중국 세관의 "
+                      "생물유래 제품 반입 규정에 따라 개인 휴대량이라도 별도 확인을 "
+                      "요구받을 수 있어요.",
+            "source": "중국 해관총서(세관) 생물유래 제품 반입 규정 기준 — 통관 전 "
+                      "현지 세관의 최신 안내를 다시 확인하세요.",
+        },
+    },
+}
+
+
+def get_ingredient_caution(country_code, key_ingredients):
+    """제품의 key_ingredients 중 목적지 국가의 반입 주의 성분과 일치하는 첫 번째
+    항목을 (성분명, {reason, source}) 튜플로 반환한다. 없으면 None."""
+    cautions = COUNTRY_INGREDIENT_CAUTIONS.get(country_code) or {}
+    for ing in key_ingredients:
+        if ing in cautions:
+            return ing, cautions[ing]
+    return None
+
+
+def _country_ingredient_warning_products(country_code):
+    """이 나라에서 반입 주의가 필요한 제품을 카탈로그 전체에서 찾아
+    (제품, 성분명, caution) 리스트로 반환한다 — 국가 지도 단계의 경고 포스트잇용."""
+    cautions = COUNTRY_INGREDIENT_CAUTIONS.get(country_code) or {}
+    if not cautions:
+        return []
+    results = []
+    for p in RECOVERY_PRODUCT_CATALOG:
+        hit = get_ingredient_caution(country_code, p["key_ingredients"])
+        if hit:
+            results.append((p, hit[0], hit[1]))
+    return results
+
 # 우선순위 규칙 — 숫자가 작을수록 먼저 케어(급함). 나중에 조정하고 싶으면
 # 이 표만 바꾸면 된다(코드 로직에는 하드코딩 안 함).
 RECOVERY_CONCERN_PRIORITY_TIER = {
@@ -6141,22 +6183,49 @@ def _render_country_sheet_body(kind, country, char, code):
             travel_prep = get_travel_prep_recommendation(char, code)
         for p in travel_prep:
             img_uri = asset_data_uri(p["image"], "image/png")
+            caution = get_ingredient_caution(code, p["key_ingredients"])
+            title_attr = ""
+            card_border = ""
+            warn_badge = ""
+            if caution:
+                ing, info = caution
+                title_attr = f' title="⚠️ {html.escape(country["name"])} 반입 주의: {html.escape(info["reason"])}"'
+                card_border = "border:2px solid #f3b7ae;"
+                warn_badge = (
+                    '<div style="margin-top:6px;font-size:.9rem;font-weight:700;color:#c0392b;">'
+                    f'⚠️ {html.escape(country["name"])} 반입 주의 · {html.escape(ing)} 성분 포함'
+                    "(마우스를 올려 확인)</div>"
+                )
             html_block(
                 f"""
-                <div style="display:flex;gap:14px;align-items:center;background:#fff;
-                    border-radius:14px;padding:12px;margin-bottom:8px;
-                    box-shadow:0 2px 8px rgba(0,0,0,.08);">
-                    <img src="{img_uri}" style="width:72px;height:72px;object-fit:contain;
-                        border-radius:10px;background:#faf7f2;flex:0 0 auto;">
+                <div{title_attr} style="display:flex;gap:18px;align-items:flex-start;background:#fff;
+                    border-radius:16px;padding:16px;margin-bottom:10px;
+                    box-shadow:0 2px 8px rgba(0,0,0,.08);{card_border}">
+                    <img src="{img_uri}" style="width:104px;height:104px;object-fit:contain;
+                        border-radius:12px;background:#faf7f2;flex:0 0 auto;">
                     <div style="flex:1;min-width:0;">
-                        <div style="font-weight:700;font-size:.95rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
-                        <div style="font-size:.78rem;color:#888;margin:2px 0;">{html.escape(p['texture'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
-                        <div style="font-size:.85rem;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
+                        <div style="font-weight:700;font-size:1.2rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
+                        <div style="font-size:.95rem;color:#888;margin:4px 0 8px;">{html.escape(p['texture'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
+                        <div style="font-size:1rem;color:#4a2f12;line-height:1.5;margin-bottom:6px;">{html.escape(p['description'])}</div>
+                        <div style="font-size:.95rem;color:#9c2f5c;">✨ {html.escape(p.get('reason') or '')}</div>
+                        {warn_badge}
                     </div>
                 </div>
                 """
             )
             st.link_button("올리브영에서 보기 →", p["url"], key=f"travel_prep_link_{code}_{p['id']}")
+            if caution:
+                ing, info = caution
+                with st.expander(f"⚠️ {ing} 성분 반입 주의 — 자세히 보기"):
+                    st.warning(info["reason"])
+                    alt = next(
+                        (a for a in travel_prep
+                         if a["id"] != p["id"] and not get_ingredient_caution(code, a["key_ingredients"])),
+                        None,
+                    )
+                    if alt:
+                        st.markdown(f"**대체 추천**: {alt['brand']} · {alt['name']} (해당 성분 없음)")
+                    st.caption(f"출처: {info['source']}")
         st.caption("✨ 피부 baseline과 현지 기후를 분석해 골라봤어요")
         if baseline["baseline_source"] == "self_reported":
             st.caption("📝 자가 응답 기반 추천이라 스캔보다 정확도가 낮을 수 있어요")
@@ -6221,7 +6290,7 @@ def _render_country_sheet_body(kind, country, char, code):
                 if p.get("url"):
                     st.link_button("사러 가기 →", p["url"], key=f"curated_link_{p['id']}")
                 elif p.get("store_note"):
-                    st.caption(f"🏪 이 제품은 여기서: {p['store_note']}")
+                    st.caption(f"🏪 **이 제품은 여기서**: {p['store_note']}")
 
         st.markdown("**🧴 내 피부에 맞는 추천**")
         for t in _quick_skin_tip(char, country):
