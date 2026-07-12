@@ -1902,6 +1902,29 @@ _CAMERA_MIRROR_CSS = """
 <style>
 [data-testid="stCameraInput"] video { transform: scaleX(-1) !important; }
 [data-testid="stCameraInput"] img { display: none !important; }
+/* 카메라 화면 전체가 너무 커서 얼굴을 어디에 맞춰야 할지 안 보인다는 피드백 —
+   비디오 영역 위에 타원형 가이드 테두리를 얹고, 테두리 바깥은 어둡게
+   눌러서(box-shadow 스프레드 트릭) "이 안에 얼굴을 넣으세요" 느낌을 준다.
+   :has()로 video를 담은 실제 프리뷰 박스만 짚어서, 버튼 등 다른 영역은
+   전혀 건드리지 않는다. */
+[data-testid="stCameraInput"] div:has(> video) {
+    position: relative !important; overflow: hidden !important; border-radius: 12px;
+}
+[data-testid="stCameraInput"] div:has(> video)::after {
+    content: '얼굴을 이 안에 맞춰주세요';
+    position: absolute; inset: 0; pointer-events: none; z-index: 5;
+    display: flex; align-items: flex-end; justify-content: center; padding-bottom: 6%;
+    color: #fff; font-family: 'Jua', sans-serif; font-size: 1.1rem;
+    text-shadow: 0 2px 6px rgba(0,0,0,.7);
+    background:
+        radial-gradient(ellipse 27% 42% at 50% 46%, transparent 97%, rgba(0,0,0,.55) 100%);
+}
+[data-testid="stCameraInput"] div:has(> video)::before {
+    content: ''; position: absolute; pointer-events: none; z-index: 5;
+    top: 8%; left: 27%; width: 46%; height: 78%;
+    border: 3px dashed rgba(255,255,255,.9); border-radius: 50% / 58%;
+    box-shadow: 0 0 14px rgba(0,0,0,.5);
+}
 </style>
 """
 
@@ -4892,42 +4915,6 @@ def _map_globe_gate():
             .st-key-open_world_map.st-key-open_world_map button,
             .st-key-open_world_map.st-key-open_world_map button::before {{ animation: none !important; }}
         }}
-        /* 여행 후 피부 복귀 프로그램 아이콘 — 지구 오른쪽 가장자리와 화면(컨테이너)
-           오른쪽 끝 사이의 "정중앙"에 절대좌표로 배치한다.
-           지구 오른쪽 가장자리 = 50% + halfGlobe, 화면 오른쪽 끝 = 100%이므로
-           그 중점 = 75% + halfGlobe/2. left는 이 중점 값을 그대로 쓰고, 아이콘
-           자신은 translate(-50%,-50%)로 가로/세로 모두 그 점을 중심으로 앉힌다
-           (전에는 지구 바로 옆에 28px만 띄워서 너무 붙어 보였다).
-           Streamlit이 각 위젯의 element-container에 기본으로 position:relative를
-           걸어두기 때문에, 버튼에 position:absolute를 줘도 기준점(containing
-           block)이 globe_stage_row가 아니라 이 바로 위 element-container가 되어버려
-           지구 옆이 아니라 자기 자리(지구 아래, 왼쪽 정렬)에 그대로 눌러앉는 버그가
-           있었다 — element-container의 position을 static으로 되돌려 기준점이 한 단계
-           위 globe_stage_row(position:relative)로 올라가도록 고쳤다. */
-        .st-key-open_recovery_from_globe {{ position: static !important; }}
-        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button {{
-            position: absolute !important;
-            top: calc(14px + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px)) !important;
-            left: calc(75% + clamp(165px, 34.5vw, {_MAP_GLOBE_MAX_PX // 2}px) / 2) !important;
-            transform: translate(-50%, -50%) !important;
-            width: clamp(72px, 10vw, 108px) !important; height: clamp(72px, 10vw, 108px) !important;
-            min-width: 0 !important; max-width: none !important;
-            border-radius: 0 !important; border: none !important; padding: 0 !important;
-            background: none !important;
-            background-image: url('{HOME_ICON_URI}') !important;
-            background-size: contain !important; background-position: center !important;
-            background-repeat: no-repeat !important;
-            color: transparent !important; font-size: 0 !important; overflow: visible !important;
-            filter: drop-shadow(0 4px 10px rgba(120,40,90,.25));
-            transition: transform .12s ease;
-            z-index: 5;
-        }}
-        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:hover {{
-            transform: translate(-50%, -50%) scale(1.06) !important;
-        }}
-        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:active {{
-            transform: translate(-50%, -50%) scale(.96) !important;
-        }}
         </style>
         <div class="map-globe-hint">🌍 지구를 눌러 세계지도를 펼쳐보세요</div>
         """
@@ -4935,10 +4922,6 @@ def _map_globe_gate():
     with st.container(key="globe_stage_row"):
         if st.button(" ", key="open_world_map"):
             st.session_state.map_globe_opened = True
-            st.rerun()
-        if st.button(" ", key="open_recovery_from_globe", help="여행 후 피부 복귀 프로그램"):
-            st.session_state.recovery_stage = "pick_trip"
-            goto("recovery")
             st.rerun()
 
 
@@ -5061,11 +5044,43 @@ def _world_map_dialog():
         .st-key-close_world_map button:hover {
             background: linear-gradient(180deg,#5c3f28,#2c1a0c) !important;
         }
+        /* 여행 후 피부 복귀 프로그램 아이콘 — "여행지 지도" 제목 오른쪽 끝, 두루마리
+           프레임 안쪽 상단에 배치한다. Streamlit이 각 위젯의 element-container에
+           기본으로 position:relative를 걸어두기 때문에, 버튼에 position:absolute를
+           줘도 기준점(containing block)이 map_scroll_card가 아니라 이 바로 위
+           element-container가 되어버리는 문제가 있다 — element-container의 position을
+           static으로 되돌려 기준점이 한 단계 위 map_scroll_card(position:relative)로
+           올라가도록 한다(지구 옆 아이콘 배치 때도 같은 방식으로 고쳤음). */
+        .st-key-open_recovery_from_globe { position: static !important; }
+        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button {
+            position: absolute !important; top: 22px !important; right: 26px !important;
+            width: clamp(46px, 6vw, 60px) !important; height: clamp(46px, 6vw, 60px) !important;
+            min-width: 0 !important; max-width: none !important;
+            border-radius: 0 !important; border: none !important; padding: 0 !important;
+            background: none !important;
+            background-image: url('__HOME_ICON_URI__') !important;
+            background-size: contain !important; background-position: center !important;
+            background-repeat: no-repeat !important;
+            color: transparent !important; font-size: 0 !important; overflow: visible !important;
+            filter: drop-shadow(0 4px 10px rgba(60,36,10,.4));
+            transition: transform .12s ease;
+            z-index: 10;
+        }
+        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:hover {
+            transform: scale(1.08) !important;
+        }
+        .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:active {
+            transform: scale(.94) !important;
+        }
         </style>
-        """
+        """.replace("__HOME_ICON_URI__", HOME_ICON_URI)
     )
 
     with st.container(key="map_scroll_card"):
+        if st.button(" ", key="open_recovery_from_globe", help="여행 후 피부 복귀 프로그램"):
+            st.session_state.recovery_stage = "pick_trip"
+            goto("recovery")
+            st.rerun()
         html_block(
             """
             <div class="scroll-title">🗺️ 여행지 지도</div>
@@ -5138,6 +5153,27 @@ def _quick_skin_tip(char, country):
     return tips
 
 
+def _skin_scan_analysis_lines(scan):
+    """스캔 5개 지표(0~100)를 근거로 어떤 부분이 안 좋게 보이는지와 어떻게
+    개선하면 좋을지를 한국어 문장으로 만든다. 스캔 결과 요약(성공 메시지)
+    바로 아래에 보여준다."""
+    lines = []
+    if scan["hydration"] <= 40:
+        lines.append(f"💧 수분감이 낮게 나타나요(수분감 {scan['hydration']}) — 고보습 크림·오일로 수분 방어막을 채워보세요")
+    if scan["redness"] >= 60:
+        lines.append(f"🔴 붉은기가 도드라져 보여요(붉은기 {scan['redness']}) — 저자극·무향 성분 위주로 진정 케어를 해보세요")
+    if scan["oiliness"] >= 60:
+        lines.append(f"✨ 유분감이 높게 나타나요(유분감 {scan['oiliness']}) — 가벼운 젤·워터 타입으로 유분 밸런스를 잡아보세요")
+    if scan["pore_visibility"] >= 60 or scan["texture_evenness"] <= 40:
+        lines.append(
+            f"🔍 모공·피부결이 도드라져 보여요(모공 가시성 {scan['pore_visibility']} · 결 균일도 {scan['texture_evenness']}) "
+            "— 살리실릭·티트리 등 모공·결 케어 성분을 곁들이면 좋아요"
+        )
+    if not lines:
+        lines.append("🌿 전반적으로 균형 잡힌 상태로 보여요 — 지금 루틴을 가볍게 유지해보세요")
+    return lines
+
+
 def _render_skin_scan_section():
     """피부 맞춤 추천 시트 상단에 붙는 얼굴 스캔 UI. 정면→왼쪽→오른쪽 순서로
     한 장씩 st.camera_input()으로 촬영을 받는다(실시간 프레임 분석/자동 캡처는
@@ -5155,6 +5191,8 @@ def _render_skin_scan_section():
 
     if st.session_state.skin_scan:
         st.success("📸 카메라 스캔(정면·좌우) 기반으로 추천을 갱신했어요")
+        for line in _skin_scan_analysis_lines(st.session_state.skin_scan):
+            st.caption(line)
         if st.button("다시 스캔하기", key="skin_scan_retake_all"):
             st.session_state.skin_scan = None
             st.session_state.skin_scan_photos = {}
@@ -5218,7 +5256,7 @@ def _render_unlock_burst_stage(country, code):
     큰 문구가 터진다. 별도 오버레이 박스를 새로 띄우는 게 아니라 같은 박스를
     이어서 그리는 것이라 화면 한가운데 작은 박스가 갑자기 나타나는 문제가 없다.
     화면 전환 버블/바텀시트와 같은 '재생 시간만큼 sleep 후 rerun' 패턴을 쓴다."""
-    st.title(f"{country['flag']} {country['name']}")
+    st.title(country['name'])
 
     SHAKE_S = 1.1  # 흔들림+화이트아웃이 끝나는 시점 — 폭죽/문구가 이 시점에 맞춰 터진다
     HOLD_S = 1.8   # 폭죽·문구가 다 보인 다음 실제 페이지로 넘어가기 전 대기 시간
@@ -5375,7 +5413,7 @@ def _render_country_locked(country, code):
     포션 같은 다른 정보는 전부 가린다. '50코인 사용하여 오픈하기' -> 예/아니오 확인
     -> 예를 누르면 코인을 차감하고 st.session_state.unlocked_countries에 코드를
     남겨 이후로는 계속 잠금 없이 볼 수 있다."""
-    st.title(f"{country['flag']} {country['name']}")
+    st.title(country['name'])
     html_block(
         """
         <style>
@@ -5907,7 +5945,7 @@ def _render_country_map_stage(country, char, code):
 def _render_country_scene_stage(country, char, code):
     """2단계 — 배경은 랜드마크(디자인 요소, 클릭 불가) + 캐릭터가 중앙,
     그 위에 6개 아이콘. 각 아이콘은 화면 전환 없이 바텀시트(다이얼로그)를 연다."""
-    st.title(f"{country['flag']} {country['name']}")
+    st.title(country['name'])
 
     doll_svg = character_doll_svg(char)
     already_saved = code in [p["code"] for p in get_passport()]
@@ -6164,7 +6202,9 @@ def _bottom_sheet_css():
             font-size: 1.55rem !important; line-height: 1.7 !important; color: #4a2f12 !important;
         }
         .st-key-sheet_body div[data-testid="stMarkdownContainer"] strong { font-size: 1.6rem !important; }
-        .st-key-sheet_body div[data-testid="stCaptionContainer"] p { font-size: 1.3rem !important; }
+        .st-key-sheet_body div[data-testid="stCaptionContainer"] p {
+            font-size: 1.3rem !important; color: #5c3d1c !important; opacity: 1 !important;
+        }
         /* 큐레이션 제품의 "~에서 보기" 링크 버튼 — 시트 안의 다른 기본 버튼
            (예: 피부 스캔 버튼, .stButton > button[kind="secondary"])과 같은
            흰 배경 + 핑크 테두리 필 스타일로 통일한다 */
@@ -7248,7 +7288,7 @@ def _render_diagnosis_result():
     overall = result["overall"]
     band = _compatibility_band(overall)
 
-    st.title(f"{country['flag']} {country['name']}")
+    st.title(country['name'])
 
     fig = go.Figure(go.Indicator(
         mode="gauge+number",
