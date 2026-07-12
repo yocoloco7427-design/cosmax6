@@ -2433,8 +2433,7 @@ def _passport_stamps_html(saved):
     if not saved:
         return '<div class="stamp-empty">아직 방문 스탬프가 없어요 — 지도에서 여행지를 저장해보세요 ✈️</div>'
     return "".join(
-        f'<div class="stamp"><div class="stamp-flag">{p["flag"]}</div>'
-        f'<div class="stamp-name">{p["name"]}</div></div>'
+        f'<div class="stamp"><div class="stamp-name">{p["name"]}</div></div>'
         for p in saved
     )
 
@@ -5411,7 +5410,7 @@ def _render_country_locked(country, code):
                 st.session_state.unlocked_countries.add(code)
                 st.session_state.coin_history.append({
                     "amount": -UNLOCK_COST_COINS,
-                    "label": f"{country['flag']} {country['name']} 잠금 해제",
+                    "label": f"{country['name']} 잠금 해제",
                     "when": datetime.now().strftime("%Y-%m-%d %H:%M"),
                 })
                 st.session_state.confirming_unlock = None
@@ -5619,7 +5618,7 @@ def _render_country_title_with_clock(country, live_weather, live_pollution):
             .st-key-refresh_live_weather button:active {{ transform: rotate(180deg) scale(.92); }}
             </style>
             <div class="country-title-row">
-                <h1 class="country-title-text">{html.escape(country['flag'])} {html.escape(country['name'])}</h1>
+                <h1 class="country-title-text">{html.escape(country['name'])}</h1>
                 <div class="live-clock-frame">{cells}</div>
             </div>
             """
@@ -5634,7 +5633,7 @@ def _render_country_title_with_clock(country, live_weather, live_pollution):
 def _country_info_note_body(country, tips, risk_class, risk_text):
     """안내(노란) 포스트잇의 내용 — 작은 카드와 크게 보기 다이얼로그가 그대로 재사용한다."""
     return f"""
-    <div class="note-title">{country["flag"]} {country["name"]}</div>
+    <div class="note-title">{country["name"]}</div>
     <div class="note-section">🌡 환경</div>
     <div class="note-line">기온 {html.escape(country["temp_diff"])}</div>
     <div class="note-line">습도 {html.escape(country["humidity"])}</div>
@@ -6276,7 +6275,7 @@ def _country_action_sheet(country, char, code):
                     <div class="sheet-ticket-title">{titles.get(kind, "")}</div>
                     <div class="sheet-ticket-sub">{theme['label']} · {html.escape(country['name'])}</div>
                 </div>
-                <div class="sheet-ticket-stamp">{country['flag']}</div>
+                <div class="sheet-ticket-stamp">{country['landmark']}</div>
             </div>
             <div class="sheet-divider">❖ ❖ ❖</div>
             """
@@ -6944,7 +6943,7 @@ def _render_recovery_result():
     country = COUNTRIES.get(code) if code else None
     trip_bits = []
     if country:
-        trip_bits.append(f"{country['flag']} {country['name']}")
+        trip_bits.append(country['name'])
     start, end = st.session_state.recovery_trip_start, st.session_state.recovery_trip_end
     if start and end:
         nights = max((end - start).days, 0)
