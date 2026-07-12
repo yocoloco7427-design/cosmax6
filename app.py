@@ -6489,6 +6489,33 @@ def _render_country_sheet_body(kind, country, char, code):
         st.markdown("**🧳 필수 아이템**")
         for item in country["essentials"]:
             st.write(f"- {item}")
+
+        curated = get_curated_product_recommendation(char, code)
+        if curated:
+            st.markdown("**🛍️ 추천 제품**")
+            st.caption("✨ 이 여행지에서 실제로 구매할 수 있는 제품 중 피부 프로필에 맞는 걸 골라봤어요")
+            for p in curated:
+                img_uri = asset_data_uri(p["image"], "image/png")
+                html_block(
+                    f"""
+                    <div style="display:flex;gap:14px;align-items:center;background:#fff;
+                        border-radius:14px;padding:12px;margin-bottom:8px;
+                        box-shadow:0 2px 8px rgba(0,0,0,.08);">
+                        <img src="{img_uri}" style="width:72px;height:72px;object-fit:contain;
+                            border-radius:10px;background:#faf7f2;flex:0 0 auto;">
+                        <div style="flex:1;min-width:0;">
+                            <div style="font-weight:700;font-size:.95rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
+                            <div style="font-size:.78rem;color:#888;margin:2px 0;">{html.escape(p['category'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
+                            <div style="font-size:.85rem;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
+                        </div>
+                    </div>
+                    """
+                )
+                if p.get("url"):
+                    st.link_button("사러 가기 →", p["url"], key=f"curated_link_{p['id']}")
+                elif p.get("store_note"):
+                    st.caption(f"🏪 **이 제품은 여기서**: {p['store_note']}")
+
         st.markdown("**📍 현지 드럭스토어**")
         cards = get_drugstore_cards(code)
         if cards:
@@ -6520,32 +6547,6 @@ def _render_country_sheet_body(kind, country, char, code):
         else:
             for store in country.get("drugstores") or []:
                 st.write(f"- {store}")
-
-        curated = get_curated_product_recommendation(char, code)
-        if curated:
-            st.markdown("**🛍️ 위 드럭스토어에서 만나볼 수 있는 추천 제품**")
-            st.caption("✨ 이 여행지에서 실제로 구매할 수 있는 제품 중 피부 프로필에 맞는 걸 골라봤어요")
-            for p in curated:
-                img_uri = asset_data_uri(p["image"], "image/png")
-                html_block(
-                    f"""
-                    <div style="display:flex;gap:14px;align-items:center;background:#fff;
-                        border-radius:14px;padding:12px;margin-bottom:8px;
-                        box-shadow:0 2px 8px rgba(0,0,0,.08);">
-                        <img src="{img_uri}" style="width:72px;height:72px;object-fit:contain;
-                            border-radius:10px;background:#faf7f2;flex:0 0 auto;">
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;font-size:.95rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
-                            <div style="font-size:.78rem;color:#888;margin:2px 0;">{html.escape(p['category'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
-                            <div style="font-size:.85rem;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
-                        </div>
-                    </div>
-                    """
-                )
-                if p.get("url"):
-                    st.link_button("사러 가기 →", p["url"], key=f"curated_link_{p['id']}")
-                elif p.get("store_note"):
-                    st.caption(f"🏪 **이 제품은 여기서**: {p['store_note']}")
 
         st.markdown("**🧴 내 피부에 맞는 추천**")
         for t in _quick_skin_tip(char, country):
