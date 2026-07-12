@@ -3277,7 +3277,7 @@ PLANE_SIDE_SVG = """
 # 8비트 픽셀 하트 (start-game 다이얼로그의 타이틀 아이콘 · 하트 버튼에 사용)
 _HEART_OUTER = [
     "011000110",
-    "111101111",
+    "111111111",
     "111111111",
     "111111111",
     "011111110",
@@ -7007,6 +7007,22 @@ def _render_recovery_result():
 # 3단계를 diagnosis_stage로 관리한다. diagnosis_country는 지도에서 고른
 # 국가 코드가 이미 채워져 들어온다(별도의 나라 선택 그리드는 없음).
 # ----------------------------------------------------------------------
+def _josa_wa_gwa(word):
+    """받침 유무에 따라 '와'/'과' 조사를 고른다 (받침 없으면 '와', 있으면 '과')."""
+    if not word:
+        return "와"
+    code = ord(word[-1]) - 0xAC00
+    if 0 <= code <= 11171:
+        return "과" if code % 28 != 0 else "와"
+    return "와"
+
+
+def _diagnosis_title(country):
+    """진단 화면 제목 — 국기/가운뎃점 없이 "OO OO와 나의 피부 궁합 진단" 형태로."""
+    name = (country.get("name") or "").replace(" · ", " ").strip()
+    return f"{name}{_josa_wa_gwa(name)} 나의 피부 궁합 진단"
+
+
 def render_diagnosis():
     if not get_character():
         goto("character")
@@ -7045,7 +7061,7 @@ def _render_diagnosis_scan():
     으로 분석해 공용 skin_scan baseline에 저장하고 analyzing 단계로 넘어간다."""
     code = st.session_state.diagnosis_country
     country = COUNTRIES.get(code) or {}
-    st.title(f"{country.get('flag','')} {country.get('name','')} 피부 궁합 진단")
+    st.title(_diagnosis_title(country))
     html_block(
         f"""
         <style>
@@ -7139,7 +7155,7 @@ def _render_diagnosis_analyzing():
     않고 글로만 진행 상황을 안내한다."""
     code = st.session_state.diagnosis_country
     country = COUNTRIES.get(code) or {}
-    st.title(f"{country.get('flag','')} {country.get('name','')} 피부 궁합 진단")
+    st.title(_diagnosis_title(country))
     bar = st.progress(0)
     msg_slot = st.empty()
     steps = 20
