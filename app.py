@@ -2157,7 +2157,8 @@ def render_back_button():
         """
         <style>
         .st-key-back_btn button {
-            position: relative !important; z-index: 999999 !important;
+            position: fixed !important; top: 60px !important; left: 16px !important;
+            z-index: 999999 !important;
             width: 46px !important; height: 46px !important;
             min-width: 46px !important; max-width: 46px !important;
             min-height: 46px !important; max-height: 46px !important;
@@ -2169,7 +2170,6 @@ def render_back_button():
         }
         .st-key-back_btn button:hover { transform: translateY(-2px) scale(1.05); }
         .st-key-back_btn button:active { transform: translateY(1px) scale(.97); }
-        .st-key-back_btn { position: relative; z-index: 999999; margin: -0.5rem 0 .5rem 0; }
         </style>
         """
     )
