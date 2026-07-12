@@ -5053,8 +5053,8 @@ def _world_map_dialog():
            올라가도록 한다(지구 옆 아이콘 배치 때도 같은 방식으로 고쳤음). */
         .st-key-open_recovery_from_globe { position: static !important; }
         .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button {
-            position: absolute !important; top: 22px !important; right: 26px !important;
-            width: clamp(46px, 6vw, 60px) !important; height: clamp(46px, 6vw, 60px) !important;
+            position: absolute !important; top: 14px !important; right: 26px !important;
+            width: __ICON_SIZE__ !important; height: __ICON_SIZE__ !important;
             min-width: 0 !important; max-width: none !important;
             border-radius: 0 !important; border: none !important; padding: 0 !important;
             background: none !important;
@@ -5072,8 +5072,15 @@ def _world_map_dialog():
         .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:active {
             transform: scale(.94) !important;
         }
+        .recovery-icon-label {
+            position: absolute; top: 14px; right: calc(26px + __ICON_SIZE__ + 8px);
+            height: __ICON_SIZE__; width: 118px;
+            display: flex; align-items: center; justify-content: flex-end;
+            text-align: right; font-family: 'Jua', sans-serif; color: #6e4c26;
+            font-size: .82rem; line-height: 1.35; pointer-events: none; z-index: 9;
+        }
         </style>
-        """.replace("__HOME_ICON_URI__", HOME_ICON_URI)
+        """.replace("__HOME_ICON_URI__", HOME_ICON_URI).replace("__ICON_SIZE__", "clamp(60px, 7vw, 80px)")
     )
 
     with st.container(key="map_scroll_card"):
@@ -5081,6 +5088,7 @@ def _world_map_dialog():
             st.session_state.recovery_stage = "pick_trip"
             goto("recovery")
             st.rerun()
+        html_block('<div class="recovery-icon-label">여행 후 피부 복귀<br>7일 프로그램</div>')
         html_block(
             """
             <div class="scroll-title">🗺️ 여행지 지도</div>
@@ -6203,7 +6211,8 @@ def _bottom_sheet_css():
         }
         .st-key-sheet_body div[data-testid="stMarkdownContainer"] strong { font-size: 1.6rem !important; }
         .st-key-sheet_body div[data-testid="stCaptionContainer"] p {
-            font-size: 1.3rem !important; color: #5c3d1c !important; opacity: 1 !important;
+            font-size: 1.3rem !important; color: #2a1a08 !important; opacity: 1 !important;
+            font-weight: 700 !important;
         }
         /* 큐레이션 제품의 "~에서 보기" 링크 버튼 — 시트 안의 다른 기본 버튼
            (예: 피부 스캔 버튼, .stButton > button[kind="secondary"])과 같은
