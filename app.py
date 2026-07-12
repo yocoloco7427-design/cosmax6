@@ -60,7 +60,7 @@ def html_block(raw):
 COUNTRIES = {
     "jp": {
         "name": "일본 · 도쿄",
-        "flag": "🗾",
+        "flag": "🇯🇵",
         "landmark": "🗼",
         "geo": "35.6895;139.6917",
         "aqi_station": "japan/shinjuku-ku-/kuni-tokyo--shinjuku-/",
