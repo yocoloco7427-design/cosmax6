@@ -2514,10 +2514,15 @@ def render_ad_banner_horizontal():
         }
         .st-key-ad_banner_video_wrap video {
             display: block; width: 100%; height: auto; border-radius: 16px;
+            pointer-events: none !important;
         }
         /* 배너는 재생 조작이 필요 없는 광고라, 크롬 계열 브라우저에서 기본
-           재생바/컨트롤을 숨겨서 진짜 배너처럼 보이게 한다 */
-        .st-key-ad_banner_video_wrap video::-webkit-media-controls {
+           재생바/컨트롤을 숨겨서 진짜 배너처럼 보이게 한다. pointer-events:none으로
+           마우스 호버 자체를 막아야 하단 컨트롤바 말고도 크롬이 별도로 띄우는
+           PIP(그림 속 그림) 아이콘까지 확실히 사라진다 */
+        .st-key-ad_banner_video_wrap video::-webkit-media-controls,
+        .st-key-ad_banner_video_wrap video::-webkit-media-controls-overlay-play-button,
+        .st-key-ad_banner_video_wrap video::-webkit-media-controls-picture-in-picture-button {
             display: none !important;
         }
         </style>
