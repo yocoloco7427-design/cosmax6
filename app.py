@@ -3471,6 +3471,13 @@ def inject_theme():
         width: auto !important; min-width: 0 !important; max-width: 280px !important;
         margin: 0 !important;
     }
+    /* st.toast()는 기본으로 화면 우상단에 뜨는데, 위쪽 정중앙에서 보이도록
+       위치를 통째로 옮긴다 — 전역 규칙이라 모든 토스트에 똑같이 적용된다. */
+    div[data-testid="stToastContainer"] {
+        left: 50% !important; right: auto !important;
+        top: 20px !important; bottom: auto !important;
+        transform: translateX(-50%) !important;
+    }
     </style>
     """
     clouds = ['<div class="sky-layer">']
