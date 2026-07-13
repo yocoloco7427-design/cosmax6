@@ -5,8 +5,6 @@ from PIL import Image, ImageDraw, ImageFont
 W, H = 1920, 112
 FPS = 30
 SLIDE_S = 3.0
-HOLD_S = 2.6
-FADE_S = SLIDE_S - HOLD_S
 N_SLIDES = 4
 LOOP_S = SLIDE_S * N_SLIDES
 TOTAL_FRAMES = int(LOOP_S * FPS)
@@ -80,21 +78,8 @@ def compose_frame(t):
     base_rgb = np.array(Image.fromarray(BG.astype(np.uint8), "RGB"))
     base = Image.fromarray(base_rgb, "RGB").convert("RGBA")
 
-    if seg < HOLD_S:
-        layer = render_slide_layer(SLIDES[idx])
-        base = Image.alpha_composite(base, layer)
-    else:
-        blend = (seg - HOLD_S) / FADE_S
-        cur_layer = render_slide_layer(SLIDES[idx])
-        nxt_layer = render_slide_layer(SLIDES[(idx + 1) % N_SLIDES])
-        cur_arr = np.array(cur_layer).astype(np.float32)
-        nxt_arr = np.array(nxt_layer).astype(np.float32)
-        cur_arr[..., 3] *= max(0.0, 1 - blend)
-        nxt_arr[..., 3] *= max(0.0, blend)
-        cur_layer = Image.fromarray(cur_arr.astype(np.uint8), "RGBA")
-        nxt_layer = Image.fromarray(nxt_arr.astype(np.uint8), "RGBA")
-        base = Image.alpha_composite(base, cur_layer)
-        base = Image.alpha_composite(base, nxt_layer)
+    layer = render_slide_layer(SLIDES[idx])
+    base = Image.alpha_composite(base, layer)
 
     # AD tag pill / CTA / progress bar — drawn on their OWN transparent layer, then
     # alpha_composite'd onto base in one shot. PIL's ImageDraw always *pokes* pixel
