@@ -2255,6 +2255,7 @@ AD_REWARD_COINS = 10
 # 반복 재생 영상(scripts/gen_ad_banner_video.py로 생성, VP8/webm — 로컬에 h264
 # 인코더가 없어 webm으로 만들었다. Chromium 계열에서는 문제없이 재생된다).
 AD_BANNER_VIDEO_PATH = ASSETS / "ads_banner" / "cosmax_horizontal.webm"
+AD_BANNER_LINK_URL = "https://www.cosmax.com/"
 
 
 def _list_ad_videos():
@@ -2510,7 +2511,7 @@ def render_ad_banner_horizontal():
         <style>
         .st-key-ad_banner_video_wrap {
             margin: -110px auto 18px !important; width: 82%; border-radius: 16px; overflow: hidden;
-            box-shadow: 0 8px 20px rgba(15,25,55,.35); line-height: 0;
+            box-shadow: 0 8px 20px rgba(15,25,55,.35); line-height: 0; position: relative;
         }
         .st-key-ad_banner_video_wrap video {
             display: block; width: 100%; height: auto; border-radius: 16px;
@@ -2525,11 +2526,33 @@ def render_ad_banner_horizontal():
         .st-key-ad_banner_video_wrap video::-webkit-media-controls-picture-in-picture-button {
             display: none !important;
         }
+        /* 영상 프레임에 그려 넣은 "자세히 보기" 버튼은 그림일 뿐이라 원래 클릭이
+           안 된다 — 영상 위에 투명한 링크를 통째로 덮어 배너 전체를 실제
+           코스맥스 홈페이지로 연결되는 클릭 영역으로 만든다 */
+        /* 스트림릿이 각 요소마다 자동으로 씌우는 wrapper(.stElementContainer)가
+           기본적으로 position:relative라서, 그 wrapper가 우리 링크의 위치 기준점을
+           가로채 버린다(영상 바로 아래 flow 위치가 기준점이 되어버림). 이 배너
+           안에서는 static으로 되돌려서 바깥 래퍼(.st-key-ad_banner_video_wrap)가
+           진짜 기준점이 되게 한다 */
+        .st-key-ad_banner_video_wrap .stElementContainer {
+            position: static !important;
+        }
+        .st-key-ad_banner_video_wrap .ad-banner-link {
+            position: absolute; top: 0; left: 0; width: 100%;
+            aspect-ratio: 1920 / 112; z-index: 5; cursor: pointer;
+        }
         </style>
         """
     )
     with st.container(key="ad_banner_video_wrap"):
         st.video(str(AD_BANNER_VIDEO_PATH), autoplay=True, loop=True, muted=True)
+        html_block(
+            f"""
+            <a class="ad-banner-link" href="{AD_BANNER_LINK_URL}"
+               target="_blank" rel="noopener noreferrer"
+               aria-label="코스맥스 홈페이지로 이동"></a>
+            """
+        )
 
 
 def render_ad_banner_vertical_pair():
