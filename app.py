@@ -2473,7 +2473,9 @@ def _ad_banner_css():
     .ad-banner .ad-cta {
         display: inline-block; background: #fff; color: #24408f;
         border-radius: 999px; font-weight: 700; white-space: nowrap;
+        text-decoration: none; cursor: pointer;
     }
+    .ad-banner .ad-cta:hover { color: #172c66; }
     /* 가로 배너 — 실제 영상 파일 대신, 4장의 문구가 자동으로 넘어가며 반복
        재생되는 CSS 애니메이션 "광고 릴". REC 점멸 점 + 하단 진행 바 + 은은한
        스쳐가는 하이라이트로 정지 이미지가 아니라 "재생되고 있다"는 느낌을 준다.
@@ -2525,7 +2527,8 @@ def _ad_banner_css():
     .ad-video-banner .ad-tagline { font-size: .98rem; margin-top: 3px; }
     .ad-video-banner .ad-cta {
         position: absolute; z-index: 3; right: 20px; top: 50%; transform: translateY(-50%);
-        padding: 10px 20px; font-size: .88rem;
+        padding: 10px 20px; font-size: .88rem; color: #24408f !important;
+        text-decoration: none; cursor: pointer;
     }
     .ad-video-banner .ad-progress {
         position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 3;
@@ -2594,7 +2597,7 @@ def render_ad_banner_horizontal():
                     <div class="ad-tagline">글로벌 코스메틱 R&D의 시작, 코스맥스와 함께</div>
                 </div>
             </div>
-            <span class="ad-cta">자세히 보기 →</span>
+            <a class="ad-cta" href="https://www.cosmax.com/" target="_blank" rel="noopener noreferrer">자세히 보기 →</a>
             <div class="ad-progress"></div>
         </div>
         """
@@ -2610,13 +2613,13 @@ def render_ad_banner_vertical_pair():
             <span class="ad-tag">AD</span>
             <div class="ad-logo">COSMAX</div>
             <div class="ad-tagline">피부까지 생각한<br/>코스메틱 R&amp;D<br/>파트너</div>
-            <span class="ad-cta">자세히 보기</span>
+            <a class="ad-cta" href="https://www.cosmax.com/" target="_blank" rel="noopener noreferrer">자세히 보기</a>
         </div>
         <div class="ad-banner ad-banner-vertical ad-right">
             <span class="ad-tag">AD</span>
             <div class="ad-logo">COSMAX</div>
             <div class="ad-tagline">내 피부 데이터로<br/>완성하는<br/>맞춤 화장품</div>
-            <span class="ad-cta">자세히 보기</span>
+            <a class="ad-cta" href="https://www.cosmax.com/" target="_blank" rel="noopener noreferrer">자세히 보기</a>
         </div>
         """
     )
@@ -3470,6 +3473,26 @@ def inject_theme():
     div[class*="st-key-open_closet_"] button {
         width: auto !important; min-width: 0 !important; max-width: 280px !important;
         margin: 0 !important;
+    }
+    /* 고민 기록(빈도·심각도) 한 줄 — 이름/스코어 글씨를 키우고, 같은 항목의
+       빈도·심각도 입력칸을 한눈에 묶어 보이도록 행 전체에 옅은 배경을 칠한다. */
+    div[class*="st-key-log_row_"] {
+        background: rgba(255, 138, 61, 0.10) !important;
+        border: 1px solid rgba(255, 138, 61, 0.28) !important;
+        border-radius: 14px !important;
+        padding: 0.9rem 1.1rem 0.4rem 1.1rem !important;
+        margin-bottom: 0.7rem !important;
+    }
+    .log-row-name {
+        font-size: 1.35rem !important;
+        font-weight: 800 !important;
+        color: rgb(49, 51, 63) !important;
+        line-height: 1.3 !important;
+    }
+    .log-row-score {
+        font-size: 1.05rem !important;
+        font-weight: 600 !important;
+        color: #7a5a2e !important;
     }
     /* st.toast()는 기본으로 화면 우상단에 뜨는데, 위쪽 정중앙에서 보이도록
        위치를 통째로 옮긴다 — 전역 규칙이라 모든 토스트에 똑같이 적용된다. */
@@ -6997,13 +7020,18 @@ def _render_recovery_concern_log():
     remove_idx = None
     for idx, issue in enumerate(issues):
         score = issue["frequency"] * issue["severity"]
-        c_name, c_freq, c_sev, c_del = st.columns([3, 1.3, 1.3, 0.6])
-        c_name.markdown(f"**{html.escape(issue['issue'])}**  \n:gray[score {score}]")
-        issue["frequency"] = c_freq.number_input("빈도", 1, 10, issue["frequency"], key=f"log_freq_{idx}")
-        issue["severity"] = c_sev.number_input("심각도", 1, 5, issue["severity"], key=f"log_sev_{idx}")
-        c_del.write("")
-        if c_del.button("✕", key=f"log_del_{idx}"):
-            remove_idx = idx
+        with st.container(key=f"log_row_{idx}"):
+            c_name, c_freq, c_sev, c_del = st.columns([3, 1.3, 1.3, 0.6])
+            c_name.markdown(
+                f'<div class="log-row-name">{html.escape(issue["issue"])}</div>'
+                f'<div class="log-row-score">score {score}</div>',
+                unsafe_allow_html=True,
+            )
+            issue["frequency"] = c_freq.number_input("빈도", 1, 10, issue["frequency"], key=f"log_freq_{idx}")
+            issue["severity"] = c_sev.number_input("심각도", 1, 5, issue["severity"], key=f"log_sev_{idx}")
+            c_del.write("")
+            if c_del.button("✕", key=f"log_del_{idx}"):
+                remove_idx = idx
     if remove_idx is not None:
         issues.pop(remove_idx)
         st.rerun()
