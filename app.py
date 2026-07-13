@@ -2405,6 +2405,95 @@ def render_ad_reward_button():
         _ad_reward_dialog()
 
 
+# ----------------------------------------------------------------------
+# 배너 광고 자리 — 실제 광고 네트워크 연동 전까지 코스맥스 자체 광고로 채워둔
+# 자리표시자. 지정된 3곳(홈 화면 좌우 세로 배너, 국가 지도/장면 화면 상단
+# 가로 배너)에만 넣는다 — 다른 화면에는 넣지 않는다.
+# ----------------------------------------------------------------------
+def _ad_banner_css():
+    return """
+    <style>
+    .ad-banner {
+        font-family: 'Jua', sans-serif; color: #fff; border-radius: 16px;
+        background: linear-gradient(135deg, #16234a 0%, #24408f 55%, #3a63d6 100%);
+        box-shadow: 0 8px 20px rgba(15,25,55,.35);
+        position: relative; box-sizing: border-box;
+    }
+    .ad-banner .ad-tag {
+        background: rgba(255,255,255,.2); color: #fff; font-size: .65rem;
+        padding: 2px 9px; border-radius: 999px; letter-spacing: .5px;
+    }
+    .ad-banner .ad-logo { font-weight: 900; letter-spacing: .5px; }
+    .ad-banner .ad-tagline { opacity: .92; }
+    .ad-banner .ad-cta {
+        display: inline-block; background: #fff; color: #24408f;
+        border-radius: 999px; font-weight: 700; white-space: nowrap;
+    }
+    .ad-banner-horizontal {
+        width: 100%; min-height: 108px; margin: 4px 0 18px;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 16px 26px; gap: 16px;
+    }
+    .ad-banner-horizontal .ad-tag { position: absolute; top: 10px; left: 14px; }
+    .ad-banner-horizontal .ad-logo { font-size: 1.5rem; }
+    .ad-banner-horizontal .ad-tagline { font-size: .98rem; margin-top: 3px; }
+    .ad-banner-horizontal .ad-cta { padding: 10px 22px; font-size: .92rem; }
+    .ad-banner-vertical {
+        position: fixed; top: 50%; transform: translateY(-50%); z-index: 5;
+        width: 128px; height: 460px; padding: 22px 12px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        gap: 14px; text-align: center;
+    }
+    .ad-banner-vertical.ad-left { left: 14px; }
+    .ad-banner-vertical.ad-right { right: 14px; }
+    .ad-banner-vertical .ad-logo { font-size: 1.15rem; }
+    .ad-banner-vertical .ad-tagline { font-size: .78rem; line-height: 1.55; }
+    .ad-banner-vertical .ad-cta { padding: 7px 14px; font-size: .74rem; }
+    @media (max-width: 1150px) {
+        .ad-banner-vertical { display: none !important; }
+    }
+    </style>
+    """
+
+
+def render_ad_banner_horizontal():
+    """국가 지도/장면 화면 맨 위에 들어가는 가로 배너 광고 — 실제 광고 연동 전
+    임시로 코스맥스 자체 광고를 채워둔다."""
+    html_block(
+        _ad_banner_css() + """
+        <div class="ad-banner ad-banner-horizontal">
+            <span class="ad-tag">AD</span>
+            <div>
+                <div class="ad-logo">COSMAX</div>
+                <div class="ad-tagline">글로벌 코스메틱 R&D의 시작, 코스맥스와 함께</div>
+            </div>
+            <span class="ad-cta">자세히 보기 →</span>
+        </div>
+        """
+    )
+
+
+def render_ad_banner_vertical_pair():
+    """홈 화면 좌우에 고정되는 세로 배너 광고 쌍 — 실제 광고 연동 전 임시로
+    코스맥스 자체 광고를 채워둔다. 좁은 화면에서는 CSS로 숨겨 본문을 가리지 않는다."""
+    html_block(
+        _ad_banner_css() + """
+        <div class="ad-banner ad-banner-vertical ad-left">
+            <span class="ad-tag">AD</span>
+            <div class="ad-logo">COSMAX</div>
+            <div class="ad-tagline">피부까지 생각한<br/>코스메틱 R&amp;D<br/>파트너</div>
+            <span class="ad-cta">자세히 보기</span>
+        </div>
+        <div class="ad-banner ad-banner-vertical ad-right">
+            <span class="ad-tag">AD</span>
+            <div class="ad-logo">COSMAX</div>
+            <div class="ad-tagline">내 피부 데이터로<br/>완성하는<br/>맞춤 화장품</div>
+            <span class="ad-cta">자세히 보기</span>
+        </div>
+        """
+    )
+
+
 PASSPORT_FIELD_LABELS = {
     "name": "NAME · 이름",
     "gender": "SEX · 성별",
@@ -3361,6 +3450,7 @@ def _title_letters():
 
 
 def render_home():
+    render_ad_banner_vertical_pair()
     earth = asset_data_uri("earth_map.webp", "image/webp")
     title = _title_letters()
     html_block(
@@ -5072,12 +5162,17 @@ def _world_map_dialog():
         .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button:active {
             transform: scale(.94) !important;
         }
+        /* 라벨도 버튼과 같은 이유(Streamlit이 element-container에 기본으로
+           position:relative를 걸어서 absolute 기준점이 엉뚱한 곳이 되는 문제)로
+           래퍼에 position:static을 걸어야 map_scroll_card를 기준점으로 잡는다. */
+        .st-key-recovery_icon_label_wrap { position: static !important; }
+        .st-key-recovery_icon_label_wrap [data-testid="stElementContainer"] { position: static !important; }
         .recovery-icon-label {
-            position: absolute; top: 28px; right: calc(26px + __ICON_SIZE__ + 10px);
-            height: __ICON_SIZE__; width: 132px;
+            position: absolute !important; top: 28px; right: calc(26px + __ICON_SIZE__ + 10px);
+            height: __ICON_SIZE__; width: 160px;
             display: flex; align-items: center; justify-content: flex-end;
             text-align: right; font-family: 'Jua', sans-serif; color: #6e4c26;
-            font-size: 1.08rem; line-height: 1.4; pointer-events: none; z-index: 9;
+            font-size: 1.3rem; line-height: 1.4; pointer-events: none; z-index: 9;
         }
         </style>
         """.replace("__HOME_ICON_URI__", HOME_ICON_URI).replace("__ICON_SIZE__", "clamp(70px, 8vw, 100px)")
@@ -5088,7 +5183,8 @@ def _world_map_dialog():
             st.session_state.recovery_stage = "pick_trip"
             goto("recovery")
             st.rerun()
-        html_block('<div class="recovery-icon-label">여행 후 피부 복귀<br>7일 프로그램</div>')
+        with st.container(key="recovery_icon_label_wrap"):
+            html_block('<div class="recovery-icon-label">여행 후 피부 복귀<br>7일 프로그램</div>')
         html_block(
             """
             <div class="scroll-title">🗺️ 여행지 지도</div>
@@ -5748,6 +5844,7 @@ def _expanded_country_note_dialog(which, info_body, warning_body):
 def _render_country_map_stage(country, char, code):
     """1단계 — 그 나라만 확대된 지도 + 옆에 붙은 포스트잇(환경/피부타입 추천/유의사항).
     지도 자체가 곧 버튼(다른 화면에서 이미 검증된 '그림=버튼' 방식) — 탭하면 2단계로."""
+    render_ad_banner_horizontal()
     # 국가/도시 이름 바로 옆에 복고풍 디지털시계 느낌의 패널로 실시간 기온·습도·
     # 자외선·미세먼지를 보여준다(참고 사진의 나무 프레임 LED 시계 스타일). 포스트잇
     # 팝업 쪽은 원래 문구 그대로 두고 건드리지 않는다.
@@ -5953,6 +6050,7 @@ def _render_country_map_stage(country, char, code):
 def _render_country_scene_stage(country, char, code):
     """2단계 — 배경은 랜드마크(디자인 요소, 클릭 불가) + 캐릭터가 중앙,
     그 위에 6개 아이콘. 각 아이콘은 화면 전환 없이 바텀시트(다이얼로그)를 연다."""
+    render_ad_banner_horizontal()
     st.title(country['name'])
 
     doll_svg = character_doll_svg(char)
