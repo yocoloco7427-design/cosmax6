@@ -2509,7 +2509,7 @@ def render_ad_banner_horizontal():
         """
         <style>
         .st-key-ad_banner_video_wrap {
-            margin: -34px 0 18px !important; border-radius: 16px; overflow: hidden;
+            margin: -34px auto 18px !important; width: 88%; border-radius: 16px; overflow: hidden;
             box-shadow: 0 8px 20px rgba(15,25,55,.35); line-height: 0;
         }
         .st-key-ad_banner_video_wrap video {
