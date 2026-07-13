@@ -2563,16 +2563,39 @@ def _ad_banner_css():
 
 def render_ad_banner_horizontal():
     """국가 지도/장면 화면 맨 위에 들어가는 가로 배너 광고 — 실제 광고 연동 전
-    임시로 코스맥스 자체 광고를 채워둔다."""
+    임시로 코스맥스 자체 광고를 채워둔다. 어딘가로 이동해서 보는 방식이 아니라
+    이 자리에서 4장의 문구가 자동으로 넘어가며 반복 재생되는 CSS 애니메이션
+    "광고 릴"이다(실제 영상 파일 없이도 재생 중인 느낌을 주는 REC 점 + 진행 바 포함)."""
     html_block(
         _ad_banner_css() + """
-        <div class="ad-banner ad-banner-horizontal">
+        <div class="ad-video-banner">
             <span class="ad-tag">AD</span>
-            <div>
-                <div class="ad-logo">COSMAX</div>
-                <div class="ad-tagline">글로벌 코스메틱 R&D의 시작, 코스맥스와 함께</div>
+            <div class="ad-slide">
+                <div>
+                    <div class="ad-logo">COSMAX</div>
+                    <div class="ad-tagline">글로벌 No.1 코스메틱 R&D·제조 파트너</div>
+                </div>
+            </div>
+            <div class="ad-slide">
+                <div>
+                    <div class="ad-logo">COSMAX</div>
+                    <div class="ad-tagline">전 세계 3,500개 브랜드가 선택한 기술력</div>
+                </div>
+            </div>
+            <div class="ad-slide">
+                <div>
+                    <div class="ad-logo">COSMAX</div>
+                    <div class="ad-tagline">당신의 여행 피부 데이터로 다음 혁신을 만듭니다</div>
+                </div>
+            </div>
+            <div class="ad-slide">
+                <div>
+                    <div class="ad-logo">COSMAX</div>
+                    <div class="ad-tagline">글로벌 코스메틱 R&D의 시작, 코스맥스와 함께</div>
+                </div>
             </div>
             <span class="ad-cta">자세히 보기 →</span>
+            <div class="ad-progress"></div>
         </div>
         """
     )
@@ -6918,7 +6941,7 @@ def _render_recovery_pick_trip():
         st.caption("비행시간이 3시간 이상이면 Day 1은 다른 고민보다 피로·장벽 회복을 먼저 배정해요.")
         if st.button("설문 시작 →", type="primary", use_container_width=True):
             if not st.session_state.recovery_trip_code:
-                st.toast("⚠️ 나라를 먼저 선정해주세요", icon="⚠️")
+                st.toast("나라를 먼저 선정해주세요", icon="⚠️")
             else:
                 st.session_state.recovery_answers = {}
                 st.session_state.recovery_stage = "survey"
