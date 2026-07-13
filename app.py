@@ -26,6 +26,11 @@ try:
 except ImportError:
     anthropic = None
 
+try:
+    import cv2
+except ImportError:
+    cv2 = None
+
 WAQI_TOKEN = st.secrets.get("WAQI_TOKEN", "")
 ANTHROPIC_API_KEY = st.secrets.get("ANTHROPIC_API_KEY", "")
 OPENWEATHER_API_KEY = st.secrets.get("OPENWEATHER_API_KEY", "")
@@ -1839,6 +1844,8 @@ if "show_ad_reward" not in st.session_state:
     st.session_state.show_ad_reward = False
 if "current_ad_video" not in st.session_state:
     st.session_state.current_ad_video = None
+if "ad_reward_watched" not in st.session_state:
+    st.session_state.ad_reward_watched = False  # 이번에 고른 영상을 끝까지(길이만큼) 봤는지
 if "unlocked_countries" not in st.session_state:
     st.session_state.unlocked_countries = set()  # 코인으로 잠금 해제한 여행지 코드
 if "unlocked_closet_items" not in st.session_state:
@@ -2261,6 +2268,28 @@ def _dismiss_ad_reward():
     (뷰티 패스포트 다이얼로그에서 쓴 것과 같은 패턴)."""
     st.session_state.show_ad_reward = False
     st.session_state.current_ad_video = None
+    st.session_state.ad_reward_watched = False
+
+
+AD_MIN_WATCH_FALLBACK_SECONDS = 15  # 길이를 못 읽었을 때만 쓰는 보수적인 기본값
+
+
+@st.cache_data(show_spinner=False)
+def _get_video_duration_seconds(path):
+    """영상 파일의 실제 길이(초)를 읽어서, 그 길이만큼은 코인 받기 버튼을 막아둔다.
+    cv2가 없거나 길이를 못 읽으면 보수적인 기본값으로 대체한다."""
+    if cv2 is None:
+        return AD_MIN_WATCH_FALLBACK_SECONDS
+    try:
+        cap = cv2.VideoCapture(path)
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        frame_count = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+        cap.release()
+        if fps and frame_count:
+            return frame_count / fps
+    except Exception:
+        pass
+    return AD_MIN_WATCH_FALLBACK_SECONDS
 
 
 @st.dialog("🎬 광고 보고 코인 받기", on_dismiss=_dismiss_ad_reward)
@@ -2272,6 +2301,20 @@ def _ad_reward_dialog():
     video_path = st.session_state.current_ad_video or random.choice(videos)
     st.session_state.current_ad_video = video_path
     st.video(video_path, autoplay=True)
+
+    if not st.session_state.ad_reward_watched:
+        duration = _get_video_duration_seconds(video_path)
+        status_slot = st.empty()
+        st.button("⏳ 영상 시청 중이에요", key="ad_wait_btn", disabled=True, use_container_width=True)
+        remaining = math.ceil(duration)
+        while remaining > 0:
+            status_slot.caption(f"⏳ {remaining}초 후 코인을 받을 수 있어요")
+            time.sleep(1)
+            remaining -= 1
+        status_slot.empty()
+        st.session_state.ad_reward_watched = True
+        st.rerun()
+
     st.caption("영상을 다 보셨다면 아래에서 코인을 받아보세요")
     if st.button(f"🎁 {AD_REWARD_COINS}코인 받기", key="claim_ad_reward", type="primary", use_container_width=True):
         st.session_state.coins += AD_REWARD_COINS
@@ -2282,6 +2325,7 @@ def _ad_reward_dialog():
         })
         st.session_state.show_ad_reward = False
         st.session_state.current_ad_video = None
+        st.session_state.ad_reward_watched = False
         st.session_state.coin_celebration_amount = AD_REWARD_COINS
         st.rerun()
 
@@ -2400,6 +2444,7 @@ def render_ad_reward_button():
         videos = _list_ad_videos()
         st.session_state.current_ad_video = random.choice(videos) if videos else None
         st.session_state.show_ad_reward = True
+        st.session_state.ad_reward_watched = False
         st.rerun()
     if st.session_state.show_ad_reward:
         _ad_reward_dialog()
@@ -2429,15 +2474,75 @@ def _ad_banner_css():
         display: inline-block; background: #fff; color: #24408f;
         border-radius: 999px; font-weight: 700; white-space: nowrap;
     }
-    .ad-banner-horizontal {
-        width: 100%; min-height: 108px; margin: 4px 0 18px;
-        display: flex; align-items: center; justify-content: space-between;
-        padding: 16px 26px; gap: 16px;
+    /* 가로 배너 — 실제 영상 파일 대신, 4장의 문구가 자동으로 넘어가며 반복
+       재생되는 CSS 애니메이션 "광고 릴". REC 점멸 점 + 하단 진행 바 + 은은한
+       스쳐가는 하이라이트로 정지 이미지가 아니라 "재생되고 있다"는 느낌을 준다.
+       사용자가 어디 누를 필요 없이 페이지에 뜨는 즉시 자동 재생·반복된다. */
+    .ad-video-banner {
+        position: relative; width: 100%; min-height: 108px; margin: -20px 0 18px;
+        border-radius: 16px; overflow: hidden; box-sizing: border-box;
+        background: linear-gradient(135deg, #0d1b3d 0%, #1c3170 55%, #2e50b8 100%);
+        box-shadow: 0 8px 20px rgba(15,25,55,.35);
+        font-family: 'Jua', sans-serif; color: #fff;
     }
-    .ad-banner-horizontal .ad-tag { position: absolute; top: 10px; left: 14px; }
-    .ad-banner-horizontal .ad-logo { font-size: 1.5rem; }
-    .ad-banner-horizontal .ad-tagline { font-size: .98rem; margin-top: 3px; }
-    .ad-banner-horizontal .ad-cta { padding: 10px 22px; font-size: .92rem; }
+    .ad-video-banner::before {
+        content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+        background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,.12) 35%, transparent 50%);
+        background-size: 250% 100%;
+        animation: ad-sheen 5s linear infinite;
+    }
+    @keyframes ad-sheen {
+        0%   { background-position: 130% 0; }
+        100% { background-position: -30% 0; }
+    }
+    .ad-video-banner .ad-tag {
+        position: absolute; top: 10px; left: 14px; z-index: 3;
+        display: flex; align-items: center; gap: 5px;
+    }
+    .ad-video-banner .ad-tag::before {
+        content: ''; width: 6px; height: 6px; border-radius: 50%;
+        background: #ff4d6d; animation: ad-rec-blink 1.2s ease-in-out infinite;
+    }
+    @keyframes ad-rec-blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+    .ad-video-banner .ad-slide {
+        position: absolute; inset: 0; z-index: 2;
+        display: flex; align-items: center;
+        padding: 16px 130px 20px 26px; box-sizing: border-box;
+        opacity: 0; transform: translateX(26px);
+        animation: ad-slide-cycle 16s infinite;
+    }
+    .ad-video-banner .ad-slide:nth-child(3) { animation-delay: 4s; }
+    .ad-video-banner .ad-slide:nth-child(4) { animation-delay: 8s; }
+    .ad-video-banner .ad-slide:nth-child(5) { animation-delay: 12s; }
+    @keyframes ad-slide-cycle {
+        0%   { opacity: 0; transform: translateX(26px); }
+        3%   { opacity: 1; transform: translateX(0); }
+        22%  { opacity: 1; transform: translateX(0); }
+        25%  { opacity: 0; transform: translateX(-26px); }
+        100% { opacity: 0; }
+    }
+    .ad-video-banner .ad-logo { font-size: 1.5rem; }
+    .ad-video-banner .ad-tagline { font-size: .98rem; margin-top: 3px; }
+    .ad-video-banner .ad-cta {
+        position: absolute; z-index: 3; right: 20px; top: 50%; transform: translateY(-50%);
+        padding: 10px 20px; font-size: .88rem;
+    }
+    .ad-video-banner .ad-progress {
+        position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 3;
+        background: rgba(255,255,255,.18);
+    }
+    .ad-video-banner .ad-progress::after {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
+        background: #fff; animation: ad-progress-fill 16s linear infinite;
+    }
+    @keyframes ad-progress-fill { 0% { width: 0%; } 100% { width: 100%; } }
+    @media (prefers-reduced-motion: reduce) {
+        .ad-video-banner::before,
+        .ad-video-banner .ad-slide,
+        .ad-video-banner .ad-progress::after { animation: none !important; }
+        .ad-video-banner .ad-slide { opacity: 0; }
+        .ad-video-banner .ad-slide:nth-child(2) { opacity: 1; transform: translateX(0); }
+    }
     .ad-banner-vertical {
         position: fixed; top: 50%; transform: translateY(-50%); z-index: 5;
         width: 128px; height: 460px; padding: 22px 12px;
@@ -3457,7 +3562,6 @@ def _title_letters():
 
 
 def render_home():
-    render_ad_banner_vertical_pair()
     earth = asset_data_uri("earth_map.webp", "image/webp")
     title = _title_letters()
     html_block(
@@ -5226,6 +5330,7 @@ def render_map():
         st.rerun()
         return
 
+    render_ad_banner_vertical_pair()
     _map_globe_gate()
     if st.session_state.map_globe_opened:
         _world_map_dialog()
@@ -6762,44 +6867,62 @@ def render_recovery():
 
 
 def _render_recovery_pick_trip():
-    st.title("🏠 여행 후 피부 복귀 프로그램")
-    st.caption("여독이 풀리는 시점의 피부를 챙겨봐요. 먼저 어떤 여행을 기준으로 할지 골라주세요.")
-    saved = get_passport()
-    if saved:
-        labels = [f"{p['flag']} {p['name']}" for p in saved]
-        choice = st.selectbox(
-            "어떤 여행을 기준으로 할까요? (⭐ 즐겨찾기한 여행만 표시돼요)", labels, index=len(labels) - 1,
-        )
-        st.session_state.recovery_trip_code = saved[labels.index(choice)]["code"]
-    else:
-        st.warning("먼저 지도에서 여행지를 ⭐ 즐겨찾기해야 설문을 시작할 수 있어요.")
-        st.session_state.recovery_trip_code = None
-
-    col1, col2 = st.columns(2)
-    with col1:
-        start_default = st.session_state.recovery_trip_start or (datetime.now().date() - timedelta(days=7))
-        st.session_state.recovery_trip_start = st.date_input("출발일", value=start_default)
-    with col2:
-        end_default = st.session_state.recovery_trip_end or datetime.now().date()
-        if end_default < st.session_state.recovery_trip_start:
-            end_default = st.session_state.recovery_trip_start
-        st.session_state.recovery_trip_end = st.date_input(
-            "귀국일", value=end_default, min_value=st.session_state.recovery_trip_start,
-        )
-    nights = max((st.session_state.recovery_trip_end - st.session_state.recovery_trip_start).days, 0)
-    st.caption(f"{nights}박 {nights + 1}일 여행이었네요.")
-
-    st.session_state.recovery_flight_hours = st.slider(
-        "비행 시간(시간)", 0.0, 20.0, st.session_state.recovery_flight_hours, 0.5,
+    html_block(
+        """
+        <style>
+        .st-key-recovery_pick_trip_page div[data-testid="stCaptionContainer"] p,
+        .st-key-recovery_pick_trip_page div[data-testid="stCaptionContainer"] {
+            font-size: 1.15rem !important;
+        }
+        .st-key-recovery_pick_trip_page div[data-testid="stAlertContainer"] p,
+        .st-key-recovery_pick_trip_page div[data-testid="stAlertContentWarning"] p {
+            font-size: 1.15rem !important;
+        }
+        .st-key-recovery_pick_trip_page label[data-testid="stWidgetLabel"] p {
+            font-size: 1.1rem !important;
+        }
+        </style>
+        """
     )
-    st.caption("비행시간이 3시간 이상이면 Day 1은 다른 고민보다 피로·장벽 회복을 먼저 배정해요.")
-    if st.button(
-        "설문 시작 →", type="primary", use_container_width=True,
-        disabled=not st.session_state.recovery_trip_code,
-    ):
-        st.session_state.recovery_answers = {}
-        st.session_state.recovery_stage = "survey"
-        st.rerun()
+    with st.container(key="recovery_pick_trip_page"):
+        st.title("🏠 여행 후 피부 복귀 프로그램")
+        st.caption("여독이 풀리는 시점의 피부를 챙겨봐요. 먼저 어떤 여행을 기준으로 할지 골라주세요.")
+        saved = get_passport()
+        if saved:
+            labels = [f"{p['flag']} {p['name']}" for p in saved]
+            choice = st.selectbox(
+                "어떤 여행을 기준으로 할까요? (⭐ 즐겨찾기한 여행만 표시돼요)", labels, index=len(labels) - 1,
+            )
+            st.session_state.recovery_trip_code = saved[labels.index(choice)]["code"]
+        else:
+            st.warning("먼저 지도에서 여행지를 ⭐ 즐겨찾기해야 설문을 시작할 수 있어요.")
+            st.session_state.recovery_trip_code = None
+
+        col1, col2 = st.columns(2)
+        with col1:
+            start_default = st.session_state.recovery_trip_start or (datetime.now().date() - timedelta(days=7))
+            st.session_state.recovery_trip_start = st.date_input("출발일", value=start_default)
+        with col2:
+            end_default = st.session_state.recovery_trip_end or datetime.now().date()
+            if end_default < st.session_state.recovery_trip_start:
+                end_default = st.session_state.recovery_trip_start
+            st.session_state.recovery_trip_end = st.date_input(
+                "귀국일", value=end_default, min_value=st.session_state.recovery_trip_start,
+            )
+        nights = max((st.session_state.recovery_trip_end - st.session_state.recovery_trip_start).days, 0)
+        st.caption(f"{nights}박 {nights + 1}일 여행이었네요.")
+
+        st.session_state.recovery_flight_hours = st.slider(
+            "비행 시간(시간)", 0.0, 20.0, st.session_state.recovery_flight_hours, 0.5,
+        )
+        st.caption("비행시간이 3시간 이상이면 Day 1은 다른 고민보다 피로·장벽 회복을 먼저 배정해요.")
+        if st.button("설문 시작 →", type="primary", use_container_width=True):
+            if not st.session_state.recovery_trip_code:
+                st.toast("⚠️ 나라를 먼저 선정해주세요", icon="⚠️")
+            else:
+                st.session_state.recovery_answers = {}
+                st.session_state.recovery_stage = "survey"
+                st.rerun()
 
 
 def _render_recovery_survey():
