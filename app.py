@@ -5053,7 +5053,7 @@ def _world_map_dialog():
            올라가도록 한다(지구 옆 아이콘 배치 때도 같은 방식으로 고쳤음). */
         .st-key-open_recovery_from_globe { position: static !important; }
         .st-key-open_recovery_from_globe.st-key-open_recovery_from_globe button {
-            position: absolute !important; top: 14px !important; right: 26px !important;
+            position: absolute !important; top: 28px !important; right: 26px !important;
             width: __ICON_SIZE__ !important; height: __ICON_SIZE__ !important;
             min-width: 0 !important; max-width: none !important;
             border-radius: 0 !important; border: none !important; padding: 0 !important;
@@ -5073,14 +5073,14 @@ def _world_map_dialog():
             transform: scale(.94) !important;
         }
         .recovery-icon-label {
-            position: absolute; top: 14px; right: calc(26px + __ICON_SIZE__ + 8px);
-            height: __ICON_SIZE__; width: 118px;
+            position: absolute; top: 28px; right: calc(26px + __ICON_SIZE__ + 10px);
+            height: __ICON_SIZE__; width: 132px;
             display: flex; align-items: center; justify-content: flex-end;
             text-align: right; font-family: 'Jua', sans-serif; color: #6e4c26;
-            font-size: .82rem; line-height: 1.35; pointer-events: none; z-index: 9;
+            font-size: 1.08rem; line-height: 1.4; pointer-events: none; z-index: 9;
         }
         </style>
-        """.replace("__HOME_ICON_URI__", HOME_ICON_URI).replace("__ICON_SIZE__", "clamp(60px, 7vw, 80px)")
+        """.replace("__HOME_ICON_URI__", HOME_ICON_URI).replace("__ICON_SIZE__", "clamp(70px, 8vw, 100px)")
     )
 
     with st.container(key="map_scroll_card"):
@@ -6508,7 +6508,7 @@ def _render_country_sheet_body(kind, country, char, code):
                         border-radius:12px;background:#faf7f2;flex:0 0 auto;">
                     <div style="flex:1;min-width:0;">
                         <div style="font-weight:700;font-size:1.2rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
-                        <div style="font-size:.95rem;color:#888;margin:4px 0 8px;">{html.escape(p['texture'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
+                        <div style="font-size:1.05rem;color:#5c4530;margin:4px 0 8px;">{html.escape(p['texture'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
                         <div style="font-size:1rem;color:#4a2f12;line-height:1.5;margin-bottom:6px;">{html.escape(p['description'])}</div>
                         <div style="font-size:.95rem;color:#9c2f5c;">✨ {html.escape(p.get('reason') or '')}</div>
                         {warn_badge}
@@ -6552,9 +6552,9 @@ def _render_country_sheet_body(kind, country, char, code):
                         <img src="{img_uri}" style="width:72px;height:72px;object-fit:contain;
                             border-radius:10px;background:#faf7f2;flex:0 0 auto;">
                         <div style="flex:1;min-width:0;">
-                            <div style="font-weight:700;font-size:.95rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
-                            <div style="font-size:.78rem;color:#888;margin:2px 0;">{html.escape(p['category'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
-                            <div style="font-size:.85rem;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
+                            <div style="font-weight:700;font-size:1.2rem;">{html.escape(p['brand'])} · {html.escape(p['name'])}</div>
+                            <div style="font-size:1rem;color:#5c4530;margin:3px 0;">{html.escape(p['category'])} · {html.escape(', '.join(p['key_ingredients'][:2]))}</div>
+                            <div style="font-size:1.05rem;font-weight:600;color:#9c2f5c;">{html.escape(p.get('reason') or p['description'])}</div>
                         </div>
                     </div>
                     """
