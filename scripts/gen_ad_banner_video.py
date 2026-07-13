@@ -2,7 +2,7 @@ import numpy as np
 import cv2
 from PIL import Image, ImageDraw, ImageFont
 
-W, H = 1280, 220
+W, H = 1920, 112
 FPS = 30
 SLIDE_S = 3.0
 HOLD_S = 2.6
@@ -14,10 +14,10 @@ TOTAL_FRAMES = int(LOOP_S * FPS)
 FONT_BOLD = r"C:\Windows\Fonts\malgunbd.ttf"
 FONT_REG = r"C:\Windows\Fonts\malgun.ttf"
 
-logo_font = ImageFont.truetype(FONT_BOLD, 46)
-tag_font = ImageFont.truetype(FONT_BOLD, 40)
-cta_font = ImageFont.truetype(FONT_BOLD, 30)
-adtag_font = ImageFont.truetype(FONT_BOLD, 20)
+logo_font = ImageFont.truetype(FONT_BOLD, 28)
+tag_font = ImageFont.truetype(FONT_BOLD, 20)
+cta_font = ImageFont.truetype(FONT_BOLD, 20)
+adtag_font = ImageFont.truetype(FONT_BOLD, 13)
 
 SLIDES = [
     "글로벌 No.1 코스메틱 R&D·제조 파트너",
@@ -69,8 +69,8 @@ def render_slide_layer(text):
     layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(layer)
     pad_left = 34
-    d.text((pad_left, 66), "COSMAX", font=logo_font, fill=(255, 255, 255, 255))
-    d.text((pad_left, 122), text, font=tag_font, fill=(235, 240, 255, 255))
+    d.text((pad_left, 26), "COSMAX", font=logo_font, fill=(255, 255, 255, 255))
+    d.text((pad_left, 58), text, font=tag_font, fill=(235, 240, 255, 255))
     return layer
 
 
@@ -104,26 +104,26 @@ def compose_frame(t):
     # separate layer is the only way to get real translucency here.
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(overlay)
-    d.rounded_rectangle((18, 14, 78, 40), radius=13, fill=(255, 255, 255, 60))
+    d.rounded_rectangle((16, 6, 58, 23), radius=8, fill=(255, 255, 255, 60))
     blink_on = (t % 1.2) < 0.6
     dot_color = (255, 77, 109, 255) if blink_on else (255, 77, 109, 70)
-    d.ellipse((26, 22, 34, 30), fill=dot_color)
-    d.text((40, 17), "AD", font=adtag_font, fill=(255, 255, 255, 255))
+    d.ellipse((22, 11, 28, 17), fill=dot_color)
+    d.text((32, 7), "AD", font=adtag_font, fill=(255, 255, 255, 255))
 
     # CTA pill on the right, vertically centered
     cta_text = "자세히 보기 →"
     bbox = d.textbbox((0, 0), cta_text, font=cta_font)
     tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    cta_w, cta_h = tw + 44, 56
-    cta_x0 = W - cta_w - 26
+    cta_w, cta_h = tw + 36, 40
+    cta_x0 = W - cta_w - 28
     cta_y0 = (H - cta_h) // 2
     d.rounded_rectangle((cta_x0, cta_y0, cta_x0 + cta_w, cta_y0 + cta_h), radius=cta_h // 2, fill=(255, 255, 255, 255))
-    d.text((cta_x0 + 22, cta_y0 + (cta_h - th) // 2 - bbox[1]), cta_text, font=cta_font, fill=(36, 64, 143, 255))
+    d.text((cta_x0 + 18, cta_y0 + (cta_h - th) // 2 - bbox[1]), cta_text, font=cta_font, fill=(36, 64, 143, 255))
 
     # bottom progress bar for current slide segment
     prog = min(seg / SLIDE_S, 1.0)
-    d.rectangle((0, H - 4, W, H), fill=(255, 255, 255, 45))
-    d.rectangle((0, H - 4, int(W * prog), H), fill=(255, 255, 255, 230))
+    d.rectangle((0, H - 3, W, H), fill=(255, 255, 255, 45))
+    d.rectangle((0, H - 3, int(W * prog), H), fill=(255, 255, 255, 230))
 
     base = Image.alpha_composite(base, overlay)
 
