@@ -3336,6 +3336,13 @@ def inject_theme():
     .st-key-character_page .stTabs [data-testid="stTab"] {
         padding: 0.8rem 1.2rem !important;
     }
+    /* 옷장·액세서리 탭의 "상의 · 선택 안 함" 같은 항목 버튼 — use_container_width라
+       컬럼 폭 그대로 늘어나서 좌우로 너무 길어 보였다. 폭을 내용에 맞게 줄이고
+       왼쪽 정렬한다. */
+    div[class*="st-key-open_closet_"] button {
+        width: auto !important; min-width: 0 !important; max-width: 280px !important;
+        margin: 0 !important;
+    }
     </style>
     """
     clouds = ['<div class="sky-layer">']
