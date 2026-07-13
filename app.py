@@ -2251,6 +2251,10 @@ def render_top_icons():
 AD_VIDEOS_DIR = ASSETS / "ads"
 AD_VIDEO_EXTS = (".mp4", ".webm", ".mov", ".m4v")
 AD_REWARD_COINS = 10
+# 국가 지도/장면 화면 상단 배너 — CSS 슬라이드쇼 대신 실제로 렌더링해 만든 짧은
+# 반복 재생 영상(scripts/gen_ad_banner_video.py로 생성, VP8/webm — 로컬에 h264
+# 인코더가 없어 webm으로 만들었다. Chromium 계열에서는 문제없이 재생된다).
+AD_BANNER_VIDEO_PATH = ASSETS / "ads_banner" / "cosmax_horizontal.webm"
 
 
 def _list_ad_videos():
@@ -2476,76 +2480,6 @@ def _ad_banner_css():
         text-decoration: none; cursor: pointer;
     }
     .ad-banner .ad-cta:hover { color: #172c66; }
-    /* 가로 배너 — 실제 영상 파일 대신, 4장의 문구가 자동으로 넘어가며 반복
-       재생되는 CSS 애니메이션 "광고 릴". REC 점멸 점 + 하단 진행 바 + 은은한
-       스쳐가는 하이라이트로 정지 이미지가 아니라 "재생되고 있다"는 느낌을 준다.
-       사용자가 어디 누를 필요 없이 페이지에 뜨는 즉시 자동 재생·반복된다. */
-    .ad-video-banner {
-        position: relative; width: 100%; min-height: 108px; margin: -20px 0 18px;
-        border-radius: 16px; overflow: hidden; box-sizing: border-box;
-        background: linear-gradient(135deg, #0d1b3d 0%, #1c3170 55%, #2e50b8 100%);
-        box-shadow: 0 8px 20px rgba(15,25,55,.35);
-        font-family: 'Jua', sans-serif; color: #fff;
-    }
-    .ad-video-banner::before {
-        content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-        background: linear-gradient(115deg, transparent 20%, rgba(255,255,255,.12) 35%, transparent 50%);
-        background-size: 250% 100%;
-        animation: ad-sheen 5s linear infinite;
-    }
-    @keyframes ad-sheen {
-        0%   { background-position: 130% 0; }
-        100% { background-position: -30% 0; }
-    }
-    .ad-video-banner .ad-tag {
-        position: absolute; top: 10px; left: 14px; z-index: 3;
-        display: flex; align-items: center; gap: 5px;
-    }
-    .ad-video-banner .ad-tag::before {
-        content: ''; width: 6px; height: 6px; border-radius: 50%;
-        background: #ff4d6d; animation: ad-rec-blink 1.2s ease-in-out infinite;
-    }
-    @keyframes ad-rec-blink { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
-    .ad-video-banner .ad-slide {
-        position: absolute; inset: 0; z-index: 2;
-        display: flex; align-items: center;
-        padding: 16px 130px 20px 26px; box-sizing: border-box;
-        opacity: 0; transform: translateX(26px);
-        animation: ad-slide-cycle 16s infinite;
-    }
-    .ad-video-banner .ad-slide:nth-child(3) { animation-delay: 4s; }
-    .ad-video-banner .ad-slide:nth-child(4) { animation-delay: 8s; }
-    .ad-video-banner .ad-slide:nth-child(5) { animation-delay: 12s; }
-    @keyframes ad-slide-cycle {
-        0%   { opacity: 0; transform: translateX(26px); }
-        3%   { opacity: 1; transform: translateX(0); }
-        22%  { opacity: 1; transform: translateX(0); }
-        25%  { opacity: 0; transform: translateX(-26px); }
-        100% { opacity: 0; }
-    }
-    .ad-video-banner .ad-logo { font-size: 1.5rem; }
-    .ad-video-banner .ad-tagline { font-size: .98rem; margin-top: 3px; }
-    .ad-video-banner .ad-cta {
-        position: absolute; z-index: 3; right: 20px; top: 50%; transform: translateY(-50%);
-        padding: 10px 20px; font-size: .88rem; color: #24408f !important;
-        text-decoration: none; cursor: pointer;
-    }
-    .ad-video-banner .ad-progress {
-        position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: 3;
-        background: rgba(255,255,255,.18);
-    }
-    .ad-video-banner .ad-progress::after {
-        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 0%;
-        background: #fff; animation: ad-progress-fill 16s linear infinite;
-    }
-    @keyframes ad-progress-fill { 0% { width: 0%; } 100% { width: 100%; } }
-    @media (prefers-reduced-motion: reduce) {
-        .ad-video-banner::before,
-        .ad-video-banner .ad-slide,
-        .ad-video-banner .ad-progress::after { animation: none !important; }
-        .ad-video-banner .ad-slide { opacity: 0; }
-        .ad-video-banner .ad-slide:nth-child(2) { opacity: 1; transform: translateX(0); }
-    }
     .ad-banner-vertical {
         position: fixed; top: 50%; transform: translateY(-50%); z-index: 5;
         width: 128px; height: 460px; padding: 22px 12px;
@@ -2566,42 +2500,31 @@ def _ad_banner_css():
 
 def render_ad_banner_horizontal():
     """국가 지도/장면 화면 맨 위에 들어가는 가로 배너 광고 — 실제 광고 연동 전
-    임시로 코스맥스 자체 광고를 채워둔다. 어딘가로 이동해서 보는 방식이 아니라
-    이 자리에서 4장의 문구가 자동으로 넘어가며 반복 재생되는 CSS 애니메이션
-    "광고 릴"이다(실제 영상 파일 없이도 재생 중인 느낌을 주는 REC 점 + 진행 바 포함)."""
+    임시로 코스맥스 자체 광고를 채워둔다. CSS 슬라이드쇼가 아니라 실제로 렌더링해
+    만든 12초짜리 반복 영상(로고/문구/AD 표시/진행 바가 전부 영상 프레임에
+    이미 그려져 있다 — scripts/gen_ad_banner_video.py)을 autoplay+loop+muted로
+    튼다. 어디로 이동해서 보는 게 아니라 이 자리에서 바로 자동 재생된다.
+    페이지 맨 위 여백을 없애려고 음수 margin으로 살짝 끌어올린다."""
     html_block(
-        _ad_banner_css() + """
-        <div class="ad-video-banner">
-            <span class="ad-tag">AD</span>
-            <div class="ad-slide">
-                <div>
-                    <div class="ad-logo">COSMAX</div>
-                    <div class="ad-tagline">글로벌 No.1 코스메틱 R&D·제조 파트너</div>
-                </div>
-            </div>
-            <div class="ad-slide">
-                <div>
-                    <div class="ad-logo">COSMAX</div>
-                    <div class="ad-tagline">전 세계 3,500개 브랜드가 선택한 기술력</div>
-                </div>
-            </div>
-            <div class="ad-slide">
-                <div>
-                    <div class="ad-logo">COSMAX</div>
-                    <div class="ad-tagline">당신의 여행 피부 데이터로 다음 혁신을 만듭니다</div>
-                </div>
-            </div>
-            <div class="ad-slide">
-                <div>
-                    <div class="ad-logo">COSMAX</div>
-                    <div class="ad-tagline">글로벌 코스메틱 R&D의 시작, 코스맥스와 함께</div>
-                </div>
-            </div>
-            <a class="ad-cta" href="https://www.cosmax.com/" target="_blank" rel="noopener noreferrer">자세히 보기 →</a>
-            <div class="ad-progress"></div>
-        </div>
+        """
+        <style>
+        .st-key-ad_banner_video_wrap {
+            margin: -34px 0 18px !important; border-radius: 16px; overflow: hidden;
+            box-shadow: 0 8px 20px rgba(15,25,55,.35); line-height: 0;
+        }
+        .st-key-ad_banner_video_wrap video {
+            display: block; width: 100%; height: auto; border-radius: 16px;
+        }
+        /* 배너는 재생 조작이 필요 없는 광고라, 크롬 계열 브라우저에서 기본
+           재생바/컨트롤을 숨겨서 진짜 배너처럼 보이게 한다 */
+        .st-key-ad_banner_video_wrap video::-webkit-media-controls {
+            display: none !important;
+        }
+        </style>
         """
     )
+    with st.container(key="ad_banner_video_wrap"):
+        st.video(str(AD_BANNER_VIDEO_PATH), autoplay=True, loop=True, muted=True)
 
 
 def render_ad_banner_vertical_pair():
